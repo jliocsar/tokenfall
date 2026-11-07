@@ -1,0 +1,55 @@
+@font-face {
+  font-family: 'Pixel Operator';
+  src: url('/fonts/PixelOperator.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Pixel Operator';
+  src: url('/fonts/PixelOperator-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: block;
+}
+
+@font-face {
+  font-family: Alegreya;
+  src: url('/fonts/Alegreya.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: Alegreya;
+  src: url('/fonts/Alegreya-Italic.woff2') format('woff2');
+  font-weight: 400 900;
+  font-style: italic;
+  font-display: block;
+}
+
+:root {
+  --ink: #eadfc4;
+  --ink-dim: #a99f8c;
+  --ink-gold: #e8c27a;
+  --backdrop: #0d0b14;
+  --panel: rgb(16 13 22 / 0.92);
+  --edge: #4a3f55;
+  --hover: rgb(255 240 210 / 0.06);
+  --selected: rgb(232 184 74 / 0.16);
+  --raven: #e0605a;
+  --loot: #e8b84a;
+  --working: #e08a3c;
+  --idle: #7fa07a;
+  --unknown: #6a6a7a;
+  --dead: #8a4a4a;
+  --font-pixel: 'Pixel Operator', ui-monospace, monospace;
+  --font-read: Alegreya, Georgia, serif;
+  --text-pixel: 16px/1 var(--font-pixel);
+  --text-read: 16px/1.2 var(--font-read);
+  --text-small: italic 14px/1.2 var(--font-read);
+  --frame-scale: 1;
+  --frame-window: url('/ui/frame-window.png');
+  --frame-plain: url('/ui/frame-plain.png');
+  --frame-note: url('/ui/frame-note.png');
+}

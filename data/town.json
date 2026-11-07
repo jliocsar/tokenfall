@@ -40,7 +40,7 @@
     "pathWidth": 1.4,
     "fieldMargin": 12,
     "entranceSize": [2.2, 1.3],
-    "labelSize": 30,
+    "labelSize": 32,
     "bannerHeight": 90,
     "fireRadius": 0.45
   },

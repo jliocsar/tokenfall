@@ -1,4 +1,4 @@
-import { createMemo, createSignal, type Accessor } from 'solid-js'
+import { batch, createMemo, createSignal, type Accessor } from 'solid-js'
 import { createStore } from 'solid-js/store'
 import { displayName, titleOf } from '../../core/character.ts'
 import { clearSet } from '../../core/dense-set.ts'
@@ -38,6 +38,10 @@ export type GuildGroup = {
   readonly counts: Counts
   readonly size: number
 }
+
+type Rows = ReadonlyMap<number, HeroRow>
+
+type GuildDraft = { readonly group: GuildGroup; size: number }
 
 export type Roster = {
   readonly rows: Readonly<Record<number, HeroRow>>
@@ -89,27 +93,48 @@ const rowOf = (sim: Sim, eid: number, dying: number, dead: number): HeroRow => {
   }
 }
 
-const rank = (row: HeroRow): number => STANDINGS.indexOf(row.standing)
+const RANK = new Map<Standing, number>(STANDINGS.map((standing, i) => [standing, i]))
 
-const byStanding = (rows: Readonly<Record<number, HeroRow>>) => (a: number, b: number) =>
-  rank(rows[a]!) - rank(rows[b]!) || rows[a]!.name.localeCompare(rows[b]!.name)
+const moved = (before: HeroRow | undefined, after: HeroRow): boolean =>
+  before === undefined ||
+  before.standing !== after.standing ||
+  before.guild !== after.guild ||
+  before.party !== after.party ||
+  before.name !== after.name
 
-const group = (sim: Sim, rows: Readonly<Record<number, HeroRow>>): GuildGroup[] => {
-  const guilds = new Map<number, GuildGroup>()
+const rank = (row: HeroRow): number => RANK.get(row.standing) ?? STANDINGS.length
+
+const byName = (a: string, b: string): number => {
+  if (a === b) {
+    return 0
+  }
+
+  return a < b ? -1 : 1
+}
+
+const byStanding = (rows: Rows) => (a: number, b: number) =>
+  rank(rows.get(a)!) - rank(rows.get(b)!) || byName(rows.get(a)!.name, rows.get(b)!.name)
+
+const group = (sim: Sim, rows: Rows): GuildGroup[] => {
+  const guilds = new Map<number, GuildDraft>()
   const parties = new Map<number, PartyGroup>()
 
-  for (const row of Object.values(rows)) {
-    const guild =
+  for (const row of rows.values()) {
+    const draft =
       guilds.get(row.guild) ??
       guilds
         .set(row.guild, {
-          guild: row.guild,
-          label: guildLabel(sim.groups.guildKeys[row.guild] ?? ''),
-          parties: [],
-          counts: emptyCounts(),
+          group: {
+            guild: row.guild,
+            label: guildLabel(sim.groups.guildKeys[row.guild] ?? ''),
+            parties: [],
+            counts: emptyCounts(),
+            size: 0,
+          },
           size: 0,
         })
         .get(row.guild)!
+    const guild = draft.group
     const party =
       parties.get(row.party) ??
       parties
@@ -128,7 +153,7 @@ const group = (sim: Sim, rows: Readonly<Record<number, HeroRow>>): GuildGroup[] 
     party.heroes.push(row.eid)
     party.counts[row.standing] += 1
     guild.counts[row.standing] += 1
-    guilds.set(row.guild, { ...guild, size: guild.size + 1 })
+    draft.size += 1
   }
 
   const order = byStanding(rows)
@@ -137,26 +162,34 @@ const group = (sim: Sim, rows: Readonly<Record<number, HeroRow>>): GuildGroup[] 
     party.heroes.sort(order)
   }
 
-  return [...guilds.values()].toSorted((a, b) => a.guild - b.guild)
+  return [...guilds.values()]
+    .map((draft) => ({ ...draft.group, size: draft.size }))
+    .toSorted((a, b) => a.guild - b.guild)
 }
 
 export const createRoster = (sim: Sim): Roster => {
   const [rows, setRows] = createStore<Record<number, HeroRow>>({})
+  const plain = new Map<number, HeroRow>()
   const [version, setVersion] = createSignal(0)
   const dying = stateId(sim.machine, 'dying')
   const dead = stateId(sim.machine, 'dead')
   const guilds = createMemo(() => {
     version()
 
-    return group(sim, rows)
+    return group(sim, plain)
   })
   const attention = createMemo(() => {
     version()
 
-    return Object.values(rows)
-      .filter((row) => row.standing === 'raven' || row.standing === 'loot')
-      .map((row) => row.eid)
-      .sort(byStanding(rows))
+    const out: number[] = []
+
+    for (const row of plain.values()) {
+      if (row.standing === 'raven' || row.standing === 'loot') {
+        out.push(row.eid)
+      }
+    }
+
+    return out.sort(byStanding(plain))
   })
 
   return {
@@ -170,13 +203,23 @@ export const createRoster = (sim: Sim): Roster => {
         return
       }
 
-      for (let i = 0; i < changed.size; i++) {
-        const eid = changed.dense[i]!
-        setRows(eid, rowOf(sim, eid, dying, dead))
-      }
+      batch(() => {
+        let regroup = false
 
-      clearSet(changed)
-      setVersion((value) => value + 1)
+        for (let i = 0; i < changed.size; i++) {
+          const eid = changed.dense[i]!
+          const row = rowOf(sim, eid, dying, dead)
+          regroup ||= moved(plain.get(eid), row)
+          plain.set(eid, row)
+          setRows(eid, row)
+        }
+
+        clearSet(changed)
+
+        if (regroup) {
+          setVersion((value) => value + 1)
+        }
+      })
     },
   }
 }

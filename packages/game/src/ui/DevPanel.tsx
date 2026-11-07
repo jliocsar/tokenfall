@@ -16,7 +16,7 @@ const linkWith = (key: string, value: string | undefined): string => {
 }
 
 export const DevPanel = (props: { readonly bridge: Bridge; readonly source: string }) => (
-  <div class="dev-panel panel">
+  <div class="dev-panel panel plain">
     <span class="label">heroes</span>
     <For each={HERO_COUNTS}>
       {(count) => <a href={linkWith('heroes', String(count))}>{count}</a>}

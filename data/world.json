@@ -9,13 +9,12 @@
   "bubbles": {
     "lifeMs": 4000,
     "fadeMs": 500,
-    "binWidth": 240,
-    "binHeight": 56,
     "selectedEveryMs": 6000,
     "maxWidth": 220,
-    "fontSize": 13,
+    "fontSize": 16,
     "offsetY": 96,
-    "reserveRight": 380
+    "reserveRight": 380,
+    "gap": 6
   },
   "entrance": {
     "everyMs": 250,
@@ -23,5 +22,10 @@
     "pip": 7,
     "tiers": 4,
     "tierLevels": 25
+  },
+  "fonts": {
+    "pixel": "Pixel Operator",
+    "read": "Alegreya",
+    "pixelSize": 16
   }
 }

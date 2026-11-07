@@ -37,6 +37,20 @@ const guildKey = (guild: number): string => `g${guild}`
 
 const partyKey = (party: number): string => `p${party}`
 
+const heroLine = (cache: Map<number, Line>, eid: number, depth: number): Line => {
+  const key = eid * 4 + depth
+  const cached = cache.get(key)
+
+  if (cached !== undefined) {
+    return cached
+  }
+
+  const line: Line = { kind: 'hero', eid, depth }
+  cache.set(key, line)
+
+  return line
+}
+
 export const HeroLine = (props: {
   readonly bridge: Bridge
   readonly roster: Roster
@@ -79,6 +93,7 @@ export const RosterTree = (props: RosterProps) => {
   const [toggled, setToggled] = createSignal<ReadonlySet<string>>(new Set())
   const [scroll, setScroll] = createSignal(0)
   const [height, setHeight] = createSignal(600)
+  const heroLines = new Map<number, Line>()
 
   const toggle = (key: string): void => {
     setToggled((current) => {
@@ -105,7 +120,7 @@ export const RosterTree = (props: RosterProps) => {
       out.push({ kind: 'heading', text: `needs you · ${attention.length}` })
 
       for (const eid of attention) {
-        out.push({ kind: 'hero', eid, depth: 0 })
+        out.push(heroLine(heroLines, eid, 0))
       }
     }
 
@@ -125,7 +140,7 @@ export const RosterTree = (props: RosterProps) => {
 
         if (partyOpen) {
           for (const eid of party.heroes) {
-            out.push({ kind: 'hero', eid, depth: 2 })
+            out.push(heroLine(heroLines, eid, 2))
           }
         }
       }
@@ -134,14 +149,13 @@ export const RosterTree = (props: RosterProps) => {
     return out
   })
 
-  const visible = createMemo(() => {
-    const first = Math.max(0, Math.floor(scroll() / ROW_HEIGHT) - OVERSCAN)
-    const last = Math.min(lines().length, Math.ceil((scroll() + height()) / ROW_HEIGHT) + OVERSCAN)
-
-    return lines()
-      .slice(first, last)
-      .map((line, offset) => ({ line, index: first + offset }))
-  })
+  const first = createMemo(() => Math.max(0, Math.floor(scroll() / ROW_HEIGHT) - OVERSCAN))
+  const visible = createMemo(() =>
+    lines().slice(
+      first(),
+      Math.min(lines().length, Math.ceil((scroll() + height()) / ROW_HEIGHT) + OVERSCAN),
+    ),
+  )
 
   const renderLine = (line: Line): JSX.Element => {
     if (line.kind === 'heading') {
@@ -200,9 +214,9 @@ export const RosterTree = (props: RosterProps) => {
     >
       <div class="roster-track" style={{ height: `${lines().length * ROW_HEIGHT}px` }}>
         <Index each={visible()}>
-          {(item) => (
-            <div class="slot" style={{ top: `${item().index * ROW_HEIGHT}px` }}>
-              {renderLine(item().line)}
+          {(item, offset) => (
+            <div class="slot" style={{ top: `${(first() + offset) * ROW_HEIGHT}px` }}>
+              {renderLine(item())}
             </div>
           )}
         </Index>

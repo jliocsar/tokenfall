@@ -5,6 +5,7 @@ import { createRoster, type Roster } from '../features/roster/model.ts'
 import { RosterTree } from '../features/roster/Roster.tsx'
 import type { Bridge } from './bridge.ts'
 import { DevPanel } from './DevPanel.tsx'
+import './skins/dusk.css'
 import './ui.css'
 
 export type Ui = { readonly roster: Roster }

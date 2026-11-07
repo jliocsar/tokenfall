@@ -1,5 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js'
 import town from '@tokenfall/data/town.json'
+import world from '@tokenfall/data/world.json'
 import { guildLabel } from '../../core/groups.ts'
 import { screenX, screenY } from '../../core/iso.ts'
 import { NO_PLOT, type Town } from '../../core/layout.ts'
@@ -143,7 +144,7 @@ const label = (text: string, x: number, y: number): Text => {
   const node = new Text({
     text,
     style: {
-      fontFamily: 'monospace',
+      fontFamily: world.fonts.pixel,
       fontSize: draw.labelSize,
       fill: palette.label,
       stroke: { color: palette.labelStroke, width: 6 },

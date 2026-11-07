@@ -14,47 +14,54 @@ export type Bubble = {
   readonly text: BitmapText
   eid: number
   bornAt: number
-  bin: number
+  width: number
+  height: number
 }
+
+export type Obstacle = (x: number, y: number, halfWidth: number, halfHeight: number) => boolean
 
 export type Bubbles = {
   readonly container: Container
   readonly pool: Bubble[]
   readonly speaking: Int32Array
-  readonly bins: Map<number, number>
+  readonly ruler: BitmapText
+  readonly sizes: Map<string, readonly [number, number]>
   nextSelected: number
+  avoid: Obstacle | undefined
 }
 
 type Mood = keyof (typeof lines)['Brave']
 
-const { bubbles: tuning } = world
+const { bubbles: tuning, fonts } = world
 
 const LINES = new Map(Object.entries(lines))
 const MOODS: readonly Mood[] = ['idle', 'working', 'done', 'blocked', 'idle']
 const NOBODY = -1
 const PADDING = 6
 const TAIL = 6
-const BIN_STRIDE = 4096
 const PRIORITY = [3, 2, 1, 0, 4] as const
 
-const createBubble = (): Bubble => {
-  const box = new Container()
-  const back = new Graphics()
-  const text = new BitmapText({
+const createText = (): BitmapText =>
+  new BitmapText({
     text: '',
     style: {
-      fontFamily: 'monospace',
+      fontFamily: fonts.read,
       fontSize: tuning.fontSize,
       fill: '#2b2014',
       wordWrap: true,
       wordWrapWidth: tuning.maxWidth,
     },
   })
+
+const createBubble = (): Bubble => {
+  const box = new Container()
+  const back = new Graphics()
+  const text = createText()
   text.position.set(PADDING, PADDING)
   box.addChild(back, text)
   box.visible = false
 
-  return { box, back, text, eid: NOBODY, bornAt: 0, bin: -1 }
+  return { box, back, text, eid: NOBODY, bornAt: 0, width: 0, height: 0 }
 }
 
 export const createBubbles = (sim: Sim): Bubbles => {
@@ -66,8 +73,10 @@ export const createBubbles = (sim: Sim): Bubbles => {
     container,
     pool,
     speaking: new Int32Array(sim.config.budgets.entities).fill(-1),
-    bins: new Map(),
+    ruler: createText(),
+    sizes: new Map(),
     nextSelected: 0,
+    avoid: undefined,
   }
 }
 
@@ -78,6 +87,20 @@ const lineFor = (sim: Sim, eid: number, now: number): string => {
   const pool = table[mood]
 
   return pool[Math.floor(now / 1000 + eid) % pool.length]!
+}
+
+const sizeOf = (bubbles: Bubbles, line: string): readonly [number, number] => {
+  const known = bubbles.sizes.get(line)
+
+  if (known !== undefined) {
+    return known
+  }
+
+  bubbles.ruler.text = line
+  const size = [bubbles.ruler.width + PADDING * 2, bubbles.ruler.height + PADDING * 2] as const
+  bubbles.sizes.set(line, size)
+
+  return size
 }
 
 const toScreen = (sim: Sim, screen: Screen, eid: number, out: Float64Array): void => {
@@ -91,9 +114,36 @@ const release = (bubbles: Bubbles, bubble: Bubble): void => {
     bubbles.speaking[bubble.eid] = -1
   }
 
-  bubbles.bins.delete(bubble.bin)
   bubble.eid = NOBODY
   bubble.box.visible = false
+}
+
+const crowded = (
+  bubbles: Bubbles,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): boolean => {
+  if (
+    bubbles.avoid?.(x, y - TAIL - height / 2, width / 2 + tuning.gap, height / 2 + tuning.gap) ===
+    true
+  ) {
+    return true
+  }
+
+  for (const other of bubbles.pool) {
+    if (
+      other.eid !== NOBODY &&
+      Math.abs(other.box.x - x) * 2 < other.width + width + tuning.gap * 2 &&
+      Math.abs(other.box.y - other.height / 2 - (y - height / 2)) * 2 <
+        other.height + height + tuning.gap * 2
+    ) {
+      return true
+    }
+  }
+
+  return false
 }
 
 const speak = (
@@ -119,35 +169,37 @@ const speak = (
     return
   }
 
-  const bin =
-    Math.floor(out[1]! / tuning.binHeight) * BIN_STRIDE + Math.floor(out[0]! / tuning.binWidth)
   const free = bubbles.pool.find((bubble) => bubble.eid === NOBODY)
 
-  if (
-    free === undefined ||
-    bubbles.bins.has(bin) ||
-    bubbles.bins.has(bin - 1) ||
-    bubbles.bins.has(bin + 1)
-  ) {
+  if (free === undefined) {
     return
   }
 
+  const line = lineFor(sim, eid, now)
+  const [width, height] = sizeOf(bubbles, line)
+  const x = Math.round(out[0]!)
+  const y = Math.round(out[1]! - tuning.offsetY * screen.zoom)
+
+  if (crowded(bubbles, x, y, width, height)) {
+    return
+  }
+
+  free.text.text = line
   free.eid = eid
   free.bornAt = now
-  free.bin = bin
-  free.text.text = lineFor(sim, eid, now)
-  const width = free.text.width + PADDING * 2
-  const height = free.text.height + PADDING * 2
+  free.width = width
+  free.height = height
+  free.back.clear()
+  console.count('graphics-clear')
   free.back
-    .clear()
     .roundRect(-width / 2, -height - TAIL, width, height, 4)
     .fill({ color: 0xf1_e4_c4, alpha: 0.95 })
     .stroke({ width: 1, color: 0x2b_20_14 })
     .poly([-TAIL, -TAIL, TAIL, -TAIL, 0, 0])
     .fill({ color: 0xf1_e4_c4, alpha: 0.95 })
   free.text.position.set(-width / 2 + PADDING, -height - TAIL + PADDING)
+  free.box.position.set(x, y)
   free.box.visible = true
-  bubbles.bins.set(bin, eid)
   bubbles.speaking[eid] = bubbles.pool.indexOf(free)
 }
 
@@ -193,6 +245,12 @@ export const syncBubbles = (
     }
 
     toScreen(sim, screen, bubble.eid, out)
+
+    if (out[0]! + bubble.width / 2 > screen.width - tuning.reserveRight) {
+      release(bubbles, bubble)
+      continue
+    }
+
     bubble.box.position.set(Math.round(out[0]!), Math.round(out[1]! - tuning.offsetY * screen.zoom))
     bubble.box.alpha = Math.min(1, (tuning.lifeMs - age) / tuning.fadeMs)
     active += 1

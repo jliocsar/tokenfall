@@ -1,4 +1,4 @@
-import { Application, Container } from 'pixi.js'
+import { Application, Container, WebGLRenderer } from 'pixi.js'
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import { bootSim, EFFECT_DEFINITIONS } from '../core/boot.ts'
 import { heroCount } from '../core/hero-index.ts'
@@ -21,7 +21,13 @@ import {
   setStaticLights,
   type StaticLight,
 } from '../features/light/light.ts'
-import { badgeAt, createBadges, namesInside, syncBadges } from '../features/entrance/badges.ts'
+import {
+  badgeAt,
+  createBadges,
+  namesInside,
+  overlapsBadge,
+  syncBadges,
+} from '../features/entrance/badges.ts'
 import { createBubbles, syncBubbles } from '../features/narration/bubbles.ts'
 import { createTownLayer, syncTown, townBounds } from '../features/town/ground.ts'
 import { townProps } from '../features/town/props.ts'
@@ -36,7 +42,16 @@ import {
 } from '../render/camera.ts'
 import { createHeroLayer, loadAtlas, setProps, syncHeroes, type View } from '../render/heroes.ts'
 import { createBridge, NOBODY } from '../ui/bridge.ts'
+import { loadFonts } from '../ui/fonts.ts'
 import { mountUi } from '../ui/mount.tsx'
+import {
+  createTownMeasure,
+  type MeasurePlan,
+  measureFrame,
+  measureLabel,
+  readMeasurePlan,
+  type TownMeasure,
+} from './measure.ts'
 import { replaySource, syntheticSource, type Source } from './source.ts'
 
 type Settings = {
@@ -44,6 +59,7 @@ type Settings = {
   readonly seed: number
   readonly tempo: number
   readonly replay: string | undefined
+  readonly measure: MeasurePlan | undefined
 }
 
 const HUD_EVERY_MS = 250
@@ -57,12 +73,14 @@ const DEFAULT_REPLAY = 'ws://127.0.0.1:47330'
 const readSettings = (): Settings => {
   const params = new URLSearchParams(window.location.search)
   const replay = params.get('replay')
+  const plan = readMeasurePlan(params)
 
   return {
-    heroes: Number(params.get('heroes') ?? 100),
+    heroes: plan?.heroes ?? Number(params.get('heroes') ?? 100),
     seed: Number(params.get('seed') ?? 7),
     tempo: Number(params.get('tempo') ?? 4),
     replay: replay === null ? undefined : replay || DEFAULT_REPLAY,
+    measure: plan,
   }
 }
 
@@ -88,6 +106,14 @@ await app.init({
 })
 document.body.prepend(app.canvas)
 
+if (!(app.renderer instanceof WebGLRenderer)) {
+  throw new Error('the Town needs the WebGL renderer')
+}
+
+const { gl } = app.renderer
+
+await loadFonts()
+
 const { atlas, source: texture } = await loadAtlas('/sprites/heroes-atlas')
 const started = performance.now()
 const sim = bootSim(settings.seed, started, {})
@@ -102,6 +128,7 @@ const light = createLightLayer(sim, app.screen.width, app.screen.height)
 const heroLight = lightSystem(light, heroes)
 const bubbles = createBubbles(sim)
 const badges = createBadges(sim)
+bubbles.avoid = (x, y, halfWidth, halfHeight) => overlapsBadge(badges, x, y, halfWidth, halfHeight)
 const overlay = new Container({ label: 'overlay' })
 overlay.addChild(badges.container, bubbles.container)
 app.stage.addChild(world, light.overlay, overlay)
@@ -125,7 +152,10 @@ const loop = {
   frames: 0,
   fpsAt: started,
   fps: 0,
+  report: '',
 }
+const measure: TownMeasure | undefined =
+  settings.measure === undefined ? undefined : createTownMeasure(gl, settings.measure, started)
 const marker = createSelectionMarker()
 const queue = createAttentionQueue(sim)
 world.addChildAt(marker.ring, 1)
@@ -233,12 +263,24 @@ const paintHud = (now: number): void => {
     `${heroCount(sim.index)} heroes · ${sim.groups.guildKeys.length} guilds · ${sim.groups.partyWorkspace.length} parties`,
     `town seed ${sim.town.seed} · ${source.label}`,
     `[q] next who needs you  [f] fit  wasd/drag pan  wheel zoom`,
+    ...(measure === undefined ? [] : [measureLabel(measure), loop.report]),
   ].join('\n')
   loop.nextHud = now + HUD_EVERY_MS
 }
 
+const report = (text: string): void => {
+  loop.report = text
+}
+
+const measureExtra = () => ({
+  guilds: sim.groups.guildKeys.length,
+  parties: sim.groups.partyWorkspace.length,
+})
+
 const frame = (now: number): void => {
-  const dt = Math.min(100, now - loop.last)
+  const frameStart = performance.now()
+  const interval = now - loop.last
+  const dt = Math.min(100, interval)
   loop.last = now
   loop.frames += 1
 
@@ -256,6 +298,7 @@ const frame = (now: number): void => {
   }
 
   runSystems(SIM_SYSTEMS, profile, sim, now, dt)
+  const simEnd = performance.now()
 
   if (syncTown(town, sim)) {
     furnishTown()
@@ -272,15 +315,19 @@ const frame = (now: number): void => {
   syncHeroes(heroes, sim, atlas, view, now)
   syncSelectionMarker(marker, sim, bridge.selected())
   syncEffects(effects, sim, now)
-  renderLight(light, sim, heroes, app.renderer, world, view, now)
   screen.width = app.screen.width
   screen.height = app.screen.height
   screen.x = camera.x
   screen.y = camera.y
   screen.zoom = camera.zoom
   syncBadges(badges, sim, screen, now)
-  syncBubbles(bubbles, sim, heroes, screen, bridge.selected(), now)
+  const speaking = syncBubbles(bubbles, sim, heroes, screen, bridge.selected(), now)
+  const syncEnd = performance.now()
+  measure?.gpu.begin()
+  renderLight(light, sim, heroes, app.renderer, world, view, now)
   app.render()
+  measure?.gpu.end()
+  const renderEnd = performance.now()
 
   if (now >= loop.nextHud) {
     paintHud(now)
@@ -289,6 +336,17 @@ const frame = (now: number): void => {
   if (now >= loop.nextRoster) {
     loop.nextRoster = now + ROSTER_EVERY_MS
     ui.roster.flush()
+  }
+
+  if (measure !== undefined) {
+    const { cost } = measure
+    cost.interval = interval
+    cost.sim = simEnd - frameStart
+    cost.sync = syncEnd - simEnd
+    cost.render = renderEnd - syncEnd
+    cost.roster = performance.now() - renderEnd
+    cost.bubbles = speaking
+    measureFrame(measure, gl, profile, now, measureExtra, report)
   }
 
   requestAnimationFrame(frame)

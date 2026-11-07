@@ -60,6 +60,10 @@ const IDLE_FPS = 6
 const WALK_FPS = 10
 const CULL_MARGIN = 160
 const UNKNOWN_STATUS = 4
+const DEAD_COLOR = 0x33_33_66 + (((0.55 * 255) | 0) << 24)
+const UNKNOWN_COLOR = 0x88_88_88 + (255 << 24)
+const LIVE_COLOR = 0xff_ff_ff + (255 << 24)
+const WARPING_COLOR = 0xff_ff_ff + (((0.5 * 255) | 0) << 24)
 const SPAN_ADOPT = traceId('heroes.adopt')
 const SPAN_SORT = traceId('heroes.sort')
 const SPAN_CULL_PAINT = traceId('heroes.cull-paint')
@@ -226,14 +230,11 @@ const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now:
   const state = sim.stores.behavior.state[eid]!
 
   if (state === layer.states.dying || state === layer.states.dead) {
-    particle.tint = 0x66_33_33
-    particle.alpha = 0.55
+    particle.color = DEAD_COLOR
   } else if (sim.stores.hero.status[eid] === UNKNOWN_STATUS) {
-    particle.tint = 0x88_88_88
-    particle.alpha = 1
+    particle.color = UNKNOWN_COLOR
   } else {
-    particle.tint = 0xff_ff_ff
-    particle.alpha = state === layer.states.warpIn ? 0.5 : 1
+    particle.color = state === layer.states.warpIn ? WARPING_COLOR : LIVE_COLOR
   }
 }
 

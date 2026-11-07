@@ -11,33 +11,12 @@
         overflow: hidden;
         background: #0d0b14;
       }
-      #tip {
-        position: fixed;
-        padding: 6px 10px;
-        font: 12px/1.5 monospace;
-        color: #eadfc4;
-        background: rgb(11 9 16 / 0.92);
-        border: 1px solid #4a3f55;
-        white-space: pre;
-        pointer-events: none;
-      }
-      #hud {
-        position: fixed;
-        top: 8px;
-        left: 8px;
-        padding: 6px 10px;
-        font: 12px/1.5 monospace;
-        color: #eadfc4;
-        background: rgb(11 9 16 / 0.75);
-        white-space: pre;
-        pointer-events: none;
-      }
     </style>
   </head>
   <body>
-    <div id="hud"></div>
+    <div id="hud" class="hud panel plain"></div>
     <div id="ui"></div>
-    <div id="tip" hidden></div>
+    <div id="tip" class="tip panel note" hidden></div>
     <script type="module" src="/src/town/main.ts"></script>
   </body>
 </html>

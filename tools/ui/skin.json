@@ -1,0 +1,8 @@
+{
+  "panel": "#100d16ea",
+  "frames": [
+    { "name": "window", "kenney": "014", "color": "#9c7e52ff" },
+    { "name": "plain", "kenney": "008", "color": "#7a6450ff" },
+    { "name": "note", "kenney": "027", "color": "#b8956aff" }
+  ]
+}
