@@ -4,7 +4,7 @@ Tokenfall is a 2D isometric idle RPG that shows every Claude agent running in He
 
 The vocabulary is defined in `GLOSSARY.md`, and this spec uses those terms. Spike code lives in `tmp/` and gets rewritten, not promoted.
 
-Status: M0 built (toolchain, protocol, sim core, effects core, benchmark). GPU numbers pending a run on your machine.
+Status: M0 done. Benchmarked on your machine (Intel Raptor Lake integrated graphics, 144 Hz). M1 next.
 
 ## 1. Decisions
 
@@ -241,7 +241,18 @@ These rules apply to all game and daemon hot paths, and get checked in review.
 
 ### Performance targets
 
-On your real machine: 60 fps with 500 Heroes, 30+ fps with 1000, no steady-state garbage collection while the game runs, and hooks that add no noticeable delay to Agents. A synthetic load test with 1000 Heroes runs in CI and fails on regressions. None of this has been measured yet.
+On your real machine: 60 fps with 500 Heroes, 30+ fps with 1000, no steady-state garbage collection while the game runs, and hooks that add no noticeable delay to Agents. A synthetic load test with 1000 Heroes runs in CI and fails on regressions.
+
+**Measured in M0** on Intel Raptor Lake integrated graphics at 144 Hz, 2286x913:
+
+| Scenario | GPU mean / p99 | CPU sim + sync | CPU render submit |
+| --- | --- | --- | --- |
+| 1000 Heroes | 0.78 / 1.70 ms | 0.57 ms | 0.64 ms |
+| 1000 Heroes + 512 angel rings (49k particles) | 1.41 / 2.19 ms | 0.44 ms | 0.48 ms |
+
+The display's 144 Hz was the ceiling in every scenario where the tab stayed in front. So the targets are raised: **144 fps with 1000 Heroes** on this machine, a frame budget of **4 ms CPU** and **3 ms GPU** at p99, and an effects budget of **1.5 ms GPU** for the worst storm. The heap still creeps 1–3 MB per 6 s in the bench, from synthetic event objects and the HUD. That gets traced and closed before the daemon's deltas land in M2.
+
+**Tracing:** every system and render phase records a span into a typed-array ring buffer (`core/trace.ts`), exported as a Chrome trace that Perfetto shows as a waterfall. A dev mode wraps every function. M1 can draw the in-game waterfall from the same buffer.
 
 ## 7. Effects
 
@@ -355,7 +366,8 @@ Each one ends with something you can run.
 
 - The sim core with 1000 synthetic Heroes: 0.024 ms mean per frame in Bun, in the CI load test.
 - The Herdr recorder against live Herdr: `agent.list`, per-pane status subscriptions and repo resolution through git.
-- The stateless particle effect and hero particle layer in the browser, for correctness only, under a CPU renderer.
+- The stateless particle effect and hero particle layer in the browser, then the full benchmark on your GPU (section 6).
+- Function-level tracing, with the trace-everything mode tested on the bench page.
 
 **Tested in spikes:**
 
@@ -371,10 +383,8 @@ Each one ends with something you can run.
 
 **Unknown:**
 
-- Render and effect performance on a real GPU. The headless test used a CPU renderer.
 - Whether one subscription connection can carry hundreds of panes.
 - How heavy hooks are with hundreds of Agents.
-- bitECS with Pixi and our typed-array stores, which M0 has to benchmark.
 - Serving with COOP and COEP headers alongside the inbox click-through and fonts.
 - How the town pack and UI frames fit.
 - Whether the Depth Tiers read at game zoom.

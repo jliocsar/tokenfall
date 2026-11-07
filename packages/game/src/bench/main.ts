@@ -1,5 +1,16 @@
 import { Application, WebGLRenderer } from 'pixi.js'
 import { arenaBytes } from '../core/store.ts'
+import {
+  functionCosts,
+  startTrace,
+  stopTrace,
+  toChromeTrace,
+  traceBegin,
+  traceCounter,
+  traceEnd,
+  traceId,
+  traceNextFrame,
+} from '../core/trace.ts'
 import { attachCamera, fitCamera, updateCamera, type Camera } from '../render/camera.ts'
 import { loadAtlas, type View } from '../render/heroes.ts'
 import { createGpuTimer, type GpuTimer } from './gpu-timer.ts'
@@ -23,6 +34,8 @@ type BenchState = {
   run: Run | undefined
   last: number
   nextHud: number
+  traceFramesLeft: number
+  tabHidden: boolean
 }
 
 type Run = {
@@ -40,6 +53,16 @@ const SERIES_CAPACITY = 6000
 const HUD_EVERY_MS = 250
 const SIZES = [100, 250, 500, 1000]
 const STORMS = [100, 250, 400, 512]
+const TRACE_FRAMES = 120
+const TRACE_DELAY_MS = 3000
+const TOP_COSTS = 25
+const SPAN_FRAME = traceId('frame')
+const SPAN_CAMERA = traceId('camera')
+const SPAN_STEP = traceId('session.step')
+const SPAN_RENDER = traceId('pixi.render')
+const SPAN_GPU_POLL = traceId('gpu.poll')
+const SPAN_HUD = traceId('hud')
+const COUNTER_GPU = traceId('gpu ms')
 
 const SCENARIOS: readonly Scenario[] = SIZES.flatMap((heroes, i) => [
   { label: `${heroes} heroes`, heroes, storm: 0 },
@@ -94,6 +117,8 @@ const state: BenchState = {
   run: undefined,
   last: performance.now(),
   nextHud: 0,
+  traceFramesLeft: 0,
+  tabHidden: false,
 }
 attachCamera(app.canvas, camera)
 
@@ -159,6 +184,7 @@ const finishScenario = (run: Run): void => {
       ]),
     ),
     storeBytes: arenaBytes(sim.arena),
+    tabHiddenWhileMeasuring: state.tabHidden,
     counters: {
       ...sim.counters,
       droppedEvents: sim.inbound.dropped,
@@ -202,6 +228,7 @@ const advanceRun = (run: Run, now: number): void => {
     state.session.profile.totalMs.fill(0)
     state.session.profile.frames = 0
     run.measuring = true
+    state.tabHidden = document.hidden
     run.phaseEnds = now + MEASURE_MS
 
     return
@@ -272,28 +299,91 @@ const drawHud = (now: number, interval: number, simMs: number, renderMs: number)
   ].join('\n')
 }
 
+const showCosts = (savedTo: string): void => {
+  const panel = element('results')
+  const rows = functionCosts()
+    .slice(0, TOP_COSTS)
+    .map(
+      (cost) =>
+        `${cost.selfMsPerFrame.toFixed(4).padStart(9)}  ${cost.totalMsPerFrame.toFixed(4).padStart(9)}  ${String(cost.calls).padStart(8)}  ${cost.name}`,
+    )
+  panel.style.display = 'block'
+  panel.textContent = [
+    `trace saved to ${savedTo}`,
+    'open it at https://ui.perfetto.dev (drag the file in) for the waterfall',
+    '',
+    ' self ms/f  total ms/f     calls  span',
+    ...rows,
+  ].join('\n')
+}
+
+const saveTrace = async (): Promise<void> => {
+  const response = await fetch('/__trace', {
+    method: 'POST',
+    body: JSON.stringify({ ...toChromeTrace(), environment: environment() }),
+  })
+  showCosts(await response.text())
+}
+
+const advanceTrace = (): void => {
+  if (state.traceFramesLeft === 0) {
+    return
+  }
+
+  traceNextFrame()
+  state.traceFramesLeft -= 1
+
+  if (state.traceFramesLeft === 0) {
+    stopTrace()
+    void saveTrace()
+  }
+}
+
+const captureTrace = (): void => {
+  startTrace()
+  state.traceFramesLeft = TRACE_FRAMES
+}
+
 const frame = (now: number): void => {
   const interval = now - state.last
   state.last = now
   const dt = Math.min(interval, 100)
+  traceBegin(SPAN_FRAME)
+  traceBegin(SPAN_CAMERA)
   updateCamera(camera, state.session.world, app.screen.width, app.screen.height, dt, view)
+  traceEnd()
   const simStart = performance.now()
+  traceBegin(SPAN_STEP)
   stepSession(state.session, atlas, view, now, dt)
+  traceEnd()
   const simMs = performance.now() - simStart
   const renderStart = performance.now()
+  traceBegin(SPAN_RENDER)
   gpuTimer.begin()
   app.render()
   gpuTimer.end()
+  traceEnd()
   const renderMs = performance.now() - renderStart
+  traceBegin(SPAN_GPU_POLL)
   gpuSamples.length = 0
   gpuTimer.poll(gpuSamples)
+
+  for (const sample of gpuSamples) {
+    traceCounter(COUNTER_GPU, sample)
+  }
+
+  traceEnd()
 
   if (state.run !== undefined) {
     measureFrame(state.run, interval, simMs, renderMs)
     advanceRun(state.run, now)
   }
 
+  traceBegin(SPAN_HUD)
   drawHud(now, interval, simMs, renderMs)
+  traceEnd()
+  traceEnd()
+  advanceTrace()
   requestAnimationFrame(frame)
 }
 
@@ -312,6 +402,7 @@ const startRun = (): void => {
 }
 
 element('run').addEventListener('click', startRun)
+element('trace').addEventListener('click', captureTrace)
 element('explore').addEventListener('click', () => {
   state.run = undefined
   replaceSession(Number(selectedHeroes()), 0)
@@ -326,5 +417,15 @@ setTimeout(fit, 1500)
 if (new URLSearchParams(location.search).has('auto')) {
   startRun()
 }
+
+if (new URLSearchParams(location.search).has('trace')) {
+  setTimeout(captureTrace, TRACE_DELAY_MS)
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    state.tabHidden = true
+  }
+})
 
 requestAnimationFrame(frame)

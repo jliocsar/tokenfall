@@ -6,6 +6,7 @@ import { push } from '../core/queue.ts'
 import type { Sim } from '../core/sim.ts'
 import { createProfile, runSystems, type Profile } from '../core/system.ts'
 import { SIM_SYSTEMS } from '../core/systems/index.ts'
+import { traceBegin, traceEnd, traceId } from '../core/trace.ts'
 import { spawnEffect } from '../effects/emitters.ts'
 import { createEffectLayer, syncEffects, type EffectLayer } from '../effects/gpu.ts'
 import { LEVEL_UP_KIND } from '../effects/systems.ts'
@@ -37,6 +38,11 @@ export type Session = {
 const FEED_EVERY_MS = 100
 const STORM_SPAWNS_PER_FRAME = 32
 const TEMPO = 6
+const SPAN_FEED = traceId('bench.feed')
+const SPAN_STORM = traceId('bench.storm')
+const SPAN_SYSTEMS = traceId('sim.systems')
+const SPAN_HEROES = traceId('render.heroes')
+const SPAN_EFFECTS = traceId('render.effects')
 
 export const createSession = (
   app: Application,
@@ -122,15 +128,25 @@ export const stepSession = (
   now: number,
   dt: number,
 ): void => {
+  traceBegin(SPAN_FEED)
   feed(session, now)
+  traceEnd()
 
   if (session.storm > 0) {
+    traceBegin(SPAN_STORM)
     keepStorming(session, now)
+    traceEnd()
   }
 
+  traceBegin(SPAN_SYSTEMS)
   runSystems(SIM_SYSTEMS, session.profile, session.sim, now, dt)
+  traceEnd()
+  traceBegin(SPAN_HEROES)
   session.visible = syncHeroes(session.heroes, session.sim, atlas, view, now)
+  traceEnd()
+  traceBegin(SPAN_EFFECTS)
   session.particles = syncEffects(session.effects, session.sim, now)
+  traceEnd()
 }
 
 export const heroBounds = (session: Session, out: View): void => {

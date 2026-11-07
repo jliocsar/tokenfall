@@ -1,4 +1,5 @@
 import type { Sim } from './sim.ts'
+import { traceBegin, traceEnd, traceIds } from './trace.ts'
 
 export type System = {
   readonly name: string
@@ -10,6 +11,7 @@ export type Profile = {
   readonly names: readonly string[]
   readonly totalMs: Float64Array
   readonly lastMs: Float64Array
+  readonly firstSpan: number
   frames: number
 }
 
@@ -17,6 +19,7 @@ export const createProfile = (systems: readonly System[]): Profile => ({
   names: systems.map((system) => system.name),
   totalMs: new Float64Array(systems.length),
   lastMs: new Float64Array(systems.length),
+  firstSpan: traceIds(systems.map((system) => `system.${system.name}`)),
   frames: 0,
 })
 
@@ -29,7 +32,9 @@ export const runSystems = (
 ): void => {
   for (let i = 0; i < systems.length; i++) {
     const start = performance.now()
+    traceBegin(profile.firstSpan + i)
     systems[i]!.run(sim, now, dt)
+    traceEnd()
     const spent = performance.now() - start
     profile.lastMs[i] = spent
     profile.totalMs[i] = profile.totalMs[i]! + spent

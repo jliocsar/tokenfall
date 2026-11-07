@@ -12,6 +12,7 @@ import { hasMember } from '../core/dense-set.ts'
 import { stateId } from '../core/fsm.ts'
 import { screenX, screenY } from '../core/iso.ts'
 import type { Sim } from '../core/sim.ts'
+import { traceBegin, traceEnd, traceId } from '../core/trace.ts'
 
 export type Atlas = {
   readonly image: string
@@ -45,6 +46,9 @@ const IDLE_FPS = 6
 const WALK_FPS = 10
 const CULL_MARGIN = 160
 const UNKNOWN_STATUS = 4
+const SPAN_ADOPT = traceId('heroes.adopt')
+const SPAN_SORT = traceId('heroes.sort')
+const SPAN_CULL_PAINT = traceId('heroes.cull-paint')
 
 const textureIndex = (sheet: number, animation: number, direction: number, frame: number): number =>
   ((sheet * 2 + animation) * DIRECTIONS + direction) * MAX_FRAMES + frame
@@ -178,6 +182,7 @@ export const syncHeroes = (
   now: number,
 ): number => {
   const { dense } = layer.query
+  traceBegin(SPAN_ADOPT)
 
   for (let i = 0; i < dense.length; i++) {
     if (layer.known[dense[i]!] === 0) {
@@ -185,7 +190,11 @@ export const syncHeroes = (
     }
   }
 
+  traceEnd()
+  traceBegin(SPAN_SORT)
   sortByDepth(layer, sim)
+  traceEnd()
+  traceBegin(SPAN_CULL_PAINT)
   const children = layer.container.particleChildren
   const { x, y } = sim.stores.position
   let visible = 0
@@ -213,6 +222,7 @@ export const syncHeroes = (
   }
 
   children.length = visible
+  traceEnd()
 
   return visible
 }

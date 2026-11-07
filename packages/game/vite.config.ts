@@ -1,25 +1,28 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
+import { traceAll } from './trace-all.ts'
 
-const RESULTS = join(import.meta.dirname, '..', '..', 'tmp', 'bench')
+const TMP = join(import.meta.dirname, '..', '..', 'tmp')
+const TRACE_ALL = process.env['TOKENFALL_TRACE'] === 'all'
 
-const save = async (file: string, body: Buffer): Promise<void> => {
-  await mkdir(RESULTS, { recursive: true })
+const save = async (folder: string, file: string, body: Buffer): Promise<void> => {
+  await mkdir(folder, { recursive: true })
   await writeFile(file, body)
 }
 
-const benchResults = (): Plugin => ({
-  name: 'tokenfall-bench-results',
+const receiver = (route: string, folder: string, prefix: string): Plugin => ({
+  name: `tokenfall-${prefix}-receiver`,
   configureServer: (server) => {
-    server.middlewares.use('/__bench', (request, response) => {
+    server.middlewares.use(route, (request, response) => {
       const chunks: Buffer[] = []
       request.on('data', (chunk: Buffer) => {
         chunks.push(chunk)
       })
       request.on('end', () => {
-        const file = join(RESULTS, `bench-${new Date().toISOString().replaceAll(':', '-')}.json`)
-        void save(file, Buffer.concat(chunks)).then(() => response.end(file))
+        const target = join(TMP, folder)
+        const file = join(target, `${prefix}-${new Date().toISOString().replaceAll(':', '-')}.json`)
+        void save(target, file, Buffer.concat(chunks)).then(() => response.end(file))
       })
     })
   },
@@ -27,6 +30,7 @@ const benchResults = (): Plugin => ({
 
 export default defineConfig({
   publicDir: '../../assets',
+  define: { 'import.meta.env.TOKENFALL_TRACE_ALL': JSON.stringify(TRACE_ALL) },
   server: {
     host: '127.0.0.1',
     headers: {
@@ -44,5 +48,9 @@ export default defineConfig({
     target: 'es2023',
     rolldownOptions: { input: { index: 'index.html', bench: 'bench.html' } },
   },
-  plugins: [benchResults()],
+  plugins: [
+    receiver('/__bench', 'bench', 'bench'),
+    receiver('/__trace', 'traces', 'trace'),
+    ...(TRACE_ALL ? [traceAll()] : []),
+  ],
 })

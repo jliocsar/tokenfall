@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 47320 --strictPort",
+    "dev:trace": "TOKENFALL_TRACE=all vite --port 47320 --strictPort",
     "build": "vite build",
     "typecheck": "tsc"
   },

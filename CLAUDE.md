@@ -13,6 +13,7 @@ An isometric idle RPG that shows the Claude Agents running in Herdr as Heroes. R
 ```sh
 bun install
 bun run dev          # game dev server, benchmark at http://127.0.0.1:47320/bench.html
+bun run trace        # same, but every function in packages/game and tools/replay is wrapped in a trace span
 bun run test         # unit tests plus the 1000-Hero synthetic load test
 bun run load         # only the load test
 bun run typecheck
@@ -61,6 +62,7 @@ Things learned from that source that the docs don't say:
 - **JSON from outside** goes through `decodeTrusted` in `@tokenfall/protocol/json`, and only for formats we write or a pinned schema describes.
 - **No Effect** in the game sim.
 - **Tuning** belongs in `data/`, never as a literal in a system.
+- **Tracing**: `core/trace.ts` records spans into a typed-array ring buffer, with nothing allocated per span. Wrap a new phase with `traceBegin(id)` and `traceEnd()`, where `id` comes from `traceId('name')` called once at module load. Every system already gets a span from `runSystems`. On the bench page, "trace 120 frames" (or `?trace`) saves a Chrome trace to `tmp/traces/` and prints the top self-time spans. Open the file at https://ui.perfetto.dev for the waterfall. `bun run trace` adds a span to every non-async function through `trace-all.ts`. Use it to find hot spots, not to judge small functions: two clock reads per call inflate their self time.
 
 ## Save migrations
 
