@@ -4,7 +4,7 @@ Tokenfall is a 2D isometric idle RPG that shows every Claude agent running in He
 
 The vocabulary is defined in `GLOSSARY.md`, and this spec uses those terms. Spike code lives in `tmp/` and gets rewritten, not promoted.
 
-Status: draft. Design grilled across five rounds, nothing built yet.
+Status: M0 built (toolchain, protocol, sim core, effects core, benchmark). GPU numbers pending a run on your machine.
 
 ## 1. Decisions
 
@@ -71,7 +71,7 @@ Status: draft. Design grilled across five rounds, nothing built yet.
 - **Generated art:** rendered sheets are committed, not rebuilt on each machine.
 - **References:** a minimal shallow copy of each dependency's source and docs lives in `references/repos/{tool}`, pinned to the exact version we use, with no git history. One script refreshes them on upgrade, tooling ignores the folder, and `CLAUDE.md` lists them so agents read the real source instead of guessing. This covers bitECS, Pixi, Solid, wterm and rot.js, plus Herdr and Plannotator.
 - **Save migrations:** handled by Claude through a `.claude/skills/migrate-save-files` skill, described in `CLAUDE.md`.
-- **Keybinds:** decided during the build. Camera pan, zoom and rotation, plus the Attention Queue key.
+- **Keybinds:** decided during the build and listed in `packages/game/src/render/camera.ts`. So far: WASD or arrows pan, drag pans, wheel or `+`/`-` zooms. Rotation and the Attention Queue key come in M1.
 
 ### Failure states
 
@@ -213,12 +213,12 @@ These rules apply to all game and daemon hot paths, and get checked in review.
 2. Strings live in side tables indexed by a `uint32` id, and only the UI reads them.
 3. Renderer objects live in plain arrays indexed by a slot number held in a component.
 4. Tuning lives in `data/`, not in systems: curve, tiers, thresholds, effects, narration and names.
-5. Every store is allocated at a fixed capacity up front, on `SharedArrayBuffer` so systems can move to workers later. Memory gets budgeted per component and checked against the synthetic load.
+5. Every store is allocated at a fixed capacity up front, on `SharedArrayBuffer` so systems can move to workers later. Memory gets budgeted per component and checked against the synthetic load. Buffers the GPU reads, like effect emitter data, are plain `ArrayBuffer`s, because WebGL refuses views of shared memory.
 
 ### Per frame
 
 6. Nothing is allocated in the frame loop. Use pools, preallocated typed arrays and reused scratch buffers.
-7. Every system documents its complexity in a header comment, for example O(visible heroes), and nothing per frame scales with total Heroes.
+7. Every system declares its complexity in its `complexity` field, for example `'O(moving heroes)'`, since the linter forbids comments. Nothing per frame scales with total Heroes unless that field says so. The M0 render sync is O(Heroes) for its depth sort and cull; a spatial grid replaces it if the benchmark asks for one.
 8. Events drain in one system at the start of the frame. Network callbacks only push to a queue.
 9. Heroes are looked up through an id-to-entity index in O(1), a typed array, never by scanning a query.
 10. Off-screen Heroes are just data. Moving between places is a timestamp, resolved when it comes back into view.
@@ -262,6 +262,7 @@ On your real machine: 60 fps with 500 Heroes, 30+ fps with 1000, no steady-state
 - **Event names:** you subscribe to `pane.closed` and receive `pane_closed`, while `pane.agent_status_changed` keeps its dot. Accept both.
 - **Repos:** Herdr only fills `worktree` for workspaces it created as worktrees, so the daemon resolves the Repo itself from each Agent's working folder through git.
 - **Labels:** the `tokens` fields aren't token usage, they're sidebar labels. The `/team` lead marker is one of them.
+- **Session ids:** `agent.list` carries the Claude session id in `agent_session.value` when Herdr's own Claude integration reported it, seen live on some panes and null on others. When it's there, a Hero is keyed on it from the first sight, without waiting for a hook.
 - **Remote machines:** they only answer one-off requests, with no event stream. A future multi-machine view would poll `api snapshot`.
 - **Allowed methods in v1:** `events.subscribe`, `agent.list`, `pane.read` and snapshot reads, enforced with an allowlist.
 
@@ -301,6 +302,7 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 - **Data:** components are plain objects you define, so we write our own struct-of-arrays stores. That's where the data-oriented rules live.
 - **Built in:** queries, observers for adds and removes, relations, hierarchies and serialization.
 - **Not built in:** component enums and coroutines, which the old becsy spike used. We replace them with tag components plus transition systems (rule 14).
+- **Allocation (read in its source):** `query()` hashes its terms into a new string on every call, so systems register each query once and iterate its `.dense`. `addEntity`, `addComponent` and `removeEntity` allocate, so they happen at spawn time only, and fast-changing membership like "moving" lives in our own typed dense sets. Entity ids start at 1 and get recycled, and versioning stays off so ids fit the stores.
 - **Threading:** "thread-friendly", not multi-threaded. There's no worker API, but typed-array stores on `SharedArrayBuffer` plus `asBuffer` queries can be shared with workers, and adding or removing entities and components must stay on the main thread.
 - **Browser setup:** `SharedArrayBuffer` needs cross-origin isolation, so the daemon serves the game with COOP and COEP headers.
 - **Licensing:** MPL-2.0 only covers changes to bitECS's own files, so using it in a private repo is fine.
@@ -348,6 +350,12 @@ Each one ends with something you can run.
 **After v1:** prompting from the game with an auth token and Origin checks, then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
 
 ## 11. Verified and not
+
+**Built and tested in M0:**
+
+- The sim core with 1000 synthetic Heroes: 0.024 ms mean per frame in Bun, in the CI load test.
+- The Herdr recorder against live Herdr: `agent.list`, per-pane status subscriptions and repo resolution through git.
+- The stateless particle effect and hero particle layer in the browser, for correctness only, under a CPU renderer.
 
 **Tested in spikes:**
 
