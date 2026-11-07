@@ -6,5 +6,7 @@
   "transitionsPerFrame": 4096,
   "spawnsPerFrame": 24,
   "effectEmittersPerKind": 512,
-  "levelUpBurstsPerFrame": 8
+  "levelUpBurstsPerFrame": 8,
+  "guilds": 256,
+  "parties": 1024
 }

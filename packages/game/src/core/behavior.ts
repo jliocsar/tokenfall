@@ -1,6 +1,15 @@
 import { enterState, NO_TRANSITION, nextState } from './fsm.ts'
 import { addMember, removeMember } from './dense-set.ts'
-import { campSpot, dungeonSpot, entranceSpot, jitter } from './layout.ts'
+import { NONE } from './hero-index.ts'
+import {
+  buildTown,
+  claimPlot,
+  dungeonSpot,
+  entranceSpot,
+  jitter,
+  partySpot,
+  type TownKind,
+} from './layout.ts'
 import { TIMER_STATE, TIMER_WANDER, type Sim } from './sim.ts'
 import { schedule } from './timers.ts'
 
@@ -28,8 +37,8 @@ const setAnchor = (sim: Sim, eid: number): void => {
 }
 
 const settleAtCamp: Action = (sim, eid) => {
-  campSpot(sim.stores.hero.guild[eid]!, sim.scratch)
-  jitter(sim, sim.config.tuning.wanderRadius, sim.scratch)
+  partySpot(sim, sim.stores.hero.party[eid]!, sim.scratch)
+  jitter(sim, sim.config.town.party.radius, sim.scratch)
   setAnchor(sim, eid)
   const dx = sim.scratch[0]! - sim.stores.position.x[eid]!
   const dy = sim.scratch[1]! - sim.stores.position.y[eid]!
@@ -44,12 +53,17 @@ const settleAtCamp: Action = (sim, eid) => {
 }
 
 const walkToEntrance: Action = (sim, eid) => {
-  entranceSpot(sim.stores.hero.guild[eid]!, sim.scratch)
+  entranceSpot(sim, sim.stores.hero.guild[eid]!, sim.scratch)
   moveTo(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
 }
 
+const exitDungeon: Action = (sim, eid) => {
+  entranceSpot(sim, sim.stores.hero.guild[eid]!, sim.scratch)
+  teleport(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
+}
+
 const enterDungeon: Action = (sim, eid) => {
-  dungeonSpot(sim, sim.stores.hero.guild[eid]!, sim.stores.hero.level[eid]!, sim.scratch)
+  dungeonSpot(sim, sim.stores.hero.guild[eid]!, sim.scratch)
   setAnchor(sim, eid)
   teleport(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
 }
@@ -63,6 +77,7 @@ const ACTIONS = new Map<string, Action>([
   ['settle-at-camp', settleAtCamp],
   ['walk-to-entrance', walkToEntrance],
   ['enter-dungeon', enterDungeon],
+  ['exit-dungeon', exitDungeon],
   ['stop', stop],
 ])
 
@@ -113,6 +128,29 @@ export const sendInput = (sim: Sim, eid: number, input: number, now: number): bo
   forceState(sim, eid, to, now)
 
   return true
+}
+
+export const reenterState = (sim: Sim, eid: number, now: number): void => {
+  ACTIONS.get(sim.machine.onEnter[sim.stores.behavior.state[eid]!]!)!(sim, eid, now)
+}
+
+export const relayoutTown = (sim: Sim, kind: TownKind, now: number): void => {
+  const { groups, index } = sim
+  sim.town = buildTown(kind, sim.town.seed, sim.config.town, groups.guildHeroes.length)
+
+  for (let guild = 0; guild < groups.guildKeys.length; guild++) {
+    if (groups.guildHeroes[guild]! > 0) {
+      claimPlot(sim.town, guild)
+    }
+  }
+
+  for (let slot = 0; slot < index.nextSlot; slot++) {
+    const eid = index.entityOf[slot]!
+
+    if (eid !== NONE) {
+      reenterState(sim, eid, now)
+    }
+  }
 }
 
 export const scheduleWander = (sim: Sim, eid: number, now: number): void => {

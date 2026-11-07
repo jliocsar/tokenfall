@@ -9,7 +9,7 @@ import {
 } from 'pixi.js'
 import world from '@tokenfall/data/world.json'
 import { hasMember } from '../core/dense-set.ts'
-import { stateId } from '../core/fsm.ts'
+import { stateFlags, stateId } from '../core/fsm.ts'
 import { screenX, screenY } from '../core/iso.ts'
 import type { Sim } from '../core/sim.ts'
 import { traceBegin, traceEnd, traceId } from '../core/trace.ts'
@@ -37,6 +37,7 @@ export type HeroLayer = {
   readonly frameCounts: readonly number[]
   readonly query: { readonly dense: ArrayLike<number> }
   readonly states: { readonly dying: number; readonly dead: number; readonly warpIn: number }
+  readonly hidden: Uint8Array
   count: number
 }
 
@@ -83,7 +84,12 @@ const buildTextures = (atlas: Atlas, source: TextureSource): Texture[] => {
   return textures
 }
 
-export const createHeroLayer = (sim: Sim, atlas: Atlas, source: TextureSource): HeroLayer => {
+export const createHeroLayer = (
+  sim: Sim,
+  atlas: Atlas,
+  source: TextureSource,
+  hiddenStates: readonly string[] = [],
+): HeroLayer => {
   const entities = sim.config.budgets.entities
   const textures = buildTextures(atlas, source)
   const directionToSheet = new Uint8Array(
@@ -108,6 +114,7 @@ export const createHeroLayer = (sim: Sim, atlas: Atlas, source: TextureSource): 
       dead: stateId(sim.machine, 'dead'),
       warpIn: stateId(sim.machine, 'warping-in'),
     },
+    hidden: stateFlags(sim.machine, hiddenStates),
     count: 0,
   }
 }
@@ -201,6 +208,11 @@ export const syncHeroes = (
 
   for (let i = 0; i < layer.count; i++) {
     const eid = layer.order[i]!
+
+    if (layer.hidden[sim.stores.behavior.state[eid]!] === 1) {
+      continue
+    }
+
     const sx = screenX(x[eid]!, y[eid]!)
     const sy = screenY(x[eid]!, y[eid]!)
 

@@ -1,0 +1,52 @@
+{
+  "plots": 256,
+  "squareRadius": 4.5,
+  "graveyard": [5, 4],
+  "entranceReach": 5.5,
+  "plotJitter": 0.8,
+  "ring": {
+    "spacing": 7.4,
+    "inner": 2.5,
+    "graveyardSpots": [2, 6]
+  },
+  "road": {
+    "cell": 13,
+    "roadHalf": 2,
+    "sideStreet": 3,
+    "depth": 4,
+    "depthCost": 1.7,
+    "orderJitter": 0.6
+  },
+  "party": {
+    "ring": 2.8,
+    "ringStep": 2,
+    "perRing": 6,
+    "radius": 1.1
+  },
+  "palette": {
+    "field": "#1d1b27",
+    "plot": "#2b2431",
+    "road": "#3b322f",
+    "path": "#332b2b",
+    "square": "#36323f",
+    "well": "#56505f",
+    "graveyard": "#1e2622",
+    "fence": "#5a5462",
+    "grave": "#7a7480",
+    "entrance": "#07060a",
+    "entranceRim": "#6d6272",
+    "fire": "#ff9a3c",
+    "pole": "#6b5a48",
+    "label": "#eadfc4",
+    "labelStroke": "#0b0910"
+  },
+  "draw": {
+    "plotRadius": 5.2,
+    "pathWidth": 1.4,
+    "fieldMargin": 12,
+    "entranceSize": [2.2, 1.3],
+    "labelSize": 30,
+    "bannerHeight": 130,
+    "fireRadius": 0.45
+  }
+}

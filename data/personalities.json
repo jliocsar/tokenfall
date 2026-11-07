@@ -1,0 +1,12 @@
+{
+  "personalities": [
+    { "name": "Brave", "class": "Knight", "sheet": "knight" },
+    { "name": "Stoic", "class": "Knight", "sheet": "knight" },
+    { "name": "Pious", "class": "Paladin", "sheet": "knight_teal" },
+    { "name": "Cunning", "class": "Rogue", "sheet": "rogue" },
+    { "name": "Cheerful", "class": "Rogue", "sheet": "rogue" },
+    { "name": "Scholarly", "class": "Mage", "sheet": "mage" },
+    { "name": "Grim", "class": "Mage", "sheet": "mage" },
+    { "name": "Wild", "class": "Barbarian", "sheet": "barbarian" }
+  ]
+}

@@ -2,15 +2,25 @@ import budgets from '@tokenfall/data/budgets.json'
 import angelRing from '@tokenfall/data/effects/angel-ring.json'
 import machine from '@tokenfall/data/hero-states.json'
 import curve from '@tokenfall/data/level-curve.json'
+import names from '@tokenfall/data/names.json'
+import personalities from '@tokenfall/data/personalities.json'
+import town from '@tokenfall/data/town.json'
 import world from '@tokenfall/data/world.json'
 import { validateActions } from './behavior.ts'
+import { createCharacters } from './character.ts'
+import type { TownKind } from './layout.ts'
 import { createSim, type Budgets, type Sim } from './sim.ts'
 import { registerEffectKind } from '../effects/emitters.ts'
 
 export const HERO_SHEETS = ['barbarian', 'knight', 'knight_teal', 'mage', 'rogue'] as const
 export const EFFECT_DEFINITIONS = [angelRing] as const
 
-export const bootSim = (seed: number, epoch: number, overrides: Partial<Budgets>): Sim => {
+export const bootSim = (
+  seed: number,
+  epoch: number,
+  overrides: Partial<Budgets>,
+  townKind: TownKind = 'ring',
+): Sim => {
   validateActions(Object.values(machine.onEnter))
   const sim = createSim(
     {
@@ -20,6 +30,9 @@ export const bootSim = (seed: number, epoch: number, overrides: Partial<Budgets>
       tuning: world,
       seed,
       sheets: HERO_SHEETS.length,
+      town,
+      townKind,
+      characters: createCharacters(personalities.personalities, names, HERO_SHEETS),
     },
     epoch,
   )

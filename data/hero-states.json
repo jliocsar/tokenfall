@@ -24,25 +24,101 @@
   ],
   "initial": "camp",
   "transitions": [
-    { "from": "camp", "on": "working", "to": "to-dungeon" },
-    { "from": "camp", "on": "done", "to": "looting" },
-    { "from": "to-dungeon", "on": "arrived", "to": "warping-in" },
-    { "from": "to-dungeon", "on": "idle", "to": "camp" },
-    { "from": "to-dungeon", "on": "done", "to": "looting" },
-    { "from": "warping-in", "on": "timer", "to": "delving" },
-    { "from": "delving", "on": "done", "to": "warping-out-with-loot" },
-    { "from": "delving", "on": "idle", "to": "warping-out" },
-    { "from": "warping-out", "on": "timer", "to": "camp" },
-    { "from": "warping-out-with-loot", "on": "timer", "to": "looting" },
-    { "from": "looting", "on": "idle", "to": "camp" },
-    { "from": "looting", "on": "working", "to": "to-dungeon" },
-    { "from": "*", "on": "died", "to": "dying" },
-    { "from": "dying", "on": "died", "to": "dying" },
-    { "from": "dead", "on": "died", "to": "dead" },
-    { "from": "dying", "on": "timer", "to": "dead" },
-    { "from": "dying", "on": "resurrected", "to": "rising" },
-    { "from": "dead", "on": "resurrected", "to": "rising" },
-    { "from": "rising", "on": "timer", "to": "camp" }
+    {
+      "from": "camp",
+      "on": "working",
+      "to": "to-dungeon"
+    },
+    {
+      "from": "camp",
+      "on": "done",
+      "to": "looting"
+    },
+    {
+      "from": "to-dungeon",
+      "on": "arrived",
+      "to": "warping-in"
+    },
+    {
+      "from": "to-dungeon",
+      "on": "idle",
+      "to": "camp"
+    },
+    {
+      "from": "to-dungeon",
+      "on": "done",
+      "to": "looting"
+    },
+    {
+      "from": "warping-in",
+      "on": "timer",
+      "to": "delving"
+    },
+    {
+      "from": "delving",
+      "on": "done",
+      "to": "warping-out-with-loot"
+    },
+    {
+      "from": "delving",
+      "on": "idle",
+      "to": "warping-out"
+    },
+    {
+      "from": "warping-out",
+      "on": "timer",
+      "to": "camp"
+    },
+    {
+      "from": "warping-out-with-loot",
+      "on": "timer",
+      "to": "looting"
+    },
+    {
+      "from": "looting",
+      "on": "idle",
+      "to": "camp"
+    },
+    {
+      "from": "looting",
+      "on": "working",
+      "to": "to-dungeon"
+    },
+    {
+      "from": "*",
+      "on": "died",
+      "to": "dying"
+    },
+    {
+      "from": "dying",
+      "on": "died",
+      "to": "dying"
+    },
+    {
+      "from": "dead",
+      "on": "died",
+      "to": "dead"
+    },
+    {
+      "from": "dying",
+      "on": "timer",
+      "to": "dead"
+    },
+    {
+      "from": "dying",
+      "on": "resurrected",
+      "to": "rising"
+    },
+    {
+      "from": "dead",
+      "on": "resurrected",
+      "to": "rising"
+    },
+    {
+      "from": "rising",
+      "on": "timer",
+      "to": "camp"
+    }
   ],
   "timers": {
     "warping-in": 600,
@@ -57,6 +133,8 @@
     "delving": "enter-dungeon",
     "looting": "settle-at-camp",
     "dying": "stop",
-    "rising": "settle-at-camp"
+    "rising": "settle-at-camp",
+    "warping-out": "exit-dungeon",
+    "warping-out-with-loot": "exit-dungeon"
   }
 }

@@ -1,4 +1,7 @@
 import { createWorld, type World } from 'bitecs'
+import type { Characters } from './character.ts'
+import { createGroups, type Groups } from './groups.ts'
+import { buildTown, type Town, type TownKind, type TownTuning } from './layout.ts'
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import { createDenseSet, type DenseSet } from './dense-set.ts'
 import { compileMachine, inputId, stateFlags, type Machine, type MachineDefinition } from './fsm.ts'
@@ -18,6 +21,8 @@ export type Budgets = {
   readonly spawnsPerFrame: number
   readonly effectEmittersPerKind: number
   readonly levelUpBurstsPerFrame: number
+  readonly guilds: number
+  readonly parties: number
 }
 
 export type WorldTuning = {
@@ -34,6 +39,9 @@ export type SimConfig = {
   readonly tuning: WorldTuning
   readonly seed: number
   readonly sheets: number
+  readonly town: TownTuning
+  readonly townKind: TownKind
+  readonly characters: Characters
 }
 
 export type Stores = ReturnType<typeof createStores>
@@ -59,6 +67,12 @@ export type EffectKindState = {
   active: number
   dirty: boolean
   dropped: number
+}
+
+export type HeroText = {
+  readonly name: string[]
+  readonly title: string[]
+  readonly quest: string[]
 }
 
 export type Counters = {
@@ -89,8 +103,9 @@ export type Sim = {
   readonly levelUps: DenseSet
   readonly wanders: Uint8Array
   readonly thresholds: Float64Array
-  readonly guilds: Map<string, number>
-  readonly parties: Map<string, number>
+  readonly groups: Groups
+  readonly text: HeroText
+  town: Town
   readonly effects: EffectKindState[]
   readonly scratch: Float64Array
   readonly random: Random
@@ -110,6 +125,7 @@ const createStores = (arena: Arena, entities: number) => ({
     {
       status: 'u8',
       sheet: 'u8',
+      personality: 'u8',
       level: 'u8',
       guild: 'u16',
       party: 'u16',
@@ -160,8 +176,13 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
     levelUps: createDenseSet(budgets.entities),
     wanders: stateFlags(machine, config.tuning.wanderStates),
     thresholds: levelThresholds(config.curve),
-    guilds: new Map(),
-    parties: new Map(),
+    groups: createGroups(budgets.guilds, budgets.parties),
+    text: {
+      name: Array.from({ length: budgets.entities }, () => ''),
+      title: Array.from({ length: budgets.entities }, () => ''),
+      quest: Array.from({ length: budgets.entities }, () => ''),
+    },
+    town: buildTown(config.townKind, config.seed, config.town, budgets.guilds),
     effects: [],
     scratch: new Float64Array(4),
     random: mulberry32(config.seed),

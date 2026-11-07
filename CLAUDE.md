@@ -12,7 +12,8 @@ An isometric idle RPG that shows the Claude Agents running in Herdr as Heroes. R
 
 ```sh
 bun install
-bun run dev          # game dev server, benchmark at http://127.0.0.1:47320/bench.html
+bun run dev          # game dev server: the Town at http://127.0.0.1:47320/?heroes=100&layout=ring|road
+                     # (?replay reads a running replayer), benchmark at /bench.html
 bun run trace        # same, but every function in packages/game and tools/replay is wrapped in a trace span
 bun run test         # unit tests plus the 1000-Hero synthetic load test
 bun run load         # only the load test
@@ -29,7 +30,8 @@ bun run references   # refresh references/repos from references/repos.json
 
 ```
 packages/protocol/   wire types: HeroInfo, HeroEvent, Snapshot, Delta, recordings. No runtime deps.
-packages/game/       core/ (sim, stores, systems), effects/ (emitters + GPU), render/, bench/
+packages/game/       core/ (sim, stores, systems), effects/ (emitters + GPU), render/, bench/,
+                     town/ (the Town page), features/ (one folder per feature)
 tools/replay/        Herdr recorder, replayer, synthetic load generator
 tools/sprites/       Blender render and pack pipeline, plus atlas.py
 tools/references/    refresh script for references/repos

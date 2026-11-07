@@ -3,9 +3,29 @@
   <head>
     <meta charset="utf-8" />
     <title>Tokenfall</title>
-    <meta http-equiv="refresh" content="0; url=/bench.html" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0d0b14;
+      }
+      #hud {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        padding: 6px 10px;
+        font: 12px/1.5 monospace;
+        color: #eadfc4;
+        background: rgb(11 9 16 / 0.75);
+        white-space: pre;
+        pointer-events: none;
+      }
+    </style>
   </head>
   <body>
-    <a href="/bench.html">benchmark</a>
+    <div id="hud"></div>
+    <script type="module" src="/src/town/main.ts"></script>
   </body>
 </html>

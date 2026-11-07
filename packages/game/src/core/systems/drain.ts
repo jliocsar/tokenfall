@@ -1,14 +1,15 @@
 import { addComponent, addEntity } from 'bitecs'
 import type { HeroEvent, HeroJoined } from '@tokenfall/protocol/events'
 import type { HeroInfo } from '@tokenfall/protocol/hero'
-import { forceState, sendInput, teleport } from '../behavior.ts'
+import { forceState, reenterState, sendInput, teleport } from '../behavior.ts'
 import { addMember } from '../dense-set.ts'
 import { stateId } from '../fsm.ts'
 import { bindHero, entityOfHero, NONE, rekeyHero } from '../hero-index.ts'
-import { campSpot, jitter } from '../layout.ts'
+import { nameOf, personalityOf } from '../character.ts'
+import { guildOf, partyOf } from '../groups.ts'
+import { jitter, partySpot, releasePlot } from '../layout.ts'
 import { levelFor } from '../level.ts'
 import { peek, shift } from '../queue.ts'
-import { hashString } from '../random.ts'
 import type { Sim } from '../sim.ts'
 import type { System } from '../system.ts'
 
@@ -23,16 +24,23 @@ const STATUS_CODES = {
   unknown: 4,
 } as const satisfies Record<HeroInfo['status'], number>
 
-const idOf = (map: Map<string, number>, key: string): number => {
-  const known = map.get(key)
+const joinGroups = (sim: Sim, eid: number, guildKey: string, workspace: string): void => {
+  const { hero } = sim.stores
+  const { groups } = sim
+  const guild = guildOf(groups, guildKey)
+  hero.guild[eid] = guild
+  hero.party[eid] = partyOf(groups, guild, workspace)
+  groups.guildHeroes[guild] = groups.guildHeroes[guild]! + 1
+}
 
-  if (known !== undefined) {
-    return known
+const leaveGroups = (sim: Sim, eid: number): void => {
+  const guild = sim.stores.hero.guild[eid]!
+  const { guildHeroes } = sim.groups
+  guildHeroes[guild] = guildHeroes[guild]! - 1
+
+  if (guildHeroes[guild] === 0) {
+    releasePlot(sim.town, guild)
   }
-
-  map.set(key, map.size)
-
-  return map.size - 1
 }
 
 const withHero = (sim: Sim, id: string, apply: (eid: number) => void): boolean => {
@@ -76,15 +84,20 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
 
   addComponent(sim.world, eid, sim.heroTag)
   stores.hero.status[eid] = STATUS_CODES[hero.status]
-  stores.hero.sheet[eid] = hashString(hero.id) % sim.config.sheets
-  stores.hero.guild[eid] = idOf(sim.guilds, hero.guild)
-  stores.hero.party[eid] = idOf(sim.parties, `${hero.guild}\u0000${hero.workspace}`)
+  const { characters } = sim.config
+  const personality = personalityOf(characters, hero.id)
+  stores.hero.personality[eid] = personality
+  stores.hero.sheet[eid] = characters.sheetOfPersonality[personality]!
+  sim.text.name[eid] = nameOf(characters, hero.id)
+  sim.text.title[eid] = hero.title
+  sim.text.quest[eid] = hero.quest
+  joinGroups(sim, eid, hero.guild, hero.workspace)
   stores.hero.experience[eid] = hero.experience
   stores.hero.level[eid] = levelFor(sim.thresholds, hero.experience)
   stores.hero.minions[eid] = hero.minions
   stores.behavior.serial[eid] = 0
-  campSpot(stores.hero.guild[eid], sim.scratch)
-  jitter(sim, sim.config.tuning.wanderRadius, sim.scratch)
+  partySpot(sim, stores.hero.party[eid]!, sim.scratch)
+  jitter(sim, sim.config.town.party.radius, sim.scratch)
   teleport(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
   stores.behavior.state[eid] = sim.machine.initial
   forceState(sim, eid, startingState(sim, hero), now)
@@ -113,7 +126,10 @@ const HANDLERS: Handlers = {
       sim.stores.hero.status[eid] = STATUS_CODES[event.status]
       sendInput(sim, eid, sim.inputs[event.status]!, now)
     }),
-  'hero.quest': (sim, event) => withHero(sim, event.hero, () => undefined),
+  'hero.quest': (sim, event) =>
+    withHero(sim, event.hero, (eid) => {
+      sim.text.quest[eid] = event.quest
+    }),
   'hero.experience': (sim, event) =>
     withHero(sim, event.hero, (eid) => {
       const { hero } = sim.stores
@@ -126,10 +142,11 @@ const HANDLERS: Handlers = {
         addMember(sim.levelUps, eid)
       }
     }),
-  'hero.moved': (sim, event) =>
+  'hero.moved': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
-      sim.stores.hero.guild[eid] = idOf(sim.guilds, event.guild)
-      sim.stores.hero.party[eid] = idOf(sim.parties, `${event.guild}\u0000${event.workspace}`)
+      leaveGroups(sim, eid)
+      joinGroups(sim, eid, event.guild, event.workspace)
+      reenterState(sim, eid, now)
     }),
   'hero.minions': (sim, event) =>
     withHero(sim, event.hero, (eid) => {

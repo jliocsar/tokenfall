@@ -39,6 +39,45 @@ const BLOCK_CHANCE = 0.12
 const DEATH_CHANCE = 0.02
 const RESURRECT_CHANCE = 0.5
 
+const REPOS = [
+  'tokenfall',
+  'herdr',
+  'crook',
+  'pie',
+  'fastlane',
+  'atlas-api',
+  'billing',
+  'dotfiles',
+  'ember-ui',
+  'ledger',
+  'lantern',
+  'mapmaker',
+] as const
+const TITLES = [
+  'code-reviewer',
+  'planner',
+  'tester',
+  'scribe',
+  'researcher',
+  'refactorer',
+  'migrator',
+  'debugger',
+] as const
+const QUESTS = [
+  'Refactor auth middleware',
+  'Fix flaky payment tests',
+  'Write the M2 daemon adapter',
+  'Review PR 412',
+  'Migrate config to TOML',
+  'Profile the render loop',
+  'Triage inbox questions',
+  'Draft release notes',
+  'Port the parser to Rust',
+  'Chase a memory leak',
+] as const
+
+const TITLE_CHANCE = 0.25
+
 const createRandom = (seed: number): (() => number) => {
   let state = seed >>> 0
 
@@ -56,6 +95,16 @@ const normal = (random: () => number): number =>
   Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random())
 
 const exponential = (random: () => number, mean: number): number => -Math.log(1 - random()) * mean
+
+const pick = <T>(random: () => number, items: readonly T[]): T =>
+  items[Math.floor(random() * items.length)]!
+
+const repoPath = (guild: number): string => {
+  const name = REPOS[guild % REPOS.length]!
+  const round = Math.floor(guild / REPOS.length)
+
+  return `/home/you/Projects/${round === 0 ? name : `${name}-${round + 1}`}`
+}
 
 const pickStatus = (roll: number): number => {
   if (roll < 0.4) {
@@ -101,9 +150,9 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
       machine: LOCAL_MACHINE,
       pane: `w${guild}:p${i}`,
       workspace: `w${guild}-${workspace}`,
-      guild: `/synthetic/repo-${guild}`,
-      title: '',
-      quest: '',
+      guild: repoPath(guild),
+      title: random() < TITLE_CHANCE ? pick(random, TITLES) : '',
+      quest: pick(random, QUESTS),
       status: STATUS_CODES[status[i]!]!,
       experience: Math.round(experience[i]!),
       minions: random() < 0.2 ? Math.floor(random() * 8) : 0,
@@ -131,6 +180,10 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
     status[i] = next
     nextChange[i] = now + exponential(random, mean / tempo)
     out.push({ kind: 'hero.status', at: now, hero: ids[i]!, status: STATUS_CODES[next]! })
+
+    if (current === IDLE) {
+      out.push({ kind: 'hero.quest', at: now, hero: ids[i]!, quest: pick(random, QUESTS) })
+    }
 
     if (next === IDLE && random() < DEATH_CHANCE) {
       alive[i] = 0
