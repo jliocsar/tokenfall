@@ -24,5 +24,6 @@ export const DevPanel = (props: { readonly bridge: Bridge; readonly source: stri
     <a href={linkWith('replay', props.source.startsWith('replay') ? undefined : '')}>
       {props.source.startsWith('replay') ? 'synthetic' : 'replay'}
     </a>
+    <a href="/?measure=500,1000">measure</a>
   </div>
 )
