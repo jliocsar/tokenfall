@@ -1,0 +1,16 @@
+{
+  "name": "angel-ring",
+  "shader": "ring-burst",
+  "particles": 96,
+  "lifetime": 1.6,
+  "attached": true,
+  "blend": "add",
+  "params": {
+    "radius": 54,
+    "rise": 90,
+    "size": 7,
+    "spin": 1.4,
+    "inner": [1.0, 0.96, 0.7, 1.0],
+    "outer": [0.55, 0.8, 1.0, 1.0]
+  }
+}

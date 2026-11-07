@@ -1,0 +1,10 @@
+{
+  "entities": 16384,
+  "heroes": 2048,
+  "timers": 32768,
+  "inboundEvents": 65536,
+  "transitionsPerFrame": 4096,
+  "spawnsPerFrame": 24,
+  "effectEmittersPerKind": 512,
+  "levelUpBurstsPerFrame": 8
+}

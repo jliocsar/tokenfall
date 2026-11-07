@@ -1,0 +1,187 @@
+import type { HeroEvent } from '@tokenfall/protocol/events'
+import {
+  LOCAL_MACHINE,
+  sessionHeroId,
+  type HeroInfo,
+  type HeroStatus,
+} from '@tokenfall/protocol/hero'
+
+export type SyntheticOptions = {
+  readonly seed: number
+  readonly heroes: number
+  readonly guilds: number
+  readonly workspacesPerGuild: number
+  readonly tempo: number
+  readonly startAt: number
+}
+
+export type Synthetic = {
+  readonly heroes: readonly HeroInfo[]
+  readonly step: (now: number, out: HeroEvent[]) => void
+}
+
+const STATUS_CODES: readonly HeroStatus[] = ['idle', 'working', 'done', 'blocked']
+const IDLE = 0
+const WORKING = 1
+const DONE = 2
+const BLOCKED = 3
+const MEDIAN_EXPERIENCE = 1_930_000
+const EXPERIENCE_SIGMA = 2.6
+const MAX_EXPERIENCE = 4_000_000_000
+const MEDIAN_TOKENS_PER_SECOND = 3000
+const MEAN_IDLE_MS = 60_000
+const MEAN_WORK_MS = 45_000
+const MEAN_SEEN_MS = 20_000
+const MEAN_BLOCKED_MS = 15_000
+const MEAN_DEAD_MS = 60_000
+const EXPERIENCE_EVERY_MS = 1000
+const BLOCK_CHANCE = 0.12
+const DEATH_CHANCE = 0.02
+const RESURRECT_CHANCE = 0.5
+
+const createRandom = (seed: number): (() => number) => {
+  let state = seed >>> 0
+
+  return () => {
+    state = (state + 0x6d_2b_79_f5) >>> 0
+    let t = state
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296
+  }
+}
+
+const normal = (random: () => number): number =>
+  Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random())
+
+const exponential = (random: () => number, mean: number): number => -Math.log(1 - random()) * mean
+
+const pickStatus = (roll: number): number => {
+  if (roll < 0.4) {
+    return WORKING
+  }
+
+  if (roll < 0.8) {
+    return IDLE
+  }
+
+  return roll < 0.95 ? DONE : BLOCKED
+}
+
+export const createSynthetic = (options: SyntheticOptions): Synthetic => {
+  const random = createRandom(options.seed)
+  const count = options.heroes
+  const status = new Uint8Array(count)
+  const alive = new Uint8Array(count).fill(1)
+  const nextChange = new Float64Array(count)
+  const nextExperience = new Float64Array(count)
+  const experience = new Float64Array(count)
+  const tokensPerSecond = new Float64Array(count)
+  const lastStep = new Float64Array(count).fill(options.startAt)
+  const ids: string[] = []
+  const heroes: HeroInfo[] = []
+  const tempo = options.tempo
+
+  for (let i = 0; i < count; i++) {
+    const guild = Math.floor(random() * options.guilds)
+    const workspace = Math.floor(random() * options.workspacesPerGuild)
+    const id = sessionHeroId(LOCAL_MACHINE, `synthetic-${options.seed}-${i}`)
+    ids.push(id)
+    status[i] = pickStatus(random())
+    experience[i] = Math.min(
+      MAX_EXPERIENCE,
+      MEDIAN_EXPERIENCE * Math.exp(normal(random) * EXPERIENCE_SIGMA),
+    )
+    tokensPerSecond[i] = MEDIAN_TOKENS_PER_SECOND * Math.exp(normal(random)) * tempo
+    nextChange[i] = options.startAt + exponential(random, MEAN_IDLE_MS / tempo)
+    nextExperience[i] = options.startAt + random() * EXPERIENCE_EVERY_MS
+    heroes.push({
+      id,
+      machine: LOCAL_MACHINE,
+      pane: `w${guild}:p${i}`,
+      workspace: `w${guild}-${workspace}`,
+      guild: `/synthetic/repo-${guild}`,
+      title: '',
+      quest: '',
+      status: STATUS_CODES[status[i]!]!,
+      experience: Math.round(experience[i]!),
+      minions: random() < 0.2 ? Math.floor(random() * 8) : 0,
+      lead: false,
+      alive: true,
+    })
+  }
+
+  const changeStatus = (i: number, now: number, out: HeroEvent[]): void => {
+    const current = status[i]!
+    let next = IDLE
+    let mean = MEAN_IDLE_MS
+
+    if (current === IDLE) {
+      next = WORKING
+      mean = MEAN_WORK_MS
+    } else if (current === WORKING) {
+      next = random() < BLOCK_CHANCE ? BLOCKED : DONE
+      mean = next === BLOCKED ? MEAN_BLOCKED_MS : MEAN_SEEN_MS
+    } else if (current === BLOCKED) {
+      next = WORKING
+      mean = MEAN_WORK_MS
+    }
+
+    status[i] = next
+    nextChange[i] = now + exponential(random, mean / tempo)
+    out.push({ kind: 'hero.status', at: now, hero: ids[i]!, status: STATUS_CODES[next]! })
+
+    if (next === IDLE && random() < DEATH_CHANCE) {
+      alive[i] = 0
+      nextChange[i] = now + exponential(random, MEAN_DEAD_MS / tempo)
+      out.push({ kind: 'hero.died', at: now, hero: ids[i]!, cause: 'exited' })
+    }
+  }
+
+  const reviveOrStay = (i: number, now: number, out: HeroEvent[]): void => {
+    nextChange[i] = now + exponential(random, MEAN_DEAD_MS / tempo)
+
+    if (random() < RESURRECT_CHANCE) {
+      alive[i] = 1
+      status[i] = IDLE
+      out.push({ kind: 'hero.resurrected', at: now, hero: ids[i]! })
+    }
+  }
+
+  const earn = (i: number, now: number, out: HeroEvent[]): void => {
+    nextExperience[i] = now + EXPERIENCE_EVERY_MS
+    const seconds = (now - lastStep[i]!) / 1000
+    lastStep[i] = now
+
+    if (status[i] !== WORKING || alive[i] === 0) {
+      return
+    }
+
+    experience[i] = Math.min(MAX_EXPERIENCE, experience[i]! + tokensPerSecond[i]! * seconds)
+    out.push({
+      kind: 'hero.experience',
+      at: now,
+      hero: ids[i]!,
+      experience: Math.round(experience[i]),
+    })
+  }
+
+  const step = (now: number, out: HeroEvent[]): void => {
+    for (let i = 0; i < count; i++) {
+      if (now >= nextChange[i]!) {
+        if (alive[i] === 1) {
+          changeStatus(i, now, out)
+        } else {
+          reviveOrStay(i, now, out)
+        }
+      }
+
+      if (now >= nextExperience[i]!) {
+        earn(i, now, out)
+      }
+    }
+  }
+
+  return { heroes, step }
+}

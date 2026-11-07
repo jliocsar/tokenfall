@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "sortPackageJson": true,
+  "ignorePatterns": [
+    "**/node_modules",
+    "**/dist",
+    "bun.lock",
+    ".claude",
+    "references",
+    "tmp",
+    "assets",
+    "CLAUDE.md",
+    "spec.md",
+    "GLOSSARY.md",
+    "docs",
+    "skills-lock.json"
+  ]
+}

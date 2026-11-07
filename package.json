@@ -1,0 +1,34 @@
+{
+  "name": "tokenfall",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "tools/*",
+    "data"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --cwd packages/game dev",
+    "bench": "bun run --cwd packages/game dev",
+    "test": "bun test",
+    "load": "bun test packages/game/test/load.test.ts",
+    "typecheck": "bun run --filter '*' --if-present typecheck",
+    "lint": "oxlint --deny-warnings --no-error-on-unmatched-pattern --disable-nested-config",
+    "lint:fix": "oxlint --fix --deny-warnings --no-error-on-unmatched-pattern --disable-nested-config",
+    "fmt": "oxfmt --disable-nested-config",
+    "fmt:check": "oxfmt --check --disable-nested-config",
+    "references": "bun tools/references/refresh.ts",
+    "record": "bun tools/replay/src/record.ts",
+    "replay": "bun tools/replay/src/replay.ts",
+    "synthetic": "bun tools/replay/src/synthetic-cli.ts"
+  },
+  "devDependencies": {
+    "@jliocsar/begone-slop": "0.2.12",
+    "@types/bun": "1.4.4",
+    "oxfmt": "0.77.0",
+    "oxlint": "1.92.0",
+    "oxlint-tsgolint": "7.0.2006",
+    "typescript": "7.0.2"
+  }
+}

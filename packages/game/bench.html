@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tokenfall bench</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: #0d0b14;
+        color: #e8dcc0;
+        font:
+          13px/1.4 ui-monospace,
+          monospace;
+        overflow: hidden;
+      }
+      #hud {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        max-width: 52ch;
+        padding: 8px 10px;
+        background: rgb(13 11 20 / 0.82);
+        border: 1px solid #5a4a2e;
+        white-space: pre;
+        pointer-events: none;
+      }
+      #controls {
+        position: fixed;
+        top: 8px;
+        right: 8px;
+        display: flex;
+        gap: 6px;
+      }
+      button,
+      select {
+        font: inherit;
+        color: inherit;
+        background: #241c2e;
+        border: 1px solid #5a4a2e;
+        padding: 4px 8px;
+      }
+      #results {
+        position: fixed;
+        left: 8px;
+        bottom: 8px;
+        right: 8px;
+        max-height: 45%;
+        overflow: auto;
+        background: rgb(13 11 20 / 0.92);
+        border: 1px solid #5a4a2e;
+        display: none;
+      }
+      #results table {
+        border-collapse: collapse;
+        width: 100%;
+      }
+      #results td,
+      #results th {
+        padding: 2px 8px;
+        text-align: right;
+        border-bottom: 1px solid #2c2436;
+      }
+      #results th:first-child,
+      #results td:first-child {
+        text-align: left;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="hud"></div>
+    <div id="controls">
+      <select id="heroes">
+        <option>100</option>
+        <option>250</option>
+        <option selected>500</option>
+        <option>1000</option>
+      </select>
+      <button id="explore">explore</button>
+      <button id="storm">storm</button>
+      <button id="run">run benchmark</button>
+    </div>
+    <div id="results"></div>
+    <script type="module" src="/src/bench/main.ts"></script>
+  </body>
+</html>

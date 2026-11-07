@@ -1,0 +1,32 @@
+{
+  "mode": "hero",
+  "cell": 128,
+  "ss": 2,
+  "samples": 8,
+  "dirs": [0, 1, 2, 3, 4, 5, 6, 7],
+  "actions": {
+    "Idle": 4,
+    "Walking_A": 8
+  },
+  "name": "knight_teal",
+  "glb": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/kaykit/gltf/Knight.glb",
+  "hide": [
+    "Icosphere",
+    "1H_Sword",
+    "1H_Sword_Offhand",
+    "Badge_Shield",
+    "Rectangle_Shield",
+    "Round_Shield",
+    "Spike_Shield"
+  ],
+  "tint": {
+    "hue": 0.97,
+    "sat": 1.1,
+    "val": 0.95,
+    "only": ["Cape"]
+  },
+  "out": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/out/raw/knight_teal",
+  "bone_scale": {
+    "head": 0.72
+  }
+}

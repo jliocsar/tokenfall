@@ -1,0 +1,9 @@
+{
+  "tileWidth": 128,
+  "tileHeight": 64,
+  "walkSpeed": 2.2,
+  "wanderEveryMs": [2500, 7000],
+  "wanderRadius": 2.5,
+  "wanderStates": ["camp", "delving", "looting"],
+  "directions": ["E", "SE", "S", "SW", "W", "NW", "N", "NE"]
+}

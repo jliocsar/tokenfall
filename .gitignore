@@ -1,0 +1,11 @@
+node_modules
+dist
+*.log
+*.tsbuildinfo
+.DS_Store
+
+# scratch work, spikes and benchmark output
+tmp/
+
+# recordings hold pane titles and paths; keep them local unless scrubbed
+recordings/*.jsonl

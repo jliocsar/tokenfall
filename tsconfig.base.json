@@ -1,0 +1,7 @@
+{
+  "extends": "@jliocsar/begone-slop/tsconfig",
+  "compilerOptions": {
+    "types": ["bun"],
+    "resolveJsonModule": true
+  }
+}

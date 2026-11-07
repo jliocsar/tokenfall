@@ -1,0 +1,44 @@
+[
+  {
+    "name": "bitecs",
+    "url": "https://github.com/NateTheGreatt/bitECS",
+    "ref": "0.4.0",
+    "keep": ["src", "docs", "README.md", "LICENSE"]
+  },
+  {
+    "name": "pixi",
+    "url": "https://github.com/pixijs/pixijs",
+    "ref": "v8.22.0",
+    "keep": ["src", "README.md", "LICENSE"]
+  },
+  {
+    "name": "solid",
+    "url": "https://github.com/solidjs/solid",
+    "ref": "v1.9.16",
+    "keep": ["packages/solid/src", "packages/solid/store/src", "packages/solid/web/src", "README.md", "LICENSE"]
+  },
+  {
+    "name": "wterm",
+    "url": "https://github.com/vercel-labs/wterm",
+    "ref": "v0.5.9",
+    "keep": ["packages", "docs", "README.md", "LICENSE"]
+  },
+  {
+    "name": "rot",
+    "url": "https://github.com/ondras/rot.js",
+    "ref": "v2.2.1",
+    "keep": ["src", "README.md", "license.txt"]
+  },
+  {
+    "name": "herdr",
+    "url": "https://github.com/herdrdev/herdr",
+    "ref": "v0.9.5",
+    "keep": ["src", "docs/next", "README.md", "LICENSE"]
+  },
+  {
+    "name": "plannotator",
+    "url": "https://github.com/backnotprop/plannotator",
+    "ref": "v0.28.51",
+    "keep": ["packages/inbox", "packages/server", "packages/shared", "docs", "README.md", "LICENSE"]
+  }
+]

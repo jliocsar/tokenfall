@@ -1,0 +1,242 @@
+/**
+ * Goal Setup Server
+ *
+ * Serves the Plannotator shell in a goal-setup mode for the setup-goal skill.
+ * The interview and facts phases use the same endpoint surface so agents can
+ * launch a browser session, wait, and receive a structured JSON result.
+ */
+
+import { likelyAppHtmlEncoding, prewarmAppHtml } from "@plannotator/shared/app-html";
+import { openPackedApp, packedAppResponse } from "@plannotator/shared/packed-app";
+import type { Origin } from "@plannotator/shared/agents";
+import {
+  createFactsResult,
+  createInterviewResult,
+  type GoalSetupBundle,
+  type GoalSetupFactResult,
+  type GoalSetupQuestionAnswer,
+  type GoalSetupResult,
+} from "@plannotator/shared/goal-setup";
+import { isRemoteSession, getServerHostname, startBunServerOnAvailablePort, buildAdvertisedUrl } from "./remote";
+import { createRequestHostGuard } from "./request-host-guard";
+import { withPlannotatorServerHeader } from "./plannotator-server-marker";
+import { refuseCrossOriginWrite } from "./request-origin-guard";
+import { getRepoInfo } from "./repo";
+import {
+  handleFavicon,
+  handleImage,
+  handleServerReady,
+  handleUpload,
+} from "./shared-handlers";
+import { detectGitUser, getServerConfig, saveConfig } from "./config";
+import { agentToolHostForServer } from "./ai-runtime";
+import { isFaviconStyle, type FaviconStyle } from "@plannotator/shared/favicon";
+import { isWSL } from "./browser";
+
+export { handleServerReady as handleGoalSetupServerReady } from "./shared-handlers";
+
+export interface GoalSetupServerOptions {
+  bundle: GoalSetupBundle;
+  htmlContent: string;
+  origin?: Origin;
+  onReady?: (url: string, isRemote: boolean, port: number) => void;
+}
+
+export interface GoalSetupServerResult {
+  port: number;
+  url: string;
+  isRemote: boolean;
+  waitForDecision: () => Promise<{
+    result?: GoalSetupResult;
+    exit?: boolean;
+  }>;
+  stop: () => void;
+}
+
+function coerceAnswers(body: unknown): GoalSetupQuestionAnswer[] {
+  if (!body || typeof body !== "object") return [];
+  const record = body as Record<string, unknown>;
+  const answers = Array.isArray(record.answers)
+    ? record.answers
+    : record.result &&
+        typeof record.result === "object" &&
+        Array.isArray((record.result as Record<string, unknown>).answers)
+      ? ((record.result as Record<string, unknown>).answers as unknown[])
+      : [];
+  return answers as GoalSetupQuestionAnswer[];
+}
+
+function coerceFacts(body: unknown): GoalSetupFactResult[] {
+  if (!body || typeof body !== "object") return [];
+  const record = body as Record<string, unknown>;
+  const facts = Array.isArray(record.facts)
+    ? record.facts
+    : record.result &&
+        typeof record.result === "object" &&
+        Array.isArray((record.result as Record<string, unknown>).facts)
+      ? ((record.result as Record<string, unknown>).facts as unknown[])
+      : [];
+  return facts as GoalSetupFactResult[];
+}
+
+export async function startGoalSetupServer(
+  options: GoalSetupServerOptions
+): Promise<GoalSetupServerResult> {
+  const { bundle, htmlContent, origin = "claude-code", onReady } = options;
+  const isRemote = isRemoteSession();
+  const app = openPackedApp(htmlContent);
+  const wslFlag = await isWSL();
+  const repoInfo = await getRepoInfo();
+  const gitUser = detectGitUser();
+
+  let settled = false;
+  let resolveDecision: (result: {
+    result?: GoalSetupResult;
+    exit?: boolean;
+  }) => void;
+  const decisionPromise = new Promise<{
+    result?: GoalSetupResult;
+    exit?: boolean;
+  }>((resolve) => {
+    resolveDecision = resolve;
+  });
+
+  const resolveOnce = (result: { result?: GoalSetupResult; exit?: boolean }) => {
+    if (settled) return;
+    settled = true;
+    resolveDecision(result);
+  };
+
+  const requestHostGuard = createRequestHostGuard();
+  const server = await startBunServerOnAvailablePort((port) =>
+    Bun.serve(withPlannotatorServerHeader({
+        hostname: getServerHostname(),
+        port,
+        // Bun's default 10s idleTimeout kills long-running requests.
+        idleTimeout: 0,
+
+        async fetch(req) {
+          // Host allowlist first, before any route (request-host-guard.ts).
+          const hostRefusal = requestHostGuard.check(req);
+          if (hostRefusal) return hostRefusal;
+          // Then no write from another site, before any route (request-origin-guard.ts).
+          const originRefusal = refuseCrossOriginWrite(req);
+          if (originRefusal) return originRefusal;
+
+          const url = new URL(req.url);
+
+          if (
+            (url.pathname === "/api/plan" ||
+              url.pathname === "/api/goal-setup") &&
+            req.method === "GET"
+          ) {
+            return Response.json({
+              plan: "",
+              origin,
+              mode: "goal-setup",
+              goalSetup: bundle,
+              repoInfo,
+              projectRoot: process.cwd(),
+              isWSL: wslFlag,
+              serverConfig: getServerConfig(gitUser, agentToolHostForServer()),
+              sharingEnabled: false,
+            });
+          }
+
+          if (url.pathname === "/api/config" && req.method === "POST") {
+            try {
+              const body = (await req.json()) as {
+                displayName?: string;
+                diffOptions?: Record<string, unknown>;
+                theme?: Record<string, unknown>;
+                favicon?: FaviconStyle;
+                conventionalComments?: boolean;
+                conventionalLabels?: unknown[] | null;
+              };
+              const toSave: Record<string, unknown> = {};
+              if (body.displayName !== undefined) {
+                toSave.displayName = body.displayName;
+              }
+              if (body.diffOptions !== undefined) {
+                toSave.diffOptions = body.diffOptions;
+              }
+              if (body.theme !== undefined) {
+                toSave.theme = body.theme;
+              }
+              if (isFaviconStyle(body.favicon)) {
+                toSave.favicon = body.favicon;
+              }
+              if (body.conventionalComments !== undefined) {
+                toSave.conventionalComments = body.conventionalComments;
+              }
+              if (body.conventionalLabels !== undefined) {
+                toSave.conventionalLabels = body.conventionalLabels;
+              }
+              if (Object.keys(toSave).length > 0 && !saveConfig(toSave as Parameters<typeof saveConfig>[0])) {
+                return Response.json({ error: "config.json could not be saved; nothing changed. A config.json that is not valid JSON is never written over: fix or remove it." }, { status: 500 });
+              }
+              return Response.json({ ok: true });
+            } catch {
+              return Response.json({ error: "Invalid request" }, { status: 400 });
+            }
+          }
+
+          if (url.pathname === "/api/image") return handleImage(req);
+          if (url.pathname === "/api/upload" && req.method === "POST") {
+            return handleUpload(req);
+          }
+
+          if (
+            url.pathname === "/api/goal-setup/submit" &&
+            req.method === "POST"
+          ) {
+            try {
+              const body = await req.json();
+              const result =
+                bundle.stage === "interview"
+                  ? createInterviewResult(bundle, coerceAnswers(body))
+                  : createFactsResult(bundle, coerceFacts(body));
+              resolveOnce({ result });
+              return Response.json({ ok: true, result });
+            } catch (err) {
+              const message =
+                err instanceof Error ? err.message : "Failed to submit result";
+              return Response.json({ error: message }, { status: 400 });
+            }
+          }
+
+          if (url.pathname === "/api/exit" && req.method === "POST") {
+            resolveOnce({ exit: true });
+            return Response.json({ ok: true });
+          }
+
+          if (url.pathname === "/favicon.png") return handleFavicon();
+
+          return packedAppResponse(app, req, url.pathname, isRemote);
+        },
+
+        error(err) {
+          console.error("[plannotator] Goal setup server error:", err);
+          return new Response(
+            `Internal Server Error: ${err instanceof Error ? err.message : String(err)}`,
+            { status: 500, headers: { "Content-Type": "text/plain" } }
+          );
+        },
+    })),
+  );
+
+  const port = server.port!;
+  const serverUrl = buildAdvertisedUrl(port);
+  // Remote sessions serve the app page compressed (#1617); start the likely
+  // encoding (gzip over plain http) now so the first load does not wait.
+  if (isRemote) prewarmAppHtml(app.html, likelyAppHtmlEncoding(false));
+  onReady?.(serverUrl, isRemote, port);
+
+  return {
+    port,
+    url: serverUrl,
+    isRemote,
+    waitForDecision: () => decisionPromise,
+    stop: () => server.stop(),
+  };
+}

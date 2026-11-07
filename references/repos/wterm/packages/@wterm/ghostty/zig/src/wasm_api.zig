@@ -1,0 +1,1814 @@
+const std = @import("std");
+const builtin = @import("builtin");
+const vt = @import("ghostty-vt");
+const Terminal = vt.Terminal;
+const Screen = vt.Screen;
+const RenderState = vt.RenderState;
+const Style = vt.Style;
+const color = vt.color;
+const modes = vt.modes;
+const ReadonlyHandler = vt.ReadonlyHandler;
+const StreamAction = vt.StreamAction;
+const KittyHandler = vt.apc.Handler;
+const KittyCommand = vt.kitty.graphics.Command;
+const KittyImage = vt.kitty.graphics.Image;
+const KittyStorage = vt.kitty.graphics.ImageStorage;
+
+const Allocator = std.mem.Allocator;
+const allocator = std.heap.wasm_allocator;
+
+const GRAPHICS_IMAGE_RECORD_BYTES = 16;
+const GRAPHICS_PLACEMENT_RECORD_BYTES = 60;
+const GRAPHICS_MAX_RECORDS = 16 * 1024;
+// Kitty payloads are base64 encoded before the upstream parser sees them.
+// Keep the encoded command bounded as well as the decoded image storage.
+const GRAPHICS_MAX_APC_BYTES = 48 * 1024 * 1024;
+
+pub const std_options: std.Options = .{
+    .logFn = wasmLog,
+};
+
+fn wasmLog(
+    comptime level: std.log.Level,
+    comptime scope: @TypeOf(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    _ = level;
+    _ = scope;
+    var buf: [2048]u8 = undefined;
+    const str = std.fmt.bufPrint(&buf, format, args) catch return;
+    JS.log(str.ptr, str.len);
+}
+
+const JS = struct {
+    extern "env" fn log(ptr: [*]const u8, len: usize) void;
+};
+
+// ---------------------------------------------------------------
+// Cell layout written into the JS-owned viewport buffer.
+// 16 bytes per cell, little-endian.
+//
+//  offset  size  field
+//  ------  ----  -----
+//       0     4  codepoint (u32)
+//       4     1  fg_r
+//       5     1  fg_g
+//       6     1  fg_b
+//       7     1  bg_r
+//       8     1  bg_g
+//       9     1  bg_b
+//      10     1  flags  (bold=1, faint=2, italic=4, underline=8,
+//                        blink=16, inverse=32, invisible=64,
+//                        strikethrough=128)
+//      11     1  width  (0 = spacer, 1 = normal, 2 = wide)
+//      12     1  color_flags (bit 0 = has explicit fg,
+//                             bit 1 = has explicit bg)
+//      13     1  content_flags (bit 0 = has grapheme data,
+//                             bit 1 = has OSC 8 hyperlink)
+//      14     2  reserved
+// ---------------------------------------------------------------
+const CELL_BYTES = 16;
+// v2 preserves the first 16 bytes, adds color_flags bit 2 for underline color,
+// then byte 16: underline (none/single/double/curly/dotted/dashed = 0..5),
+// bytes 17..19: resolved underline RGB. Legacy exports keep their 16-byte stride.
+const CELL_BYTES_V2 = 20;
+
+// -- Responses --------------------------------------------------
+//
+// Queries reach the terminal on the same stream as everything else, and the
+// host reads their answers back out one at a time. The queue is fixed-size and
+// drops the newest response when full, so the answers that are kept stay in the
+// order they were produced. This mirrors the built-in core's contract.
+
+const RESPONSE_QUEUE_MAX = 256;
+const RESPONSE_MAX_BYTES = 64;
+const TITLE_BUFFER_BYTES = 256;
+// Upstream's fixed 2048-byte OSC buffer reserves one byte for the trailing NUL.
+const DIRECTORY_BUFFER_BYTES = 2047;
+const CLIPBOARD_MAX_BYTES = 64 * 1024;
+
+// OSC 7 is host metadata, not a filesystem operation. Retain the latest
+// complete UTF-8 report without allocating or interpreting its authority.
+const DirectoryState = struct {
+    bytes: [DIRECTORY_BUFFER_BYTES]u8 = undefined,
+    len: u16 = 0,
+    changed: bool = false,
+
+    fn set(self: *DirectoryState, uri: []const u8) void {
+        if (uri.len > self.bytes.len or !std.unicode.utf8ValidateSlice(uri)) return;
+        if (std.mem.eql(u8, self.bytes[0..self.len], uri)) return;
+        @memcpy(self.bytes[0..uri.len], uri);
+        self.len = @intCast(uri.len);
+        self.changed = true;
+    }
+};
+
+// Constant-size current state. Prompt redraws retain the last reported result;
+// starting a command clears it. This deliberately does not retain command text.
+const ShellState = struct {
+    phase: enum(u8) { unknown, prompt, input, running, complete } = .unknown,
+    exit_code: ?i32 = null,
+    changed: bool = false,
+
+    fn marker(self: *ShellState, value: StreamAction.Value(.semantic_prompt)) void {
+        const phase: @TypeOf(self.phase) = switch (value.action) {
+            .fresh_line_new_prompt, .new_command, .prompt_start => .prompt,
+            .end_prompt_start_input, .end_prompt_start_input_terminate_eol => .input,
+            .end_input_start_output => .running,
+            .end_command => .complete,
+            .fresh_line => return,
+        };
+        const exit_code = switch (phase) {
+            .running => null,
+            .complete => value.readOption(.exit_code),
+            else => self.exit_code,
+        };
+        if (self.phase == phase and self.exit_code == exit_code) return;
+        self.phase = phase;
+        self.exit_code = exit_code;
+        self.changed = true;
+    }
+};
+
+// Retain only the latest valid write. Reading the clipboard is never supported.
+const ClipboardState = struct {
+    bytes: [CLIPBOARD_MAX_BYTES]u8 = undefined,
+    len: u32 = 0,
+    changed: bool = false,
+
+    fn set(self: *ClipboardState, kind: u8, encoded: []const u8) void {
+        if (kind != 'c' or std.mem.eql(u8, encoded, "?")) return;
+        const decoder = std.base64.standard.Decoder;
+        const len = decoder.calcSizeForSlice(encoded) catch return;
+        if (len > CLIPBOARD_MAX_BYTES) return;
+        // Decode separately so an invalid request cannot corrupt a pending one.
+        const decoded = allocator.alloc(u8, len) catch return;
+        defer allocator.free(decoded);
+        decoder.decode(decoded, encoded) catch return;
+        if (!std.unicode.utf8ValidateSlice(decoded)) return;
+        @memcpy(self.bytes[0..len], decoded);
+        self.len = @intCast(len);
+        self.changed = true;
+    }
+};
+
+// A fixed table bounds host-owned tracking resources. IDs never alias released
+// or invalidated handles, even when their slots are reused.
+const PositionTracker = struct {
+    const Entry = struct { id: u32, pin: *vt.Pin, screen: *Screen };
+    entries: [64]?Entry = [_]?Entry{null} ** 64,
+    next_id: u32 = 1,
+
+    fn clear(self: *PositionTracker) void {
+        for (&self.entries) |*slot| if (slot.*) |entry| {
+            entry.screen.pages.untrackPin(entry.pin);
+            slot.* = null;
+        };
+    }
+};
+
+// Match Ghostty's desktop title limit. The title is external host state, so
+// the readonly terminal handler has no place to retain it for the browser.
+const TitleState = struct {
+    bytes: [TITLE_BUFFER_BYTES]u8 = undefined,
+    len: u16 = 0,
+    changed: bool = false,
+
+    fn set(self: *TitleState, title: []const u8) void {
+        if (title.len >= self.bytes.len) return;
+        @memcpy(self.bytes[0..title.len], title);
+        self.len = @intCast(title.len);
+        self.changed = true;
+    }
+};
+
+const ResponseQueue = struct {
+    slots: [RESPONSE_QUEUE_MAX][RESPONSE_MAX_BYTES]u8 = undefined,
+    lens: [RESPONSE_QUEUE_MAX]u8 = [_]u8{0} ** RESPONSE_QUEUE_MAX,
+    head: u16 = 0,
+    tail: u16 = 0,
+    count: u16 = 0,
+
+    fn push(self: *ResponseQueue, bytes: []const u8) void {
+        if (bytes.len > RESPONSE_MAX_BYTES) return;
+        if (self.count == RESPONSE_QUEUE_MAX) return;
+        @memcpy(self.slots[self.tail][0..bytes.len], bytes);
+        self.lens[self.tail] = @intCast(bytes.len);
+        self.tail = (self.tail + 1) % RESPONSE_QUEUE_MAX;
+        self.count += 1;
+    }
+
+    fn pop(self: *ResponseQueue, out: []u8) u32 {
+        if (self.count == 0) return 0;
+        const len = self.lens[self.head];
+        if (len > out.len) return 0;
+        @memcpy(out[0..len], self.slots[self.head][0..len]);
+        self.head = (self.head + 1) % RESPONSE_QUEUE_MAX;
+        self.count -= 1;
+        return len;
+    }
+};
+
+/// Wraps ghostty's readonly handler instead of reimplementing it. Most
+/// terminal state changes are delegated; host-visible effects and supported
+/// queries that the readonly handler drops are handled here.
+const ResponseHandler = struct {
+    alloc: Allocator,
+    inner: ReadonlyHandler,
+    queue: *ResponseQueue,
+    title: *TitleState,
+    directory: *DirectoryState,
+    clipboard: *ClipboardState,
+    shell: *ShellState,
+    bell_count: *u32,
+    synchronized_output_generation: *u32,
+    rejected_images: *u32,
+    positions: *PositionTracker,
+    apc: KittyHandler = .{},
+    apc_bytes: usize = 0,
+    apc_oversized: bool = false,
+
+    /// Equivalent to one apc_put per byte. Once a Kitty command reaches its
+    /// payload, the rest of the slice is appended in bulk.
+    pub fn apcPutSlice(self: *ResponseHandler, bytes: []const u8) void {
+        const room = GRAPHICS_MAX_APC_BYTES -| self.apc_bytes;
+        const take = @min(room, bytes.len);
+        if (take < bytes.len) self.apc_oversized = true;
+        self.apc_bytes += take;
+        var rem = bytes[0..take];
+        while (rem.len > 0) {
+            switch (self.apc.state) {
+                .kitty => |*parser| if (parser.state == .data) {
+                    parser.data.appendSlice(parser.arena.child_allocator, rem) catch {
+                        // Matches feed(): a failed append drops the command.
+                        self.apc.state.deinit();
+                        self.apc.state = .{ .ignore = {} };
+                    };
+                    return;
+                },
+                .ignore => return,
+                else => {},
+            }
+            self.apc.feed(self.alloc, rem[0]);
+            rem = rem[1..];
+        }
+    }
+
+    pub fn init(
+        alloc: Allocator,
+        terminal: *Terminal,
+        queue: *ResponseQueue,
+        title: *TitleState,
+        directory: *DirectoryState,
+        clipboard: *ClipboardState,
+        shell: *ShellState,
+        bell_count: *u32,
+        generation: *u32,
+        rejected_images: *u32,
+        positions: *PositionTracker,
+    ) ResponseHandler {
+        return .{
+            .alloc = alloc,
+            .inner = .init(terminal),
+            .queue = queue,
+            .title = title,
+            .directory = directory,
+            .clipboard = clipboard,
+            .shell = shell,
+            .bell_count = bell_count,
+            .synchronized_output_generation = generation,
+            .rejected_images = rejected_images,
+            .positions = positions,
+        };
+    }
+
+    pub fn deinit(self: *ResponseHandler) void {
+        self.apc.deinit();
+        self.inner.deinit();
+    }
+
+    fn transmission(cmd: *const KittyCommand) ?@TypeOf(cmd.control.transmit) {
+        return switch (cmd.control) {
+            .query => |value| value,
+            .transmit => |value| value,
+            .transmit_and_display => |value| value.transmission,
+            else => null,
+        };
+    }
+
+    fn rejectNonDirect(self: *ResponseHandler, cmd: *const KittyCommand) bool {
+        const tx = transmission(cmd) orelse return false;
+        if (tx.medium == .direct) return false;
+        // Do not call the upstream executor for non-direct media. In
+        // particular, this keeps file and shared-memory paths out of WASM.
+        self.rejected_images.* +%= 1;
+        return true;
+    }
+
+    fn handleKittyCommand(self: *ResponseHandler, cmd: *KittyCommand) void {
+        if (self.rejectNonDirect(cmd)) return;
+
+        const response = self.inner.terminal.kittyGraphics(self.alloc, cmd);
+
+        if (response) |resp| {
+            if (!resp.ok()) self.rejected_images.* +%= 1;
+            var buf: [1024]u8 = undefined;
+            var writer: std.Io.Writer = .fixed(&buf);
+            resp.encode(&writer) catch return;
+            const final = writer.buffered();
+            if (final.len > 2) self.queue.push(final);
+        }
+    }
+
+    pub fn vt(
+        self: *ResponseHandler,
+        comptime action: StreamAction.Tag,
+        value: StreamAction.Value(action),
+    ) !void {
+        // Full reset destroys the alternate screen. Release its pins first.
+        if (comptime action == .full_reset) {
+            self.positions.clear();
+            self.shell.* = .{ .changed = true };
+            self.directory.* = .{ .changed = true };
+        }
+        const screen = self.inner.terminal.screens.active;
+        defer if (screen != self.inner.terminal.screens.active) self.positions.clear();
+        switch (action) {
+            .set_mode => {
+                const was_synchronized = self.inner.terminal.modes.get(.synchronized_output);
+                try self.inner.vt(action, value);
+                if (value.mode == .synchronized_output and
+                    !was_synchronized and
+                    self.inner.terminal.modes.get(.synchronized_output))
+                {
+                    self.synchronized_output_generation.* +%= 1;
+                }
+            },
+            .restore_mode => {
+                const was_synchronized = self.inner.terminal.modes.get(.synchronized_output);
+                try self.inner.vt(action, value);
+                if (value.mode == .synchronized_output and
+                    !was_synchronized and
+                    self.inner.terminal.modes.get(.synchronized_output))
+                {
+                    self.synchronized_output_generation.* +%= 1;
+                }
+            },
+            .device_attributes => switch (value) {
+                // VT100 with the advanced video option, matching the control
+                // the parity suite measures against. Every code claimed here
+                // must have a handler; do not widen it without one.
+                .primary => self.queue.push("\x1b[?1;2c"),
+                else => {},
+            },
+            .device_status => switch (value.request) {
+                .operating_status => self.queue.push("\x1b[0n"),
+                .cursor_position => {
+                    const cursor = self.inner.terminal.screens.active.cursor;
+                    var buf: [RESPONSE_MAX_BYTES]u8 = undefined;
+                    const out = std.fmt.bufPrint(
+                        &buf,
+                        "\x1b[{d};{d}R",
+                        .{ cursor.y + 1, cursor.x + 1 },
+                    ) catch return;
+                    self.queue.push(out);
+                },
+                else => {},
+            },
+            .request_mode => {
+                // DECRPM reads the same mode state the set/reset path writes,
+                // so a reported mode cannot drift from the implemented one.
+                // Mode packs its number together with an ansi flag, and only
+                // DEC private modes carry the `?` prefix, so both come from
+                // the unpacked tag rather than the raw enum value.
+                const mode = value.mode;
+                const set = self.inner.terminal.modes.get(mode);
+                const tag: modes.ModeTag = @bitCast(@intFromEnum(mode));
+                var buf: [RESPONSE_MAX_BYTES]u8 = undefined;
+                const out = std.fmt.bufPrint(
+                    &buf,
+                    "\x1b[{s}{d};{d}$y",
+                    .{
+                        if (tag.ansi) "" else "?",
+                        tag.value,
+                        @as(u8, if (set) 1 else 2),
+                    },
+                ) catch return;
+                self.queue.push(out);
+            },
+            .request_mode_unknown => {
+                var buf: [RESPONSE_MAX_BYTES]u8 = undefined;
+                const out = std.fmt.bufPrint(
+                    &buf,
+                    "\x1b[{s}{d};0$y",
+                    .{ if (value.ansi) "" else "?", value.mode },
+                ) catch return;
+                self.queue.push(out);
+            },
+            .kitty_keyboard_query => {
+                var buf: [RESPONSE_MAX_BYTES]u8 = undefined;
+                const out = std.fmt.bufPrint(
+                    &buf,
+                    "\x1b[?{}u",
+                    .{self.inner.terminal.screens.active.kitty_keyboard.current().int()},
+                ) catch return;
+                self.queue.push(out);
+            },
+            .window_title => self.title.set(value.title),
+            .report_pwd => self.directory.set(value.url),
+            .clipboard_contents => self.clipboard.set(value.kind, value.data),
+            .semantic_prompt => {
+                try self.inner.vt(action, value);
+                if (self.inner.terminal.screens.active_key == .primary)
+                    self.shell.marker(value);
+            },
+            .bell => self.bell_count.* +|= 1,
+            .color_operation => {
+                try self.inner.vt(action, value);
+                var it = value.requests.constIterator(0);
+                while (it.next()) |request| {
+                    // DynamicRGB.reset stores the configured default in override.
+                    // Keep get() identical, but distinguish a reset from an OSC
+                    // set so the browser can return to its current CSS theme.
+                    if (request.* == .reset) {
+                        switch (request.reset) {
+                            .dynamic => |dynamic| switch (dynamic) {
+                                .foreground => self.inner.terminal.colors.foreground.override = null,
+                                .background => self.inner.terminal.colors.background.override = null,
+                                .cursor => self.inner.terminal.colors.cursor.override = null,
+                                else => {},
+                            },
+                            else => {},
+                        }
+                    }
+                    const target = switch (request.*) {
+                        .query => |target| target,
+                        else => continue,
+                    };
+                    const dynamic = switch (target) {
+                        .dynamic => |dynamic| dynamic,
+                        else => continue,
+                    };
+                    const terminal_color = switch (dynamic) {
+                        .foreground => self.inner.terminal.colors.foreground.get() orelse continue,
+                        .background => self.inner.terminal.colors.background.get() orelse continue,
+                        else => continue,
+                    };
+                    var buf: [RESPONSE_MAX_BYTES]u8 = undefined;
+                    const out = std.fmt.bufPrint(
+                        &buf,
+                        "\x1b]{d};rgb:{x:0>4}/{x:0>4}/{x:0>4}{s}",
+                        .{
+                            @intFromEnum(dynamic),
+                            @as(u16, terminal_color.r) * 257,
+                            @as(u16, terminal_color.g) * 257,
+                            @as(u16, terminal_color.b) * 257,
+                            value.terminator.string(),
+                        },
+                    ) catch continue;
+                    self.queue.push(out);
+                }
+            },
+            .apc_start => {
+                self.apc.start();
+                self.apc_bytes = 0;
+                self.apc_oversized = false;
+            },
+            .apc_put => {
+                if (self.apc_bytes >= GRAPHICS_MAX_APC_BYTES) {
+                    self.apc_oversized = true;
+                } else {
+                    self.apc_bytes += 1;
+                    self.apc.feed(self.alloc, value);
+                }
+            },
+            .apc_end => {
+                if (self.apc_oversized) {
+                    self.rejected_images.* +%= 1;
+                    self.apc_bytes = 0;
+                    self.apc_oversized = false;
+                    self.apc.state.deinit();
+                    self.apc.state = .{ .inactive = {} };
+                    return;
+                }
+                if (self.apc.end()) |cmd| {
+                    var owned_cmd = cmd;
+                    defer owned_cmd.deinit(self.alloc);
+                    switch (owned_cmd) {
+                        .kitty => |*kitty_cmd| self.handleKittyCommand(kitty_cmd),
+                    }
+                }
+                self.apc_bytes = 0;
+                self.apc_oversized = false;
+            },
+            else => try self.inner.vt(action, value),
+        }
+    }
+};
+
+const ResponseStream = vt.Stream(ResponseHandler);
+
+const State = struct {
+    terminal: Terminal,
+    stream: ResponseStream,
+    render: RenderState,
+    responses: ResponseQueue,
+    title: TitleState,
+    directory: DirectoryState,
+    clipboard: ClipboardState,
+    shell: ShellState,
+    bell_count: u32,
+    synchronized_output_generation: u32,
+    graphics_generation: u32,
+    graphics_fingerprint: u64,
+    graphics_screen: u32,
+    rejected_images: u32,
+    evicted_images: u32,
+    positions: PositionTracker,
+    /// Bytes of a `CSI ? 4 m` query the parser has consumed so far, so a
+    /// query split across writes is still answered.
+    modify_keys_query: u8,
+    /// History limit in lines; null keeps the byte budget passed to init.
+    scrollback_lines: ?u32,
+};
+
+fn stateFromPtr(ptr: usize) *State {
+    return @ptrFromInt(ptr);
+}
+
+fn activeStorage(state: *State) *KittyStorage {
+    return &state.terminal.screens.active.kitty_images;
+}
+
+/// Return a cheap, order-independent fingerprint of the browser-visible
+/// graphics state. Image bytes are deliberately not scanned here: completed
+/// Kitty images receive a new transmit_time on replacement, which is already
+/// the cache-busting component of imageVersionFor(). Placement coordinates and
+/// metadata are included because pinned images move as pages scroll, reflow,
+/// or are switched between the primary and alternate screens.
+fn graphicsFingerprint(state: *State) u64 {
+    var fingerprint: u64 = 0xcbf29ce484222325;
+
+    const mix = struct {
+        fn value(target: *u64, value_: u64) void {
+            // XOR makes the reduction independent of HashMap iteration order.
+            // The avalanche step makes adjacent IDs and coordinates contribute
+            // distinct bits without retaining any graphics metadata.
+            var mixed = value_;
+            mixed ^= mixed >> 30;
+            mixed *%= 0xbf58476d1ce4e5b9;
+            mixed ^= mixed >> 27;
+            mixed *%= 0x94d049bb133111eb;
+            mixed ^= mixed >> 31;
+            target.* ^= mixed;
+        }
+    }.value;
+
+    mix(&fingerprint, @intFromEnum(state.terminal.screens.active_key));
+    mix(&fingerprint, activeStorage(state).images.count());
+    var images = activeStorage(state).images.iterator();
+    while (images.next()) |entry| {
+        const image = entry.value_ptr;
+        mix(&fingerprint, image.id);
+        mix(&fingerprint, image.transmit_time);
+        mix(&fingerprint, image.width);
+        mix(&fingerprint, image.height);
+        mix(&fingerprint, @intFromEnum(image.format));
+        mix(&fingerprint, image.data.len);
+    }
+
+    mix(&fingerprint, activeStorage(state).placements.count());
+    var placements = activeStorage(state).placements.iterator();
+    const screen = state.terminal.screens.active;
+    while (placements.next()) |entry| {
+        const placement = entry.value_ptr;
+        const pin = switch (placement.location) {
+            .pin => |p| p,
+            .virtual => continue,
+        };
+        const point = screen.pages.pointFromPin(.screen, pin.*) orelse {
+            mix(&fingerprint, entry.key_ptr.image_id);
+            mix(&fingerprint, entry.key_ptr.placement_id.id);
+            mix(&fingerprint, @intFromEnum(entry.key_ptr.placement_id.tag));
+            mix(&fingerprint, 0xffffffffffffffff);
+            continue;
+        };
+        const coord = point.coord();
+        mix(&fingerprint, entry.key_ptr.image_id);
+        mix(&fingerprint, entry.key_ptr.placement_id.id);
+        mix(&fingerprint, @intFromEnum(entry.key_ptr.placement_id.tag));
+        mix(&fingerprint, coord.x);
+        mix(&fingerprint, coord.y);
+        mix(&fingerprint, placement.x_offset);
+        mix(&fingerprint, placement.y_offset);
+        mix(&fingerprint, placement.source_x);
+        mix(&fingerprint, placement.source_y);
+        mix(&fingerprint, placement.source_width);
+        mix(&fingerprint, placement.source_height);
+        mix(&fingerprint, placement.columns);
+        mix(&fingerprint, placement.rows);
+        mix(&fingerprint, @as(u64, @as(u32, @bitCast(placement.z))));
+    }
+    return fingerprint;
+}
+
+/// Refresh the browser-facing generation only when Ghostty says the active
+/// image state may have changed. Ordinary text writes do not dirty Kitty
+/// storage, so they avoid both the metadata scan and the DOM pixel repaint.
+/// Switching screens is checked separately because the newly active storage
+/// may not itself have been marked dirty.
+fn refreshGraphicsGeneration(state: *State) void {
+    const screen = @intFromEnum(state.terminal.screens.active_key);
+    const storage = activeStorage(state);
+    if (!storage.dirty and state.graphics_screen == screen) return;
+
+    const fingerprint = graphicsFingerprint(state);
+    if (fingerprint != state.graphics_fingerprint) {
+        state.graphics_generation +%= 1;
+        state.graphics_fingerprint = fingerprint;
+    }
+    state.graphics_screen = screen;
+    // This field is informational in upstream Ghostty. Clearing it here
+    // makes it a useful change hint for this adapter without affecting the
+    // terminal's image storage or compositor behavior.
+    storage.dirty = false;
+}
+
+fn writeU32(buf: [*]u8, offset: usize, value: u32) void {
+    std.mem.writeInt(u32, buf[offset..][0..4], value, .little);
+}
+
+fn writeI32(buf: [*]u8, offset: usize, value: i32) void {
+    std.mem.writeInt(i32, buf[offset..][0..4], value, .little);
+}
+
+fn graphicsImages(state: *State, buf: [*]u8, max_records: u32) u32 {
+    const capacity = @min(@as(usize, max_records), GRAPHICS_MAX_RECORDS);
+    var count: usize = 0;
+    var it = activeStorage(state).images.iterator();
+    while (it.next()) |entry| {
+        if (count == capacity) break;
+        const image = entry.value_ptr;
+        const offset = count * GRAPHICS_IMAGE_RECORD_BYTES;
+        writeU32(buf, offset, image.id);
+        writeU32(buf, offset + 4, imageVersionFor(state, image.id));
+        writeU32(buf, offset + 8, image.width);
+        writeU32(buf, offset + 12, image.height);
+        count += 1;
+    }
+    return @intCast(count);
+}
+
+fn imageVersionFor(state: *const State, image_id: u32) u32 {
+    const storage: *const KittyStorage = &state.terminal.screens.active.kitty_images;
+    const image = storage.imageById(image_id) orelse return 1;
+    // Ghostty's image loader stamps every completed image with a monotonic
+    // transmit counter. Use that resident value as the cache-busting version
+    // instead of keeping a side map of every ID ever mentioned by a terminal.
+    // This means evicted/deleted IDs release all version metadata immediately.
+    var base: u32 = @truncate(image.transmit_time);
+    base &= 0x7fffffff;
+    if (base == 0) base = 1;
+    return base | (@as(u32, @intFromEnum(state.terminal.screens.active_key)) << 31);
+}
+
+fn graphicsPlacements(state: *State, buf: [*]u8, max_records: u32) u32 {
+    const capacity = @min(@as(usize, max_records), GRAPHICS_MAX_RECORDS);
+    var count: usize = 0;
+    var it = activeStorage(state).placements.iterator();
+    const screen = state.terminal.screens.active;
+    const hidden = hiddenRows(state);
+    while (it.next()) |entry| {
+        if (count == capacity) break;
+        const placement = entry.value_ptr;
+        const pin = switch (placement.location) {
+            .pin => |p| p,
+            .virtual => continue,
+        };
+        const point = screen.pages.pointFromPin(.screen, pin.*) orelse continue;
+        const image = activeStorage(state).imageById(entry.key_ptr.image_id) orelse continue;
+        const coord = point.coord();
+        // Placements anchored in rows hidden past the line limit are gone
+        // for the host, like those in discarded rows.
+        if (coord.y < hidden) continue;
+        const placement_id = entry.key_ptr.placement_id.id;
+        const placement_tag: u32 = @intFromEnum(entry.key_ptr.placement_id.tag);
+        const offset = count * GRAPHICS_PLACEMENT_RECORD_BYTES;
+        writeU32(buf, offset, image.id);
+        writeU32(buf, offset + 4, placement_id);
+        writeU32(buf, offset + 8, imageVersionFor(state, image.id));
+        writeU32(buf, offset + 12, @intCast(coord.y - hidden));
+        writeU32(buf, offset + 16, coord.x);
+        writeU32(buf, offset + 20, placement.x_offset);
+        writeU32(buf, offset + 24, placement.y_offset);
+        writeU32(buf, offset + 28, placement.source_x);
+        writeU32(buf, offset + 32, placement.source_y);
+        writeU32(buf, offset + 36, placement.source_width);
+        writeU32(buf, offset + 40, placement.source_height);
+        writeU32(buf, offset + 44, placement.columns);
+        writeU32(buf, offset + 48, placement.rows);
+        writeI32(buf, offset + 52, placement.z);
+        writeU32(buf, offset + 56, placement_tag);
+        count += 1;
+    }
+    return @intCast(count);
+}
+
+// -- Lifecycle --------------------------------------------------
+
+fn themeRgb(value: u32) color.RGB {
+    return .{ .r = @truncate(value >> 16), .g = @truncate(value >> 8), .b = @truncate(value) };
+}
+
+// Host configuration is separate from OSC application overrides and stream parsing.
+export fn set_theme_colors(ptr: usize, values: [*]const u32) void {
+    const state = stateFromPtr(ptr);
+    const colors = &state.terminal.colors;
+    colors.foreground.default = themeRgb(values[0]);
+    colors.background.default = themeRgb(values[1]);
+    colors.cursor.default = themeRgb(values[2]);
+    var palette = colors.palette.original;
+    for (0..16) |index| palette[index] = themeRgb(values[index + 3]);
+    colors.palette.changeDefault(palette);
+    state.terminal.flags.dirty.palette = true;
+}
+
+export fn init(
+    cols: u16,
+    rows: u16,
+    max_scrollback: u32,
+    foreground_rgb: u32,
+    background_rgb: u32,
+    image_storage_limit: u32,
+) usize {
+    const state = allocator.create(State) catch return 0;
+    state.terminal = Terminal.init(allocator, .{
+        .cols = cols,
+        .rows = rows,
+        .max_scrollback = max_scrollback,
+        .kitty_image_storage_limit = image_storage_limit,
+        .colors = .{
+            .background = .init(.{
+                .r = @truncate(background_rgb >> 16),
+                .g = @truncate(background_rgb >> 8),
+                .b = @truncate(background_rgb),
+            }),
+            .foreground = .init(.{
+                .r = @truncate(foreground_rgb >> 16),
+                .g = @truncate(foreground_rgb >> 8),
+                .b = @truncate(foreground_rgb),
+            }),
+            .cursor = .unset,
+            .palette = .default,
+        },
+        .default_modes = .{ .grapheme_cluster = true },
+    }) catch {
+        allocator.destroy(state);
+        return 0;
+    };
+    state.responses = .{};
+    state.title = .{};
+    state.directory = .{};
+    state.clipboard = .{};
+    state.shell = .{};
+    state.bell_count = 0;
+    state.synchronized_output_generation = 0;
+    state.graphics_generation = 0;
+    state.rejected_images = 0;
+    state.evicted_images = 0;
+    state.positions = .{};
+    state.modify_keys_query = 0;
+    state.scrollback_lines = null;
+    state.stream = .initAlloc(allocator, .init(
+        allocator,
+        &state.terminal,
+        &state.responses,
+        &state.title,
+        &state.directory,
+        &state.clipboard,
+        &state.shell,
+        &state.bell_count,
+        &state.synchronized_output_generation,
+        &state.rejected_images,
+        &state.positions,
+    ));
+    state.render = RenderState.empty;
+    state.graphics_fingerprint = graphicsFingerprint(state);
+    state.graphics_screen = @intFromEnum(state.terminal.screens.active_key);
+    activeStorage(state).dirty = false;
+    return @intFromPtr(state);
+}
+
+export fn deinit(ptr: usize) void {
+    const state = stateFromPtr(ptr);
+    state.positions.clear();
+    state.render.deinit(allocator);
+    state.stream.deinit();
+    state.terminal.deinit(allocator);
+    allocator.destroy(state);
+}
+
+export fn resize(ptr: usize, cols: u16, rows: u16) void {
+    const state = stateFromPtr(ptr);
+    state.terminal.resize(allocator, cols, rows) catch {};
+    // Rows per page depend on the width, so the byte budget follows it.
+    if (state.scrollback_lines) |lines| applyScrollbackLines(state, lines);
+    refreshGraphicsGeneration(state);
+}
+
+/// Keep `lines` rows of history. Ghostty budgets scrollback in bytes and
+/// prunes whole pages, so this converts lines to standard pages at the current
+/// width; rows retained past the limit are reported as discarded.
+export fn set_scrollback_lines(ptr: usize, lines: u32) void {
+    const state = stateFromPtr(ptr);
+    // Rows hidden under the old limit were already reported as discarded, so
+    // they go before a higher limit could show them again.
+    dropHiddenHistory(state);
+    state.scrollback_lines = lines;
+    applyScrollbackLines(state, lines);
+    dropHiddenHistory(state);
+}
+
+/// Erase primary history rows past the line limit and count them as
+/// discarded, as Ghostty does when it prunes a page.
+fn dropHiddenHistory(state: *State) void {
+    const lines = state.scrollback_lines orelse return;
+    const primary = state.terminal.screens.get(.primary) orelse return;
+    const pages = &primary.pages;
+    const excess = (pages.total_rows -| state.terminal.rows) -| lines;
+    if (excess == 0) return;
+    for (state.positions.entries) |slot| if (slot) |entry| {
+        if (entry.screen != primary) continue;
+        const pt = pages.pointFromPin(.history, entry.pin.*) orelse continue;
+        if (pt.history.y < excess) entry.pin.garbage = true;
+    };
+    const storage = &primary.kitty_images;
+    var it = storage.placements.iterator();
+    while (it.next()) |entry| {
+        const pin = switch (entry.value_ptr.location) {
+            .pin => |p| p,
+            .virtual => continue,
+        };
+        const pt = pages.pointFromPin(.history, pin.*) orelse continue;
+        if (pt.history.y >= excess) continue;
+        entry.value_ptr.deinit(primary);
+        storage.placements.removeByPtr(entry.key_ptr);
+        storage.dirty = true;
+    }
+    primary.eraseRows(
+        .{ .history = .{} },
+        .{ .history = .{ .y = @intCast(excess - 1) } },
+    );
+    pages.discarded_rows += excess;
+}
+
+fn applyScrollbackLines(state: *State, lines: u32) void {
+    const page = vt.page;
+    const cap = page.std_capacity.adjust(.{ .cols = state.terminal.cols }) catch return;
+    // The budget covers every page, the active area's included, and pruning
+    // drops a whole page before the next one fills: two spare pages keep at
+    // least `lines` rows of history at all times.
+    const history = std.math.divCeil(usize, lines, cap.rows) catch return;
+    const active = std.math.divCeil(usize, state.terminal.rows, cap.rows) catch return;
+    const pages = if (lines == 0) 0 else history + active + 2;
+    const bytes = pages *| page.Page.layout(page.std_capacity).total_size;
+    const primary = state.terminal.screens.get(.primary) orelse return;
+    primary.pages.explicit_max_size = bytes;
+}
+
+// -- Data input -------------------------------------------------
+
+export fn write(ptr: usize, data_ptr: [*]const u8, data_len: u32) void {
+    const state = stateFromPtr(ptr);
+    const stream = &state.stream;
+    var rem = data_ptr[0..data_len];
+    while (rem.len > 0) {
+        // Without SIMD every byte takes one parser step. These fast paths
+        // cover the common cases and leave everything else to the parser.
+        if (stream.parser.state == .sos_pm_apc_string) {
+            // Printable bytes inside an APC string are all apc_put actions;
+            // hand them over in one slice instead of one parser step each.
+            const run = apcPrintableRun(rem);
+            if (run > 0) {
+                stream.handler.apcPutSlice(rem[0..run]);
+                rem = rem[run..];
+                continue;
+            }
+        } else if (stream.parser.state == .ground and stream.utf8decoder.state == 0) {
+            const used = if (rem[0] == 0x1b)
+                queryModifyKeys(state, rem) orelse fastCsi(stream, rem)
+            else
+                fastPrint(stream, rem);
+            if (used > 0) {
+                rem = rem[used..];
+                continue;
+            }
+        }
+        const from_ground = stream.parser.state == .ground;
+        stream.next(rem[0]) catch {};
+        trackModifyKeysQuery(state, rem[0], from_ground);
+        rem = rem[1..];
+    }
+    refreshGraphicsGeneration(state);
+}
+
+const modify_keys_query = "\x1b[?4m";
+
+/// Answers XTQMODKEYS for modifyOtherKeys (`CSI ? 4 m`), which upstream
+/// Ghostty ignores. Returns the bytes consumed, or null for anything else.
+fn queryModifyKeys(state: *State, bytes: []const u8) ?usize {
+    if (!std.mem.startsWith(u8, bytes, modify_keys_query)) return null;
+    answerModifyKeysQuery(state);
+    return modify_keys_query.len;
+}
+
+/// Follows a query fed to the parser one byte at a time, as happens when a
+/// write ends partway through it.
+fn trackModifyKeysQuery(state: *State, byte: u8, from_ground: bool) void {
+    const matched = state.modify_keys_query;
+    if (matched > 0 and byte == modify_keys_query[matched]) {
+        if (matched + 1 == modify_keys_query.len) {
+            state.modify_keys_query = 0;
+            answerModifyKeysQuery(state);
+        } else {
+            state.modify_keys_query = matched + 1;
+        }
+        return;
+    }
+    // ESC starts a new sequence from ground or inside an unfinished one.
+    state.modify_keys_query = if (byte == 0x1b and (from_ground or matched > 0)) 1 else 0;
+}
+
+fn answerModifyKeysQuery(state: *State) void {
+    state.stream.handler.queue.push(
+        if (state.terminal.flags.modify_other_keys_2) "\x1b[>4;2m" else "\x1b[>4;0m",
+    );
+}
+
+/// Dispatches a complete `ESC [ params final` with only digits and `;`, as
+/// the parser would. Returns 0, consuming nothing, for anything else: private
+/// markers, intermediates, colons, controls, long parameters, too many
+/// parameters, or a sequence cut off by the end of the write.
+fn fastCsi(stream: *ResponseStream, bytes: []const u8) usize {
+    if (bytes.len < 3 or bytes[1] != '[') return 0;
+    var params: [vt.Parser.MAX_PARAMS]u16 = undefined;
+    var count: usize = 0;
+    var acc: u32 = 0;
+    var digits: u8 = 0;
+    var i: usize = 2;
+    while (i < bytes.len) : (i += 1) {
+        const c = bytes[i];
+        switch (c) {
+            '0'...'9' => {
+                // Five digits cannot wrap; the parser saturates at u16 max.
+                if (digits == 5) return 0;
+                acc = acc * 10 + (c - '0');
+                digits += 1;
+            },
+            ';' => {
+                if (count + 1 >= vt.Parser.MAX_PARAMS) return 0;
+                params[count] = @intCast(@min(acc, std.math.maxInt(u16)));
+                count += 1;
+                acc = 0;
+                digits = 0;
+            },
+            0x40...0x7e => {
+                if (digits > 0) {
+                    if (count + 1 >= vt.Parser.MAX_PARAMS) return 0;
+                    params[count] = @intCast(@min(acc, std.math.maxInt(u16)));
+                    count += 1;
+                }
+                var intermediates: [0]u8 = .{};
+                stream.csiDispatch(.{
+                    .intermediates = &intermediates,
+                    .params = params[0..count],
+                    .params_sep = .initEmpty(),
+                    .final = c,
+                }) catch {};
+                return i + 1;
+            },
+            else => return 0,
+        }
+    }
+    return 0;
+}
+
+/// Prints a run of complete, valid UTF-8 text that holds no controls, DEL or
+/// C1 code points. Returns the bytes consumed; 0 leaves the byte to the parser.
+fn fastPrint(stream: *ResponseStream, bytes: []const u8) usize {
+    var i: usize = 0;
+    while (i < bytes.len) {
+        const b = bytes[i];
+        if (b < 0x80) {
+            if (b < 0x20 or b == 0x7f) break;
+            stream.print(b) catch {};
+            i += 1;
+            continue;
+        }
+        const len = std.unicode.utf8ByteSequenceLength(b) catch break;
+        if (i + len > bytes.len) break;
+        const cp = std.unicode.utf8Decode(bytes[i .. i + len]) catch break;
+        if (cp < 0xa0) break;
+        stream.print(cp) catch {};
+        i += len;
+    }
+    return i;
+}
+
+/// Length of the leading run of bytes that the parser maps to apc_put
+/// without leaving the APC string state.
+fn apcPrintableRun(bytes: []const u8) usize {
+    var n: usize = 0;
+    while (n < bytes.len and bytes[n] >= 0x20 and bytes[n] <= 0x7F) n += 1;
+    return n;
+}
+
+// A negative length means no pending title. Zero is a valid empty title.
+// Reading the length consumes the change, matching TerminalCore.getTitle().
+export fn get_title_len(ptr: usize) i32 {
+    const title = &stateFromPtr(ptr).title;
+    if (!title.changed) return -1;
+    title.changed = false;
+    return title.len;
+}
+
+export fn get_title_ptr(ptr: usize) [*]const u8 {
+    return &stateFromPtr(ptr).title.bytes;
+}
+
+// -1 is unchanged; an empty report clears the host's displayed directory.
+export fn get_working_directory_len(ptr: usize) i32 {
+    const directory = &stateFromPtr(ptr).directory;
+    if (!directory.changed) return -1;
+    directory.changed = false;
+    return directory.len;
+}
+
+export fn get_working_directory_ptr(ptr: usize) [*]const u8 {
+    return &stateFromPtr(ptr).directory.bytes;
+}
+
+export fn get_bell_count(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    const count = state.bell_count;
+    state.bell_count = 0;
+    return count;
+}
+
+export fn get_clipboard_write_len(ptr: usize) i32 {
+    const clipboard = &stateFromPtr(ptr).clipboard;
+    if (!clipboard.changed) return -1;
+    clipboard.changed = false;
+    return @intCast(clipboard.len);
+}
+
+export fn get_clipboard_write_ptr(ptr: usize) [*]const u8 {
+    return &stateFromPtr(ptr).clipboard.bytes;
+}
+
+// -1 means unchanged; phase 0 explicitly resets the host's shell indicator.
+export fn get_shell_phase(ptr: usize) i32 {
+    const shell = &stateFromPtr(ptr).shell;
+    if (!shell.changed) return -1;
+    shell.changed = false;
+    return @intFromEnum(shell.phase);
+}
+
+export fn get_shell_exit_code(ptr: usize) f64 {
+    return if (stateFromPtr(ptr).shell.exit_code) |code|
+        @floatFromInt(code)
+    else
+        std.math.nan(f64);
+}
+
+// -- Render state -----------------------------------------------
+
+export fn update(ptr: usize) void {
+    const state = stateFromPtr(ptr);
+    state.render.update(allocator, &state.terminal) catch {};
+}
+
+/// Application default-color overrides. An unset/reset channel follows host CSS.
+export fn get_color_override(ptr: usize, target: u8) i32 {
+    const colors = &stateFromPtr(ptr).terminal.colors;
+    const rgb = (switch (target) {
+        0 => colors.foreground.override,
+        1 => colors.background.override,
+        2 => colors.cursor.override,
+        else => null,
+    }) orelse return -1;
+    return (@as(i32, rgb.r) << 16) | (@as(i32, rgb.g) << 8) | @as(i32, rgb.b);
+}
+
+fn packFlags(style: Style) u8 {
+    var f: u8 = 0;
+    if (style.flags.bold) f |= 0x01;
+    if (style.flags.faint) f |= 0x02;
+    if (style.flags.italic) f |= 0x04;
+    if (style.flags.underline != .none) f |= 0x08;
+    if (style.flags.blink) f |= 0x10;
+    if (style.flags.inverse) f |= 0x20;
+    if (style.flags.invisible) f |= 0x40;
+    if (style.flags.strikethrough) f |= 0x80;
+    return f;
+}
+
+fn resolveRgb(c: Style.Color, palette: *const color.Palette) color.RGB {
+    return switch (c) {
+        .none => .{},
+        .palette => |idx| palette[idx],
+        .rgb => |rgb| rgb,
+    };
+}
+
+fn cellWidth(cell: vt.Cell) u8 {
+    return switch (cell.wide) {
+        .narrow => 1,
+        .wide => 2,
+        // Width 0 means "continuation of the wide cell to my left", which the
+        // renderer skips. Only the tail is that. A spacer head is the blank
+        // left at the right margin when a wide glyph wrapped to the next row:
+        // it follows a narrow cell and owns its column.
+        .spacer_tail => 0,
+        .spacer_head => 1,
+    };
+}
+
+/// Encode a viewport or history cell in the requested versioned layout.
+fn encodeCell(
+    comptime cell_bytes: usize,
+    raw: *const vt.Cell,
+    style: Style,
+    palette: *const color.Palette,
+    out: *[cell_bytes]u8,
+) void {
+    const cp: u32 = switch (raw.content_tag) {
+        .codepoint, .codepoint_grapheme => raw.content.codepoint,
+        else => 0,
+    };
+
+    const has_fg = style.fg_color != .none;
+    const has_bg_style = style.bg_color != .none;
+    const has_bg_cell = raw.content_tag == .bg_color_palette or raw.content_tag == .bg_color_rgb;
+    const has_bg = has_bg_style or has_bg_cell;
+
+    const fg = if (has_fg) resolveRgb(style.fg_color, palette) else color.RGB{};
+    const bg = if (has_bg_cell) switch (raw.content_tag) {
+        .bg_color_palette => palette[raw.content.color_palette],
+        .bg_color_rgb => blk: {
+            const c = raw.content.color_rgb;
+            break :blk color.RGB{ .r = c.r, .g = c.g, .b = c.b };
+        },
+        else => unreachable,
+    } else if (has_bg_style) resolveRgb(style.bg_color, palette) else color.RGB{};
+
+    std.mem.writeInt(u32, out[0..4], cp, .little);
+    out[4] = fg.r;
+    out[5] = fg.g;
+    out[6] = fg.b;
+    out[7] = bg.r;
+    out[8] = bg.g;
+    out[9] = bg.b;
+    out[10] = packFlags(style);
+    out[11] = cellWidth(raw.*);
+    out[12] = (if (has_fg) @as(u8, 1) else 0) | (if (has_bg) @as(u8, 2) else 0);
+    out[13] = (if (raw.content_tag == .codepoint_grapheme) @as(u8, 1) else 0) |
+        (if (raw.hyperlink) @as(u8, 2) else 0) |
+        (if (raw.wide == .spacer_head) @as(u8, 4) else 0);
+    out[14] = 0;
+    out[15] = 0;
+    if (cell_bytes == CELL_BYTES_V2) {
+        out[16] = switch (style.flags.underline) {
+            .none => 0,
+            .single => 1,
+            .double => 2,
+            .curly => 3,
+            .dotted => 4,
+            .dashed => 5,
+        };
+        const underline = style.underlineColor(palette);
+        if (underline != null) out[12] |= 4;
+        const rgb = underline orelse color.RGB{};
+        out[17] = rgb.r;
+        out[18] = rgb.g;
+        out[19] = rgb.b;
+    }
+}
+
+/// Write the entire viewport into a JS-provided flat buffer.
+/// Returns the number of cells written (rows * cols).
+export fn get_viewport(ptr: usize, buf_ptr: [*]u8) u32 {
+    return getViewport(CELL_BYTES, ptr, buf_ptr);
+}
+
+export fn get_viewport_v2(ptr: usize, buf_ptr: [*]u8) u32 {
+    return getViewport(CELL_BYTES_V2, ptr, buf_ptr);
+}
+
+fn getViewport(comptime cell_bytes: usize, ptr: usize, buf_ptr: [*]u8) u32 {
+    const state = stateFromPtr(ptr);
+    const rs = &state.render;
+    const rows = rs.rows;
+    const cols = rs.cols;
+    const palette = &rs.colors.palette;
+
+    const row_cells_slice = rs.row_data.items(.cells);
+
+    var offset: usize = 0;
+    for (0..rows) |y| {
+        if (y >= row_cells_slice.len) {
+            // Pad remaining rows with blank cells
+            const remaining = (@as(usize, rows) - y) * @as(usize, cols) * cell_bytes;
+            @memset(buf_ptr[offset .. offset + remaining], 0);
+            break;
+        }
+        const cells_mal = row_cells_slice[y];
+        const raw_cells = cells_mal.items(.raw);
+        const style_cells = cells_mal.items(.style);
+
+        for (0..cols) |x| {
+            if (x >= raw_cells.len) {
+                @memset(buf_ptr[offset .. offset + cell_bytes], 0);
+                offset += cell_bytes;
+                continue;
+            }
+            const raw = raw_cells[x];
+            // RenderState.Cell.style is undefined unless the raw cell carries a
+            // non-default style_id. The style array is reused across render
+            // passes, so reading it unconditionally resurfaces the style of
+            // whatever occupied this cell before, including a different screen.
+            const style: Style = if (raw.style_id != 0) style_cells[x] else .{};
+
+            encodeCell(cell_bytes, &raw, style, palette, buf_ptr[offset..][0..cell_bytes]);
+            offset += cell_bytes;
+        }
+    }
+
+    return @as(u32, rows) * @as(u32, cols);
+}
+
+fn encodeGrapheme(
+    base: u21,
+    extras: []const u21,
+    buf_addr: usize,
+    buf_len: u32,
+) u32 {
+    if (extras.len == 0) return 0;
+    var required: usize = 0;
+    for (0..extras.len + 1) |i| {
+        const cp = if (i == 0) base else extras[i - 1];
+        required += std.unicode.utf8CodepointSequenceLength(cp) catch return 0;
+    }
+    if (required > buf_len or buf_addr == 0) return @intCast(required);
+
+    const buf_ptr: [*]u8 = @ptrFromInt(buf_addr);
+    var offset: usize = 0;
+    for (0..extras.len + 1) |i| {
+        const cp = if (i == 0) base else extras[i - 1];
+        var utf8: [4]u8 = undefined;
+        const len = std.unicode.utf8Encode(cp, &utf8) catch return 0;
+        @memcpy(buf_ptr[offset .. offset + len], utf8[0..len]);
+        offset += len;
+    }
+    return @intCast(offset);
+}
+
+export fn get_viewport_grapheme(
+    ptr: usize,
+    row: u32,
+    col: u32,
+    buf_ptr: usize,
+    buf_len: u32,
+) u32 {
+    const state = stateFromPtr(ptr);
+    const rs = &state.render;
+    if (row >= rs.rows or col >= rs.cols) return 0;
+    const row_cells = rs.row_data.items(.cells);
+    if (row >= row_cells.len) return 0;
+    const cells = row_cells[row];
+    const raw = cells.items(.raw);
+    if (col >= raw.len or raw[col].content_tag != .codepoint_grapheme) return 0;
+    return encodeGrapheme(
+        raw[col].content.codepoint,
+        cells.items(.grapheme)[col],
+        buf_ptr,
+        buf_len,
+    );
+}
+
+fn encodeHyperlink(
+    pin: vt.Pin,
+    col: u32,
+    buf_addr: usize,
+    buf_len: u32,
+) u32 {
+    const cells = pin.cells(.all);
+    if (col >= cells.len or !cells[col].hyperlink) return 0;
+    const page = &pin.node.data;
+    const link_id = page.lookupHyperlink(&cells[col]) orelse return 0;
+    const entry = page.hyperlink_set.get(page.memory, link_id);
+    const uri = entry.uri.slice(page.memory);
+    const explicit_id: []const u8 = switch (entry.id) {
+        .explicit => |value| value.slice(page.memory),
+        .implicit => "",
+    };
+    var implicit_buf: [20]u8 = undefined;
+    const implicit_id: []const u8 = switch (entry.id) {
+        .explicit => "",
+        .implicit => |value| std.fmt.bufPrint(&implicit_buf, "{d}", .{value}) catch return 0,
+    };
+    const required = uri.len + explicit_id.len + implicit_id.len + 2;
+    if (required > buf_len or buf_addr == 0) return @intCast(required);
+
+    const out: [*]u8 = @ptrFromInt(buf_addr);
+    var offset: usize = 0;
+    @memcpy(out[offset .. offset + uri.len], uri);
+    offset += uri.len;
+    out[offset] = 0;
+    offset += 1;
+    @memcpy(out[offset .. offset + explicit_id.len], explicit_id);
+    offset += explicit_id.len;
+    out[offset] = 0;
+    offset += 1;
+    @memcpy(out[offset .. offset + implicit_id.len], implicit_id);
+    return @intCast(required);
+}
+
+export fn get_viewport_hyperlink(
+    ptr: usize,
+    row: u32,
+    col: u32,
+    buf_ptr: usize,
+    buf_len: u32,
+) u32 {
+    const state = stateFromPtr(ptr);
+    const rs = &state.render;
+    if (row >= rs.rows or col >= rs.cols) return 0;
+    const pins = rs.row_data.items(.pin);
+    if (row >= pins.len) return 0;
+    return encodeHyperlink(pins[row], col, buf_ptr, buf_len);
+}
+
+// -- Dirty tracking ---------------------------------------------
+
+export fn is_dirty(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return switch (state.render.dirty) {
+        .false => 0,
+        .partial => 1,
+        .full => 2,
+    };
+}
+
+export fn is_dirty_row(ptr: usize, row: u16) u32 {
+    const state = stateFromPtr(ptr);
+    const row_dirty = state.render.row_data.items(.dirty);
+    if (row >= row_dirty.len) return 0;
+    return if (row_dirty[row]) 1 else 0;
+}
+
+export fn clear_dirty(ptr: usize) void {
+    const state = stateFromPtr(ptr);
+    state.render.dirty = .false;
+    const row_dirty = state.render.row_data.items(.dirty);
+    for (row_dirty) |*d| d.* = false;
+}
+
+// -- Cursor -----------------------------------------------------
+
+export fn get_cursor_row(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return state.render.cursor.active.y;
+}
+
+export fn get_cursor_col(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return state.render.cursor.active.x;
+}
+
+export fn get_cursor_visible(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return if (state.render.cursor.visible) 1 else 0;
+}
+
+export fn get_cursor_shape(ptr: usize) u32 {
+    return switch (stateFromPtr(ptr).render.cursor.visual_style) {
+        .block, .block_hollow => 0,
+        .underline => 1,
+        .bar => 2,
+    };
+}
+
+export fn get_cursor_blinking(ptr: usize) u32 {
+    return if (stateFromPtr(ptr).render.cursor.blinking) 1 else 0;
+}
+
+// -- Modes ------------------------------------------------------
+
+export fn cursor_keys_app(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return if (state.terminal.modes.get(.cursor_keys)) 1 else 0;
+}
+
+export fn bracketed_paste(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return if (state.terminal.modes.get(.bracketed_paste)) 1 else 0;
+}
+
+export fn using_alt_screen(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return if (state.terminal.screens.active_key != .primary) 1 else 0;
+}
+
+export fn mouse_tracking(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return switch (state.terminal.flags.mouse_event) {
+        .normal => 1000,
+        .button => 1002,
+        .any => 1003,
+        else => 0,
+    };
+}
+
+export fn mouse_sgr(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return if (state.terminal.flags.mouse_format == .sgr) 1 else 0;
+}
+
+export fn mouse_encoding(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return @intFromEnum(state.terminal.flags.mouse_format);
+}
+
+export fn focus_events(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return if (state.terminal.modes.get(.focus_event)) 1 else 0;
+}
+
+export fn synchronized_output(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return if (state.terminal.modes.get(.synchronized_output)) 1 else 0;
+}
+
+export fn synchronized_output_generation(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return state.synchronized_output_generation;
+}
+
+/// 2 while xterm modifyOtherKeys level 2 is active, otherwise 0.
+export fn modify_other_keys(ptr: usize) u32 {
+    return if (stateFromPtr(ptr).terminal.flags.modify_other_keys_2) 2 else 0;
+}
+
+export fn kitty_keyboard_flags(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return state.terminal.screens.active.kitty_keyboard.current().int();
+}
+
+// -- Graphics ---------------------------------------------------
+
+export fn graphics_generation(ptr: usize) u32 {
+    return stateFromPtr(ptr).graphics_generation;
+}
+
+export fn graphics_image_count(ptr: usize) u32 {
+    return @intCast(activeStorage(stateFromPtr(ptr)).images.count());
+}
+
+export fn graphics_placement_count(ptr: usize) u32 {
+    return @intCast(activeStorage(stateFromPtr(ptr)).placements.count());
+}
+
+export fn graphics_bytes_used(ptr: usize) u32 {
+    return @intCast(@min(activeStorage(stateFromPtr(ptr)).total_bytes, std.math.maxInt(u32)));
+}
+
+export fn graphics_capacity(ptr: usize) u32 {
+    return @intCast(@min(activeStorage(stateFromPtr(ptr)).total_limit, std.math.maxInt(u32)));
+}
+
+export fn graphics_rejected(ptr: usize) u32 {
+    return stateFromPtr(ptr).rejected_images;
+}
+
+export fn graphics_evicted(ptr: usize) u32 {
+    return @intCast(@min(activeStorage(stateFromPtr(ptr)).evicted_count, std.math.maxInt(u32)));
+}
+
+export fn graphics_images(ptr: usize, buf_ptr: usize, max_records: u32) u32 {
+    if (buf_ptr == 0) return 0;
+    return graphicsImages(stateFromPtr(ptr), @ptrFromInt(buf_ptr), max_records);
+}
+
+export fn graphics_placements(ptr: usize, buf_ptr: usize, max_records: u32) u32 {
+    if (buf_ptr == 0) return 0;
+    return graphicsPlacements(stateFromPtr(ptr), @ptrFromInt(buf_ptr), max_records);
+}
+
+fn findImage(state: *State, image_id: u32, version: u32) ?KittyImage {
+    const image = activeStorage(state).imageById(image_id) orelse return null;
+    if (imageVersionFor(state, image_id) != version) return null;
+    if (image.format != .rgb and image.format != .rgba) return null;
+    if (image.width == 0 or image.height == 0) return null;
+    const bpp = image.format.bpp();
+    const expected = std.math.mul(
+        usize,
+        std.math.mul(usize, image.width, image.height) catch return null,
+        bpp,
+    ) catch return null;
+    if (image.data.len != expected) return null;
+    return image;
+}
+
+export fn graphics_image_size(ptr: usize, image_id: u32, version: u32) u32 {
+    const image = findImage(stateFromPtr(ptr), image_id, version) orelse return 0;
+    const size = std.math.mul(
+        usize,
+        std.math.mul(usize, image.width, image.height) catch return 0,
+        4,
+    ) catch return 0;
+    return @intCast(size);
+}
+
+export fn graphics_image_copy(ptr: usize, image_id: u32, version: u32, buf_ptr: usize, buf_len: u32) u32 {
+    const image = findImage(stateFromPtr(ptr), image_id, version) orelse return 0;
+    const size = std.math.mul(
+        usize,
+        std.math.mul(usize, image.width, image.height) catch return 0,
+        4,
+    ) catch return 0;
+    if (buf_ptr == 0 or buf_len < size) return 0;
+    const out = @as([*]u8, @ptrFromInt(buf_ptr))[0..size];
+    switch (image.format) {
+        .rgba => @memcpy(out, image.data),
+        .rgb => for (0..@as(usize, image.width) * image.height) |i| {
+            const src = i * 3;
+            const dst = i * 4;
+            out[dst] = image.data[src];
+            out[dst + 1] = image.data[src + 1];
+            out[dst + 2] = image.data[src + 2];
+            out[dst + 3] = 255;
+        },
+        else => return 0,
+    }
+    return @intCast(size);
+}
+
+// -- Grid dimensions --------------------------------------------
+
+export fn get_cols(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return state.render.cols;
+}
+
+export fn get_rows(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    return state.render.rows;
+}
+
+// -- Scrollback -------------------------------------------------
+
+// Use Ghostty's own prompt iterator so reflow, erasure and history pruning
+// have the same semantics as the terminal. No additional prompt index is kept.
+export fn find_prompt(ptr: usize, row: u32, direction: i32) f64 {
+    const state = stateFromPtr(ptr);
+    if (state.terminal.screens.active_key != .primary or
+        (direction != -1 and direction != 1)) return -1;
+    const pages = &state.terminal.screens.active.pages;
+    const hidden = hiddenRows(state);
+    const native_row = std.math.add(usize, row, hidden) catch return -1;
+    const origin = pages.pin(.{ .screen = .{ .y = @intCast(native_row), .x = 0 } }) orelse return -1;
+    const start = if (direction < 0)
+        origin.up(1) orelse return -1
+    else next: {
+        var pin = origin.down(1) orelse return -1;
+        // Do not treat the remainder of the current multi-line prompt as
+        // another prompt when moving forwards.
+        if (origin.rowAndCell().row.semantic_prompt != .none) {
+            while (promptContinues(pin)) {
+                pin = pin.down(1) orelse return -1;
+            }
+        }
+        break :next pin;
+    };
+    var it = start.promptIterator(if (direction < 0) .left_up else .right_down, null);
+    var prompt = it.next() orelse return -1;
+    // Reflow in the pinned upstream can copy .prompt to wrapped rows rather
+    // than .prompt_continuation. Resolve those to the retained logical start.
+    while (promptContinues(prompt)) {
+        const prior = prompt.up(1) orelse break;
+        if (prior.rowAndCell().row.semantic_prompt == .none) break;
+        prompt = prior;
+    }
+    const point = pages.pointFromPin(.screen, prompt) orelse return -1;
+    // A prompt in rows hidden past the line limit is gone for the host.
+    if (point.screen.y < hidden) return -1;
+    return @floatFromInt(point.screen.y - hidden);
+}
+
+fn promptContinues(pin: vt.Pin) bool {
+    const row = pin.rowAndCell().row;
+    return row.semantic_prompt == .prompt_continuation or
+        (row.semantic_prompt != .none and row.wrap_continuation);
+}
+
+export fn track_position(ptr: usize, row: u32, col: u32) u32 {
+    const state = stateFromPtr(ptr);
+    const tracker = &state.positions;
+    if (tracker.next_id == std.math.maxInt(u32) or col >= state.terminal.cols) return 0;
+    const screen = state.terminal.screens.active;
+    const native_row = std.math.add(usize, row, hiddenRows(state)) catch return 0;
+    const pin = screen.pages.pin(.{ .screen = .{ .y = @intCast(native_row), .x = @intCast(col) } }) orelse return 0;
+    for (&tracker.entries) |*slot| {
+        if (slot.* != null) continue;
+        const tracked = screen.pages.trackPin(pin) catch return 0;
+        const id = tracker.next_id;
+        tracker.next_id += 1;
+        slot.* = .{ .id = id, .pin = tracked, .screen = screen };
+        return id;
+    }
+    return 0;
+}
+
+export fn resolve_position(ptr: usize, id: u32) f64 {
+    const state = stateFromPtr(ptr);
+    for (state.positions.entries) |slot| if (slot) |entry| {
+        if (entry.id != id) continue;
+        if (entry.pin.garbage or entry.screen != state.terminal.screens.active) return -1;
+        const pt = entry.screen.pages.pointFromPin(.screen, entry.pin.*) orelse return -1;
+        // Rows hidden past the line limit read as discarded.
+        const hidden = hiddenRows(state);
+        if (pt.screen.y < hidden) return -1;
+        // Both integers fit exactly in an IEEE double (u32 row and u16 col).
+        return @floatFromInt(@as(u64, pt.screen.y - hidden) * 65536 + pt.screen.x);
+    };
+    return -1;
+}
+
+export fn release_position(ptr: usize, id: u32) void {
+    const state = stateFromPtr(ptr);
+    for (&state.positions.entries) |*slot| if (slot.*) |entry| {
+        if (entry.id != id) continue;
+        entry.screen.pages.untrackPin(entry.pin);
+        slot.* = null;
+        return;
+    };
+}
+
+// Read the native page metadata, not RenderState: callers may inspect rows
+// before a paint, and the same relationships must cross the history boundary.
+fn rowWrapFlags(pin: vt.Pin) i32 {
+    const row = pin.rowAndCell().row;
+    return @as(i32, @intFromBool(row.wrap)) |
+        (@as(i32, @intFromBool(row.wrap_continuation)) << 1);
+}
+
+export fn get_row_wraps(ptr: usize, row: u32) i32 {
+    const state = stateFromPtr(ptr);
+    if (row >= state.terminal.rows) return -1;
+    const screen: *Screen = state.terminal.screens.active;
+    const pin = screen.pages.getTopLeft(.active).down(row) orelse return -1;
+    return rowWrapFlags(pin);
+}
+
+export fn get_scrollback_row_wraps(ptr: usize, offset: u32) i32 {
+    const state = stateFromPtr(ptr);
+    const screen: *Screen = state.terminal.screens.active;
+    const rows_up = std.math.add(usize, offset, 1) catch return -1;
+    const pin = screen.pages.getTopLeft(.active).up(rows_up) orelse return -1;
+    return rowWrapFlags(pin);
+}
+
+/// History rows Ghostty retains, which may exceed `scrollback_lines`.
+fn retainedHistory(state: *State) usize {
+    const screen: *Screen = state.terminal.screens.active;
+    var total: usize = 0;
+    var node_ = screen.pages.pages.first;
+    while (node_) |node| : (node_ = node.next) {
+        total += node.data.size.rows;
+    }
+    return total -| state.terminal.rows;
+}
+
+/// Rows retained past the line limit, hidden from the oldest end.
+fn hiddenHistory(state: *State, retained: usize) usize {
+    const lines = state.scrollback_lines orelse return 0;
+    return retained -| lines;
+}
+
+/// Native screen rows before the first row the host can see. Host rows and
+/// prompts are counted from there, as the reported scrollback is.
+fn hiddenRows(state: *State) usize {
+    return hiddenHistory(state, retainedHistory(state));
+}
+
+export fn get_scrollback_count(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    const retained = retainedHistory(state);
+    return @intCast(retained - hiddenHistory(state, retained));
+}
+
+export fn get_scrollback_discarded_count(ptr: usize) u32 {
+    const state = stateFromPtr(ptr);
+    const discarded = state.terminal.screens.active.pages.discardedRows();
+    return @truncate(discarded +| hiddenHistory(state, retainedHistory(state)));
+}
+
+/// Write one scrollback row into a JS-provided buffer, using the same cell
+/// layout as get_viewport.
+///
+/// Offset 0 is the row directly above the active area (the newest retained
+/// row) and offset get_scrollback_count() - 1 is the oldest, matching the
+/// order the renderer inserts rows in and the built-in core's readback.
+///
+/// Returns the number of cells written, which is the row's grid width capped
+/// at max_cols, or 0 when the offset is out of range. This reads the page list
+/// rather than RenderState, which only covers the active area.
+export fn get_scrollback_line(ptr: usize, offset: u32, buf_ptr: [*]u8, max_cols: u32) u32 {
+    return getScrollbackLine(CELL_BYTES, ptr, offset, buf_ptr, max_cols);
+}
+
+export fn get_scrollback_line_v2(ptr: usize, offset: u32, buf_ptr: [*]u8, max_cols: u32) u32 {
+    return getScrollbackLine(CELL_BYTES_V2, ptr, offset, buf_ptr, max_cols);
+}
+
+fn getScrollbackLine(comptime cell_bytes: usize, ptr: usize, offset: u32, buf_ptr: [*]u8, max_cols: u32) u32 {
+    const state = stateFromPtr(ptr);
+    const screen: *Screen = state.terminal.screens.active;
+
+    // Walking up from the active top means small offsets, the ones the
+    // renderer asks for while scrolling, traverse the fewest pages.
+    // usize is 32-bit on wasm32, so offset is caller-supplied input that can
+    // overflow this increment and wrap to the newest row.
+    const rows_up = std.math.add(usize, offset, 1) catch return 0;
+    const pin = screen.pages.getTopLeft(.active).up(rows_up) orelse return 0;
+
+    const palette = &state.terminal.colors.palette.current;
+    const cells = pin.cells(.all);
+    const count = @min(cells.len, max_cols);
+
+    var buf_offset: usize = 0;
+    for (cells[0..count]) |*raw| {
+        // Pin.style applies the same style_id gating get_viewport relies on.
+        const style = pin.style(raw);
+        encodeCell(cell_bytes, raw, style, palette, buf_ptr[buf_offset..][0..cell_bytes]);
+        buf_offset += cell_bytes;
+    }
+
+    return @intCast(count);
+}
+
+export fn get_scrollback_grapheme(
+    ptr: usize,
+    offset: u32,
+    col: u32,
+    buf_ptr: usize,
+    buf_len: u32,
+) u32 {
+    const state = stateFromPtr(ptr);
+    const screen: *Screen = state.terminal.screens.active;
+    const rows_up = std.math.add(usize, offset, 1) catch return 0;
+    const pin = screen.pages.getTopLeft(.active).up(rows_up) orelse return 0;
+    const cells = pin.cells(.all);
+    if (col >= cells.len or cells[col].content_tag != .codepoint_grapheme) return 0;
+    return encodeGrapheme(
+        cells[col].content.codepoint,
+        pin.grapheme(&cells[col]) orelse return 0,
+        buf_ptr,
+        buf_len,
+    );
+}
+
+export fn get_scrollback_hyperlink(
+    ptr: usize,
+    offset: u32,
+    col: u32,
+    buf_ptr: usize,
+    buf_len: u32,
+) u32 {
+    const state = stateFromPtr(ptr);
+    const screen: *Screen = state.terminal.screens.active;
+    const rows_up = std.math.add(usize, offset, 1) catch return 0;
+    const pin = screen.pages.getTopLeft(.active).up(rows_up) orelse return 0;
+    return encodeHyperlink(pin, col, buf_ptr, buf_len);
+}
+
+// -- Responses --------------------------------------------------
+
+export fn read_response(ptr: usize, buf_ptr: [*]u8, buf_len: u32) u32 {
+    const state = stateFromPtr(ptr);
+    return state.responses.pop(buf_ptr[0..buf_len]);
+}
+
+// -- Memory management ------------------------------------------
+
+export fn alloc_buffer(len: u32) usize {
+    const buf = allocator.alloc(u8, len) catch return 0;
+    return @intFromPtr(buf.ptr);
+}
+
+export fn free_buffer(buf_ptr: usize, len: u32) void {
+    const slice: [*]u8 = @ptrFromInt(buf_ptr);
+    allocator.free(slice[0..len]);
+}

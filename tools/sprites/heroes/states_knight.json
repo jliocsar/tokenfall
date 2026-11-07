@@ -1,0 +1,29 @@
+{
+  "mode": "hero",
+  "cell": 128,
+  "ss": 2,
+  "samples": 8,
+  "dirs": [1],
+  "actions": {
+    "Sit_Floor_Idle": 4,
+    "Spellcasting": 4,
+    "Interact": 6,
+    "Hit_A": 4,
+    "Death_A": 6,
+    "Cheer": 6
+  },
+  "name": "knight_states",
+  "glb": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/kaykit/gltf/Knight.glb",
+  "hide": [
+    "Icosphere",
+    "1H_Sword_Offhand",
+    "2H_Sword",
+    "Badge_Shield",
+    "Rectangle_Shield",
+    "Spike_Shield"
+  ],
+  "out": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/out/raw/knight_states",
+  "bone_scale": {
+    "head": 0.72
+  }
+}

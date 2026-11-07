@@ -1,0 +1,18 @@
+{
+  "mode": "hero",
+  "cell": 128,
+  "ss": 2,
+  "samples": 8,
+  "dirs": [0, 1, 2, 3, 4, 5, 6, 7],
+  "actions": {
+    "Idle": 4,
+    "Walking_A": 8
+  },
+  "name": "mage",
+  "glb": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/kaykit/gltf/Mage.glb",
+  "hide": ["Icosphere", "1H_Wand", "Spellbook", "Spellbook_open"],
+  "out": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/out/raw/mage",
+  "bone_scale": {
+    "head": 0.72
+  }
+}

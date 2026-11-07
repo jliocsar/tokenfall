@@ -1,0 +1,18 @@
+{
+  "mode": "hero",
+  "cell": 128,
+  "ss": 2,
+  "samples": 8,
+  "dirs": [0, 1, 2, 3, 4, 5, 6, 7],
+  "actions": {
+    "Idle": 4,
+    "Walking_A": 8
+  },
+  "name": "rogue",
+  "glb": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/kaykit/gltf/Rogue_Hooded.glb",
+  "hide": ["Icosphere", "1H_Crossbow", "2H_Crossbow", "Throwable"],
+  "out": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/out/raw/rogue",
+  "bone_scale": {
+    "head": 0.72
+  }
+}

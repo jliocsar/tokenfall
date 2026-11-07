@@ -1,0 +1,11 @@
+{
+  "name": "@tokenfall/references",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@tokenfall/protocol": "workspace:*"
+  },
+  "scripts": {
+    "refresh": "bun refresh.ts"
+  }
+}

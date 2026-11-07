@@ -1,0 +1,21 @@
+{
+  "name": "@tokenfall/game",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 47320 --strictPort",
+    "build": "vite build",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@tokenfall/data": "workspace:*",
+    "@tokenfall/protocol": "workspace:*",
+    "@tokenfall/replay": "workspace:*",
+    "bitecs": "0.4.0",
+    "pixi.js": "8.22.0"
+  },
+  "devDependencies": {
+    "vite": "8.3.6"
+  }
+}

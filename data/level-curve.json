@@ -1,0 +1,16 @@
+{
+  "maxLevel": 99,
+  "scale": 12490,
+  "growth": 0.1294,
+  "targets": [
+    { "level": 40, "experience": 1930000, "why": "median session" },
+    { "level": 65, "experience": 54000000, "why": "90th percentile session" },
+    { "level": 99, "experience": 4000000000, "why": "the biggest session seen" }
+  ],
+  "depthTiers": [
+    { "name": "Prison", "fromLevel": 1 },
+    { "name": "Caves", "fromLevel": 25 },
+    { "name": "Catacombs", "fromLevel": 50 },
+    { "name": "Hell", "fromLevel": 75 }
+  ]
+}

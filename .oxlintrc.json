@@ -1,0 +1,90 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+
+  "extends": ["./node_modules/@jliocsar/begone-slop/preset.json"],
+
+  "plugins": ["typescript", "promise"],
+
+  "options": { "typeAware": true },
+
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "error"
+  },
+
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/*.d.ts",
+    ".claude/**",
+    "references/**",
+    "tmp/**",
+    "assets/**"
+  ],
+
+  "jsPlugins": ["@jliocsar/begone-slop"],
+
+  "rules": {
+    // There is no Effect in Tokenfall, so the rules that point at an Effect replacement have
+    // nothing to point at. Parsing JSON from a socket or a file still needs a plain try.
+    "begone-slop/no-try-catch": "off",
+    "begone-slop/prefer-effect-match": "off",
+    "begone-slop/prefer-option-from-nullable": "off",
+
+    // Hot loops index typed arrays by entity id, and a bitwise op is how a uint8 state and a
+    // flag word get packed and read.
+    "no-bitwise": "off",
+    "no-plusplus": "off",
+    // A typed-array read past `noUncheckedIndexedAccess` is checked by capacity, not per read.
+    "typescript/no-non-null-assertion": "off",
+    // Systems mutate typed arrays passed in; that is the point of a store.
+    "no-param-reassign": "off",
+    // `while (true)` with a break is how a ring buffer drains.
+    "no-constant-condition": ["error", { "checkLoops": false }],
+
+    "id-length": [
+      "error",
+      {
+        "min": 2,
+        "exceptions": ["i", "j", "x", "y", "t", "a", "b", "T", "S", "E", "K"],
+        "properties": "never"
+      }
+    ],
+    "no-else-return": ["error", { "allowElseIf": false }],
+    "no-nested-ternary": "error",
+    "prefer-template": "error",
+    "complexity": ["error", 15],
+    "max-classes-per-file": "off",
+    "max-lines": ["error", 1000],
+    "max-lines-per-function": [
+      "error",
+      { "max": 120, "skipBlankLines": true, "skipComments": true, "IIFEs": true }
+    ],
+    "no-empty": ["error", { "allowEmptyCatch": true }],
+    "typescript/prefer-readonly-parameter-types": "off",
+    "typescript/array-type": ["error", { "default": "array", "readonly": "array" }],
+    "no-unused-vars": [
+      "error",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+    ],
+    "typescript/consistent-type-imports": [
+      "error",
+      { "prefer": "type-imports", "fixStyle": "separate-type-imports" }
+    ],
+    "typescript/restrict-template-expressions": [
+      "error",
+      { "allowNumber": true, "allowBoolean": true }
+    ]
+  },
+
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/test/**/*.ts"],
+      "rules": {
+        "begone-slop/expect-padding": "error",
+        "max-lines-per-function": "off",
+        "typescript/no-confusing-void-expression": "off"
+      }
+    }
+  ]
+}
