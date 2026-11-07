@@ -18,7 +18,7 @@ The scripts came from the M0 spike and still assume its folder layout. Check pat
 Town props are single-direction renders packed under the hero cells of `heroes-atlas.png`, so Heroes and props share one texture and sort together.
 
 1. Download the packs listed in `assets/CREDITS.md` into `tmp/asset-research/` (the paths in `props.json` point there).
-2. Render, with each prop's scale in `props.json` set so it reads next to a Hero:
+2. Render. Sizes come from presets, not per-model scales. Each prop names a `preset` in `props.json`, and `presets` gives its height in Hero heights (a house is 3, a tree 4.5, a fence 1.4). `heroHeight` is a Hero's height in Blender units, measured off the atlas: about 48 px above the pivot at 25.6 px per unit. The renderer reads each model's bounding box and scales it to `preset × heroHeight`, so props from any pack land on the Heroes' scale. To add a prop, give it an existing preset, or add a preset if it's a new kind of thing. A `scale` field still works for a prop with no preset.
 
 ```sh
 cd tools/sprites/scripts && blender -b --factory-startup --disable-autoexec -P render.py -- <props.json with absolute paths>

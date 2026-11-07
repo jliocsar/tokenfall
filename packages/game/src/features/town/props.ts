@@ -28,8 +28,8 @@ const placeSquare = (shape: Town, out: Placement[]): void => {
     const turn = (angle / 180) * Math.PI
     out.push({
       name,
-      x: x! + Math.cos(turn) * (radius! + 2.2),
-      y: y! + Math.sin(turn) * (radius! + 2.2),
+      x: x! + Math.cos(turn) * (radius! + layout.squareRing),
+      y: y! + Math.sin(turn) * (radius! + layout.squareRing),
     })
   }
 }
@@ -54,8 +54,20 @@ const placeGraveyard = (shape: Town, random: Random, out: Placement[]): void => 
   out.push({ name: 'dead_tree', x: x! + halfX! - 0.5, y: y! - halfY! + 0.5 })
   out.push({ name: 'lantern', x: x! + halfX! + 0.6, y: y! + halfY! + 0.6 })
 
-  for (let i = 0; i < Math.ceil(halfX! / 1.4); i++) {
-    out.push({ name: 'iron_fence', x: x! - halfX! + 1.4 * (i + 0.5), y: y! + halfY! + 0.3 })
+  for (let i = 0; i < Math.round((halfX! * 2) / layout.fenceStep); i++) {
+    out.push({
+      name: 'iron_fence_side',
+      x: x! - halfX! + layout.fenceStep * (i + 0.5),
+      y: y! + halfY! + 0.3,
+    })
+  }
+
+  for (let i = 0; i < Math.round((halfY! * 2) / layout.fenceStep); i++) {
+    out.push({
+      name: 'iron_fence',
+      x: x! + halfX! + 0.3,
+      y: y! - halfY! + layout.fenceStep * (i + 0.5),
+    })
   }
 }
 
@@ -81,29 +93,39 @@ const blocked = (shape: Town, x: number, y: number): boolean => {
   const [squareX, squareY, squareRadius] = shape.square
   const [graveX, graveY, graveHalfX, graveHalfY] = shape.graveyard
 
-  if (Math.hypot(x - squareX!, y - squareY!) < squareRadius! + 4) {
+  if (
+    Math.hypot(x - squareX!, y - squareY!) <
+    squareRadius! + layout.squareRing + layout.treeClearance
+  ) {
     return true
   }
 
-  if (Math.abs(x - graveX!) < graveHalfX! + 2 && Math.abs(y - graveY!) < graveHalfY! + 2) {
+  if (
+    Math.abs(x - graveX!) < graveHalfX! + layout.treeClearance &&
+    Math.abs(y - graveY!) < graveHalfY! + layout.treeClearance
+  ) {
     return true
   }
 
-  if (Math.abs(y) < town.road.roadHalf + 1.5) {
+  if (Math.abs(y) < town.road.roadHalf + layout.treeClearance) {
     return true
   }
 
   for (let plot = 0; plot < shape.guildOfPlot.length; plot++) {
     if (
       shape.guildOfPlot[plot] !== NO_PLOT &&
-      Math.hypot(x - shape.plotX[plot]!, y - shape.plotY[plot]!) < town.draw.plotRadius + 1.5
+      Math.hypot(x - shape.plotX[plot]!, y - shape.plotY[plot]!) <
+        town.draw.plotRadius + layout.treeClearance
     ) {
       return true
     }
   }
 
   for (let street = 0; street < shape.streetCount; street++) {
-    if (Math.abs(x - shape.streets[street * 4]!) < town.road.sideStreet) {
+    if (
+      Math.abs(x - shape.streets[street * 4]!) <
+      town.road.sideStreet + layout.treeClearance - 1.5
+    ) {
       return true
     }
   }

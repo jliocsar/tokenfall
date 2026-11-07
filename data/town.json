@@ -48,23 +48,23 @@
     "square": [
       {
         "name": "tavern",
-        "angle": 200
+        "angle": 115
       },
       {
         "name": "home_a",
-        "angle": 140
+        "angle": 150
       },
       {
         "name": "home_b",
-        "angle": 255
+        "angle": 285
       },
       {
         "name": "lantern",
-        "angle": 310
+        "angle": 330
       },
       {
         "name": "lantern",
-        "angle": 70
+        "angle": 30
       }
     ],
     "graveyard": {
@@ -73,6 +73,9 @@
     },
     "tents": 3,
     "tentRadius": 4.4,
-    "treeArea": 45
+    "treeArea": 18,
+    "squareRing": 3.4,
+    "fenceStep": 1.37,
+    "treeClearance": 3
   }
 }

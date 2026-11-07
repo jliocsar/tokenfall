@@ -171,13 +171,17 @@ def tiles():
                     w = o.matrix_world @ Vector(c)
                     for k in range(3):
                         lo[k], hi[k] = min(lo[k], w[k]), max(hi[k], w[k])
-        print('BBOX', item['name'], [round(x, 2) for x in lo], [round(x, 2) for x in hi])
+        scale = item.get('scale', 1)
+        if 'preset' in item:
+            # presets are heights in Hero heights, so every pack lands on the Heroes' scale
+            scale = cfg['presets'][item['preset']] * cfg['heroHeight'] / max(1e-6, hi[2] - lo[2])
+        print('BBOX', item['name'], [round(x, 2) for x in lo], [round(x, 2) for x in hi], 'scale', round(scale, 3))
         for r in roots:
             r.rotation_mode = 'XYZ'
             # grid axes sit at 45 deg to the camera, that's what makes the diamonds
             r.rotation_euler = (0, 0, math.radians(item.get('rot', 0) + 45))
             r.location = tuple(item.get('loc', (0, 0, 0)))
-            r.scale = (item.get('scale', 1),) * 3
+            r.scale = (scale,) * 3
         bpy.context.view_layer.update()
         render_to(os.path.join(cfg['out'], item['name'] + '.png'))
     print(f'RENDER tiles n={len(cfg["tiles"])} seconds={time.time() - t0:.1f}')
