@@ -26,7 +26,6 @@ export const KEYBINDS = {
   zoomIn: ['=', '+'],
   zoomOut: ['-', '_'],
   attention: ['q', 'Q'],
-  layout: ['l', 'L'],
   fit: ['f', 'F'],
 } as const
 

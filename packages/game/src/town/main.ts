@@ -1,10 +1,8 @@
 import { Application, Container } from 'pixi.js'
 import type { HeroEvent } from '@tokenfall/protocol/events'
-import { relayoutTown } from '../core/behavior.ts'
 import { bootSim, EFFECT_DEFINITIONS } from '../core/boot.ts'
 import { heroCount } from '../core/hero-index.ts'
 import { screenX, screenY } from '../core/iso.ts'
-import { TOWN_KINDS, type TownKind } from '../core/layout.ts'
 import { push } from '../core/queue.ts'
 import { createProfile, runSystems } from '../core/system.ts'
 import { SIM_SYSTEMS } from '../core/systems/index.ts'
@@ -25,7 +23,7 @@ import {
   type Camera,
 } from '../render/camera.ts'
 import { createHeroLayer, loadAtlas, syncHeroes, type View } from '../render/heroes.ts'
-import { createBridge, NOBODY, ROSTER_VARIANTS, type RosterVariant } from '../ui/bridge.ts'
+import { createBridge, NOBODY } from '../ui/bridge.ts'
 import { mountUi } from '../ui/mount.tsx'
 import { replaySource, syntheticSource, type Source } from './source.ts'
 
@@ -34,20 +32,18 @@ type Settings = {
   readonly seed: number
   readonly tempo: number
   readonly replay: string | undefined
-  readonly layout: TownKind
-  readonly roster: RosterVariant
 }
 
 const HUD_EVERY_MS = 250
 const ROSTER_EVERY_MS = 250
 const PICK_REACH = 60
+const ROSTER_SPACE = 360
 const SOUTH = 'S'
 const FIT_AFTER_MS = 1500
 const DEFAULT_REPLAY = 'ws://127.0.0.1:47330'
 
 const readSettings = (): Settings => {
   const params = new URLSearchParams(window.location.search)
-  const layout = TOWN_KINDS.find((kind) => kind === params.get('layout')) ?? 'ring'
   const replay = params.get('replay')
 
   return {
@@ -55,8 +51,6 @@ const readSettings = (): Settings => {
     seed: Number(params.get('seed') ?? 7),
     tempo: Number(params.get('tempo') ?? 4),
     replay: replay === null ? undefined : replay || DEFAULT_REPLAY,
-    layout,
-    roster: ROSTER_VARIANTS.find((variant) => variant === params.get('roster')) ?? 'tree',
   }
 }
 
@@ -84,7 +78,7 @@ document.body.prepend(app.canvas)
 
 const { atlas, source: texture } = await loadAtlas('/sprites/heroes-atlas')
 const started = performance.now()
-const sim = bootSim(settings.seed, started, {}, settings.layout)
+const sim = bootSim(settings.seed, started, {})
 const source: Source =
   settings.replay === undefined ? syntheticSource(settings, started) : replaySource(settings.replay)
 const town = createTownLayer()
@@ -127,13 +121,7 @@ const bridge = createBridge(
     height: texture.height,
     origins: atlas.cells.map((animations) => animations[0]![south]![0]!),
   },
-  {
-    glideTo: focusHero,
-    relayout: (kind) => {
-      relayoutTown(sim, kind, performance.now())
-    },
-  },
-  settings.roster,
+  { glideTo: focusHero },
 )
 const ui = mountUi(bridge, source.label, element('ui'))
 
@@ -161,17 +149,13 @@ const fitTown = (): void => {
       top: Math.min(...ys),
       bottom: Math.max(...ys),
     },
-    app.screen.width,
+    app.screen.width - ROSTER_SPACE,
     app.screen.height,
   )
+  camera.x += ROSTER_SPACE / 2 / camera.zoom
 }
 
 window.addEventListener('keydown', (event) => {
-  if (KEYBINDS.layout.some((key) => key === event.key)) {
-    bridge.setLayout(sim.town.kind === 'ring' ? 'road' : 'ring')
-    fitTown()
-  }
-
   if (KEYBINDS.fit.some((key) => key === event.key)) {
     fitTown()
   }
@@ -189,8 +173,8 @@ const paintHud = (now: number): void => {
   hud.textContent = [
     `${loop.fps.toFixed(0)} fps`,
     `${heroCount(sim.index)} heroes · ${sim.groups.guildKeys.length} guilds · ${sim.groups.partyWorkspace.length} parties`,
-    `town: ${sim.town.kind} (seed ${sim.town.seed}) · ${source.label}`,
-    `[q] next who needs you  [l] layout  [f] fit  wasd/drag pan  wheel zoom`,
+    `town seed ${sim.town.seed} · ${source.label}`,
+    `[q] next who needs you  [f] fit  wasd/drag pan  wheel zoom`,
   ].join('\n')
   loop.nextHud = now + HUD_EVERY_MS
 }

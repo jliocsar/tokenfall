@@ -1,19 +1,12 @@
 import { mulberry32, type Random } from './random.ts'
 import type { Sim } from './sim.ts'
 
-export type TownKind = (typeof TOWN_KINDS)[number]
-
 export type TownTuning = {
   readonly plots: number
   readonly squareRadius: number
   readonly graveyard: readonly number[]
   readonly entranceReach: number
   readonly plotJitter: number
-  readonly ring: {
-    readonly spacing: number
-    readonly inner: number
-    readonly graveyardSpots: readonly number[]
-  }
   readonly road: {
     readonly cell: number
     readonly roadHalf: number
@@ -31,7 +24,6 @@ export type TownTuning = {
 }
 
 export type Town = {
-  readonly kind: TownKind
   readonly seed: number
   readonly plotX: Float32Array
   readonly plotY: Float32Array
@@ -50,13 +42,9 @@ export type Town = {
 
 type Candidate = { readonly column: number; readonly side: number; readonly depth: number }
 
-const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
-
-export const TOWN_KINDS = ['ring', 'road'] as const
 export const NO_PLOT = -1
 
-const createTown = (kind: TownKind, seed: number, plots: number, guilds: number): Town => ({
-  kind,
+const createTown = (seed: number, plots: number, guilds: number): Town => ({
   seed,
   plotX: new Float32Array(plots),
   plotY: new Float32Array(plots),
@@ -74,34 +62,6 @@ const createTown = (kind: TownKind, seed: number, plots: number, guilds: number)
 })
 
 const shake = (random: Random, amount: number): number => (random() * 2 - 1) * amount
-
-const buildRing = (town: Town, tuning: TownTuning, random: Random): void => {
-  const { ring } = tuning
-  const [low, high] = ring.graveyardSpots
-  const graveSpot = low! + Math.floor(random() * (high! - low!))
-  const turn = random() * Math.PI * 2
-  town.square.set([0, 0, tuning.squareRadius])
-  let plot = 0
-
-  for (let spot = 0; plot < town.plotX.length; spot++) {
-    const radius = ring.spacing * Math.sqrt(spot + ring.inner)
-    const angle = turn + spot * GOLDEN_ANGLE
-    const x = Math.cos(angle) * radius + shake(random, tuning.plotJitter)
-    const y = Math.sin(angle) * radius + shake(random, tuning.plotJitter)
-
-    if (spot === graveSpot) {
-      town.graveyard.set([x, y, tuning.graveyard[0]!, tuning.graveyard[1]!])
-    } else {
-      town.plotX[plot] = x
-      town.plotY[plot] = y
-      town.entranceX[plot] = x + Math.cos(angle) * tuning.entranceReach
-      town.entranceY[plot] = y + Math.sin(angle) * tuning.entranceReach
-      town.pathX[plot] = Math.cos(angle) * tuning.squareRadius
-      town.pathY[plot] = Math.sin(angle) * tuning.squareRadius
-      plot += 1
-    }
-  }
-}
 
 const roadCandidates = (town: Town, tuning: TownTuning, random: Random): Candidate[] => {
   const { road } = tuning
@@ -163,20 +123,9 @@ const buildRoad = (town: Town, tuning: TownTuning, random: Random): void => {
   town.streetCount = pairs + 1
 }
 
-export const buildTown = (
-  kind: TownKind,
-  seed: number,
-  tuning: TownTuning,
-  guilds: number,
-): Town => {
-  const town = createTown(kind, seed, tuning.plots, guilds)
-  const random = mulberry32(seed)
-
-  if (kind === 'ring') {
-    buildRing(town, tuning, random)
-  } else {
-    buildRoad(town, tuning, random)
-  }
+export const buildTown = (seed: number, tuning: TownTuning, guilds: number): Town => {
+  const town = createTown(seed, tuning.plots, guilds)
+  buildRoad(town, tuning, mulberry32(seed))
 
   return town
 }

@@ -114,10 +114,6 @@ const claimedBounds = (shape: Town): Bounds => {
 }
 
 const drawStreets = (ground: Graphics, shape: Town, bounds: Bounds): void => {
-  if (shape.kind !== 'road') {
-    return
-  }
-
   const roadHalf = town.road.roadHalf
   ground.poly(strip(shape.square[0]!, 0, bounds.maxX, 0, roadHalf * 2)).fill(palette.road)
 

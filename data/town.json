@@ -4,11 +4,6 @@
   "graveyard": [5, 4],
   "entranceReach": 5.5,
   "plotJitter": 0.8,
-  "ring": {
-    "spacing": 7.4,
-    "inner": 2.5,
-    "graveyardSpots": [2, 6]
-  },
   "road": {
     "cell": 13,
     "roadHalf": 2,

@@ -171,6 +171,12 @@ Built first, on recorded and synthetic data. It needs to answer:
 
 You pick a direction from running builds, not mockups.
 
+**Picked so far:**
+
+- **Layout:** the road town. A main road leads out of the gate, with side streets every two plots. Guild plots fill outward along it in seeded order: two deep on each side of the road, then further back. The Graveyard sits by the gate. Each Dungeon entrance sits at the back of its Guild's plot.
+- **Roster:** a tree of Guild, then Party, then Hero rows. "Needs you" is pinned on top, with Ravens first and then Loot Chests. Collapsed rows show counts. Above 60 Heroes the Guilds start collapsed. Each Hero row shows a portrait, name and Title, Quest, Level and status.
+- **Dungeon entrance:** a badge above it with the number of Heroes inside and four tier pips.
+
 ## 5. Architecture
 
 ```

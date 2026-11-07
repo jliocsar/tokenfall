@@ -28,7 +28,7 @@ const SUMMARY: readonly (readonly [keyof Counts, string])[] = [
   ['dead', 'dead'],
 ]
 
-export const summary = (counts: Counts): string =>
+const summary = (counts: Counts): string =>
   SUMMARY.filter(([key]) => counts[key] > 0)
     .map(([key, label]) => `${counts[key]} ${label}`)
     .join(' · ')

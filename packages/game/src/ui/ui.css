@@ -210,33 +210,6 @@
   filter: grayscale(0.7);
 }
 
-.chips {
-  padding: 4px 0;
-}
-
-.chip-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px 8px 10px;
-}
-
-.chip {
-  padding: 0;
-  border: none;
-  background: none;
-  cursor: pointer;
-}
-
-.chip.selected .portrait {
-  outline: 2px solid var(--ink);
-}
-
-.chip-guild .line.guild {
-  cursor: default;
-  height: 28px;
-}
-
 .hero-card {
   left: 8px;
   bottom: 8px;

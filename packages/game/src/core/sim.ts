@@ -1,7 +1,7 @@
 import { createWorld, type World } from 'bitecs'
 import type { Characters } from './character.ts'
 import { createGroups, type Groups } from './groups.ts'
-import { buildTown, type Town, type TownKind, type TownTuning } from './layout.ts'
+import { buildTown, type Town, type TownTuning } from './layout.ts'
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import { createDenseSet, type DenseSet } from './dense-set.ts'
 import { compileMachine, inputId, stateFlags, type Machine, type MachineDefinition } from './fsm.ts'
@@ -40,7 +40,6 @@ export type SimConfig = {
   readonly seed: number
   readonly sheets: number
   readonly town: TownTuning
-  readonly townKind: TownKind
   readonly characters: Characters
 }
 
@@ -106,7 +105,7 @@ export type Sim = {
   readonly thresholds: Float64Array
   readonly groups: Groups
   readonly text: HeroText
-  town: Town
+  readonly town: Town
   readonly effects: EffectKindState[]
   readonly scratch: Float64Array
   readonly random: Random
@@ -184,7 +183,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
       title: Array.from({ length: budgets.entities }, () => ''),
       quest: Array.from({ length: budgets.entities }, () => ''),
     },
-    town: buildTown(config.townKind, config.seed, config.town, budgets.guilds),
+    town: buildTown(config.seed, config.town, budgets.guilds),
     effects: [],
     scratch: new Float64Array(4),
     random: mulberry32(config.seed),

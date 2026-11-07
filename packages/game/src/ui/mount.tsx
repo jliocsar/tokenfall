@@ -1,7 +1,6 @@
-import { createRoot, Match, Switch } from 'solid-js'
+import { createRoot } from 'solid-js'
 import { render } from 'solid-js/web'
 import { HeroCard } from '../features/roster/HeroCard.tsx'
-import { RosterChips } from '../features/roster/Chips.tsx'
 import { createRoster, type Roster } from '../features/roster/model.ts'
 import { RosterTree } from '../features/roster/Roster.tsx'
 import type { Bridge } from './bridge.ts'
@@ -17,14 +16,7 @@ export const mountUi = (bridge: Bridge, source: string, root: HTMLElement): Ui =
       <>
         <DevPanel bridge={bridge} source={source} />
         <aside class="roster panel">
-          <Switch>
-            <Match when={bridge.roster() === 'tree'}>
-              <RosterTree bridge={bridge} roster={roster} />
-            </Match>
-            <Match when={bridge.roster() === 'chips'}>
-              <RosterChips bridge={bridge} roster={roster} />
-            </Match>
-          </Switch>
+          <RosterTree bridge={bridge} roster={roster} />
         </aside>
         <HeroCard bridge={bridge} roster={roster} />
       </>

@@ -12,7 +12,7 @@ An isometric idle RPG that shows the Claude Agents running in Herdr as Heroes. R
 
 ```sh
 bun install
-bun run dev          # game dev server: the Town at http://127.0.0.1:47320/?heroes=100&layout=ring|road
+bun run dev          # game dev server: the Town at http://127.0.0.1:47320/?heroes=100
                      # (?replay reads a running replayer), benchmark at /bench.html
 bun run trace        # same, but every function in packages/game and tools/replay is wrapped in a trace span
 bun run test         # unit tests plus the 1000-Hero synthetic load test

@@ -1,15 +1,6 @@
 import { enterState, NO_TRANSITION, nextState } from './fsm.ts'
 import { addMember, removeMember } from './dense-set.ts'
-import { NONE } from './hero-index.ts'
-import {
-  buildTown,
-  claimPlot,
-  dungeonSpot,
-  entranceSpot,
-  jitter,
-  partySpot,
-  type TownKind,
-} from './layout.ts'
+import { dungeonSpot, entranceSpot, jitter, partySpot } from './layout.ts'
 import { TIMER_STATE, TIMER_WANDER, type Sim } from './sim.ts'
 import { schedule } from './timers.ts'
 
@@ -132,25 +123,6 @@ export const sendInput = (sim: Sim, eid: number, input: number, now: number): bo
 
 export const reenterState = (sim: Sim, eid: number, now: number): void => {
   ACTIONS.get(sim.machine.onEnter[sim.stores.behavior.state[eid]!]!)!(sim, eid, now)
-}
-
-export const relayoutTown = (sim: Sim, kind: TownKind, now: number): void => {
-  const { groups, index } = sim
-  sim.town = buildTown(kind, sim.town.seed, sim.config.town, groups.guildHeroes.length)
-
-  for (let guild = 0; guild < groups.guildKeys.length; guild++) {
-    if (groups.guildHeroes[guild]! > 0) {
-      claimPlot(sim.town, guild)
-    }
-  }
-
-  for (let slot = 0; slot < index.nextSlot; slot++) {
-    const eid = index.entityOf[slot]!
-
-    if (eid !== NONE) {
-      reenterState(sim, eid, now)
-    }
-  }
 }
 
 export const scheduleWander = (sim: Sim, eid: number, now: number): void => {
