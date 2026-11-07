@@ -21,6 +21,8 @@ import {
   setStaticLights,
   type StaticLight,
 } from '../features/light/light.ts'
+import { badgeAt, createBadges, namesInside, syncBadges } from '../features/entrance/badges.ts'
+import { createBubbles, syncBubbles } from '../features/narration/bubbles.ts'
 import { createTownLayer, syncTown, townBounds } from '../features/town/ground.ts'
 import { townProps } from '../features/town/props.ts'
 import {
@@ -30,6 +32,7 @@ import {
   KEYBINDS,
   updateCamera,
   type Camera,
+  type Screen,
 } from '../render/camera.ts'
 import { createHeroLayer, loadAtlas, setProps, syncHeroes, type View } from '../render/heroes.ts'
 import { createBridge, NOBODY } from '../ui/bridge.ts'
@@ -97,7 +100,14 @@ const world = new Container({ label: 'world' })
 world.addChild(town.container, heroes.container, effects.container, town.labels)
 const light = createLightLayer(sim, app.screen.width, app.screen.height)
 const heroLight = lightSystem(light, heroes)
-app.stage.addChild(world, light.overlay)
+const bubbles = createBubbles(sim)
+const badges = createBadges(sim)
+const overlay = new Container({ label: 'overlay' })
+overlay.addChild(badges.container, bubbles.container)
+app.stage.addChild(world, light.overlay, overlay)
+const screen: Screen = { width: 0, height: 0, x: 0, y: 0, zoom: 1 }
+const tip = element('tip')
+const hover = { guild: -1 }
 window.addEventListener('resize', () => {
   resizeLight(light, app.screen.width, app.screen.height)
 })
@@ -183,6 +193,23 @@ window.addEventListener('keydown', (event) => {
   }
 })
 
+app.canvas.addEventListener('pointermove', (event) => {
+  const guild = badgeAt(badges, event.clientX, event.clientY)
+
+  if (guild === hover.guild) {
+    return
+  }
+
+  hover.guild = guild
+  tip.hidden = guild < 0
+
+  if (guild >= 0) {
+    tip.textContent = namesInside(badges, sim, guild).join('\n')
+    tip.style.left = `${event.clientX + 14}px`
+    tip.style.top = `${event.clientY + 14}px`
+  }
+})
+
 const furnishTown = (): void => {
   const placements = townProps(sim, townBounds(sim))
   setProps(heroes, placements)
@@ -246,6 +273,13 @@ const frame = (now: number): void => {
   syncSelectionMarker(marker, sim, bridge.selected())
   syncEffects(effects, sim, now)
   renderLight(light, sim, heroes, app.renderer, world, view, now)
+  screen.width = app.screen.width
+  screen.height = app.screen.height
+  screen.x = camera.x
+  screen.y = camera.y
+  screen.zoom = camera.zoom
+  syncBadges(badges, sim, screen, now)
+  syncBubbles(bubbles, sim, heroes, screen, bridge.selected(), now)
   app.render()
 
   if (now >= loop.nextHud) {

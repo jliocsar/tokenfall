@@ -129,6 +129,7 @@ const HANDLERS: Handlers = {
   'hero.status': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
       sim.stores.hero.status[eid] = STATUS_CODES[event.status]
+      addMember(sim.statusChanged, eid)
       sendInput(sim, eid, sim.inputs[event.status]!, now)
     }),
   'hero.quest': (sim, event) =>

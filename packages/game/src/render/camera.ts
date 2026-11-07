@@ -1,6 +1,14 @@
 import type { Container } from 'pixi.js'
 import type { View } from './heroes.ts'
 
+export type Screen = {
+  width: number
+  height: number
+  x: number
+  y: number
+  zoom: number
+}
+
 export type Camera = {
   x: number
   y: number

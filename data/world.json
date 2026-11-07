@@ -5,5 +5,23 @@
   "wanderEveryMs": [2500, 7000],
   "wanderRadius": 2.5,
   "wanderStates": ["camp", "delving", "looting"],
-  "directions": ["E", "SE", "S", "SW", "W", "NW", "N", "NE"]
+  "directions": ["E", "SE", "S", "SW", "W", "NW", "N", "NE"],
+  "bubbles": {
+    "lifeMs": 4000,
+    "fadeMs": 500,
+    "binWidth": 240,
+    "binHeight": 56,
+    "selectedEveryMs": 6000,
+    "maxWidth": 220,
+    "fontSize": 13,
+    "offsetY": 96,
+    "reserveRight": 380
+  },
+  "entrance": {
+    "everyMs": 250,
+    "offsetY": 150,
+    "pip": 7,
+    "tiers": 4,
+    "tierLevels": 25
+  }
 }

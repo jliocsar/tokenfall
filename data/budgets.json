@@ -9,5 +9,6 @@
   "levelUpBurstsPerFrame": 8,
   "guilds": 256,
   "parties": 1024,
-  "heroLights": 512
+  "heroLights": 512,
+  "bubbles": 12
 }

@@ -1,0 +1,122 @@
+{
+  "Brave": {
+    "working": [
+      "Into the dark, steel first!",
+      "No beast down here frightens me.",
+      "Forward! The quest won't finish itself."
+    ],
+    "idle": [
+      "A fine fire. Tomorrow, glory.",
+      "My blade rests, my eyes do not.",
+      "Who sharpens their sword at dusk? I do."
+    ],
+    "done": [
+      "Victory! Loot for the guild!",
+      "Another foe fallen. Come see.",
+      "The deed is done, captain."
+    ],
+    "blocked": [
+      "I await your word, commander.",
+      "A sealed door. Your leave?",
+      "Shall I strike? Say the word."
+    ]
+  },
+  "Stoic": {
+    "working": [
+      "Step by step. Stone by stone.",
+      "The work is the reward.",
+      "Silence. I am counting runes."
+    ],
+    "idle": ["...", "The fire burns. So do I.", "Rest is also discipline."],
+    "done": ["It is finished.", "As expected. Take it.", "Done. Nothing more to say."],
+    "blocked": ["I need your judgment.", "This path needs your seal.", "Waiting. Patiently."]
+  },
+  "Pious": {
+    "working": [
+      "May the light guide this refactor.",
+      "Blessed be the passing tests.",
+      "I pray this compiles."
+    ],
+    "idle": ["A moment of quiet prayer.", "The gods favor the rested.", "Light keep us all."],
+    "done": [
+      "Praise be, it is complete!",
+      "A blessing upon this work.",
+      "The light has delivered."
+    ],
+    "blocked": [
+      "I seek your blessing to continue.",
+      "Grant me permission, I pray.",
+      "A trial only you can judge."
+    ]
+  },
+  "Cunning": {
+    "working": [
+      "Nobody saw me patch that.",
+      "Slipping past the type checker...",
+      "Just a little sleight of hand."
+    ],
+    "idle": [
+      "Counting coins. Mine, mostly.",
+      "Ears open. Mouth shut.",
+      "Waiting for the right moment."
+    ],
+    "done": [
+      "Swiped it clean. You're welcome.",
+      "In and out. Loot's here.",
+      "Easiest heist all week."
+    ],
+    "blocked": [
+      "Psst. Need your signature.",
+      "Lock's tricky. Your call.",
+      "One nod and I'm through."
+    ]
+  },
+  "Cheerful": {
+    "working": ["Ooh, a shiny bug! Got it!", "Whistling while I grep!", "This dungeon is SO cozy."],
+    "idle": ["Who wants a song?", "Marshmallows, anyone?", "Best guild ever, right?"],
+    "done": ["Ta-da! All done!", "Treasure time, treasure time!", "That was fun! Again?"],
+    "blocked": ["Can I? Can I? Please?", "Just need a teeny yes!", "Waiting for you, friend!"]
+  },
+  "Scholarly": {
+    "working": [
+      "Fascinating. The stack trace speaks.",
+      "Consulting the ancient docs...",
+      "Per my reading of the source..."
+    ],
+    "idle": [
+      "Annotating my grimoire.",
+      "One more chapter by the fire.",
+      "Footnotes are a kind of rest."
+    ],
+    "done": [
+      "Thesis proven. Results enclosed.",
+      "Q.E.D., as the scholars say.",
+      "My findings await your review."
+    ],
+    "blocked": [
+      "I require a citation from you.",
+      "A question only you can answer.",
+      "Pending your peer review."
+    ]
+  },
+  "Grim": {
+    "working": [
+      "The darkness deepens. Good.",
+      "Another bug to bury.",
+      "Even code must die eventually."
+    ],
+    "idle": ["The fire mocks me.", "Rest. Then more suffering.", "The night is long."],
+    "done": ["It is done. For now.", "Another grave dug. The bug's.", "Take it. Before it rots."],
+    "blocked": ["Fate awaits your decree.", "Decide. The shadows grow.", "Your answer, or my doom."]
+  },
+  "Wild": {
+    "working": ["SMASH THE BUG!", "RAAAH! Refactoring!", "Tear it down! Build it UP!"],
+    "idle": ["Where's the meat?", "Too quiet. Want fight.", "Fire good."],
+    "done": ["HAHA! LOOT!", "Crushed it! Literally!", "Victory roar! RAAAH!"],
+    "blocked": [
+      "Chief! Say smash or no smash!",
+      "Big door. You open?",
+      "Grr. Waiting. Hate waiting."
+    ]
+  }
+}
