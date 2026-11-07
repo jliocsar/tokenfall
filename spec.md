@@ -4,7 +4,7 @@ Tokenfall is a 2D isometric idle RPG that shows every Claude agent running in He
 
 The vocabulary is defined in `GLOSSARY.md`, and this spec uses those terms. Spike code lives in `tmp/` and gets rewritten, not promoted.
 
-Status: M0 done. Benchmarked on your machine (Intel Raptor Lake integrated graphics, 144 Hz). M1 next.
+Status: M0 done. Benchmarked on your machine (Intel Raptor Lake integrated graphics, 144 Hz). M1 in progress.
 
 ## 1. Decisions
 
@@ -92,6 +92,7 @@ Status: M0 done. Benchmarked on your machine (Intel Raptor Lake integrated graph
 - **UI:** SolidJS.
 - **Terminal view:** wterm.
 - **Toolchain:** Bun, oxlint, oxfmt and TS7, from your `agents-boilerplate`, with no Effect in the game sim.
+- **Math library, when needed:** `math` from pmndrs (MIT, allocation-free functions that write into an `out` argument). We adopt it the first time we need noise for Dungeons, springs for the camera, easing, shapes or color. It doesn't replace our existing iso, level or random code, and hot loops stay scalar over our stores.
 
 ## 2. Goals
 
@@ -346,7 +347,7 @@ The Depth Tiers start as palette and lighting changes on the one dungeon set. He
 
 Each one ends with something you can run.
 
-**M0: Foundations.** Repo, toolchain, `protocol`, recorder and replayer, synthetic load, the effects core with one stateless particle effect, and the id-to-entity index. Done when we have real render and effect benchmarks for 100 to 1000 Heroes on your GPU, and section 6 is adjusted to match.
+**M0: Foundations. Done.** Repo, toolchain, `protocol`, recorder and replayer, synthetic load, the effects core with one stateless particle effect, and the id-to-entity index. Done when we have real render and effect benchmarks for 100 to 1000 Heroes on your GPU, and section 6 is adjusted to match.
 
 **M1: Town and roster prototype.** Answers section 4 on replayed and synthetic data. Includes the UI skin, Hero light, placeholder portraits, names, Personalities and Titles. Done when you've picked a direction.
 
