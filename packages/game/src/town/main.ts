@@ -9,9 +9,24 @@ import { push } from '../core/queue.ts'
 import { createProfile, runSystems } from '../core/system.ts'
 import { SIM_SYSTEMS } from '../core/systems/index.ts'
 import { createEffectLayer, syncEffects } from '../effects/gpu.ts'
+import { createAttentionQueue, nextInQueue } from '../features/attention/queue.ts'
+import {
+  createSelectionMarker,
+  pickHero,
+  syncSelectionMarker,
+} from '../features/selection/marker.ts'
 import { createTownLayer, syncTown, townBounds } from '../features/town/ground.ts'
-import { attachCamera, fitCamera, updateCamera, type Camera } from '../render/camera.ts'
+import {
+  attachCamera,
+  fitCamera,
+  glideTo,
+  KEYBINDS,
+  updateCamera,
+  type Camera,
+} from '../render/camera.ts'
 import { createHeroLayer, loadAtlas, syncHeroes, type View } from '../render/heroes.ts'
+import { createBridge, NOBODY, ROSTER_VARIANTS, type RosterVariant } from '../ui/bridge.ts'
+import { mountUi } from '../ui/mount.tsx'
 import { replaySource, syntheticSource, type Source } from './source.ts'
 
 type Settings = {
@@ -20,12 +35,15 @@ type Settings = {
   readonly tempo: number
   readonly replay: string | undefined
   readonly layout: TownKind
+  readonly roster: RosterVariant
 }
 
 const HUD_EVERY_MS = 250
+const ROSTER_EVERY_MS = 250
+const PICK_REACH = 60
+const SOUTH = 'S'
 const FIT_AFTER_MS = 1500
 const DEFAULT_REPLAY = 'ws://127.0.0.1:47330'
-const KEYS = { layout: 'l', fit: 'f' } as const
 
 const readSettings = (): Settings => {
   const params = new URLSearchParams(window.location.search)
@@ -38,6 +56,7 @@ const readSettings = (): Settings => {
     tempo: Number(params.get('tempo') ?? 4),
     replay: replay === null ? undefined : replay || DEFAULT_REPLAY,
     layout,
+    roster: ROSTER_VARIANTS.find((variant) => variant === params.get('roster')) ?? 'tree',
   }
 }
 
@@ -80,8 +99,49 @@ const view: View = { left: 0, top: 0, right: 0, bottom: 0 }
 const profile = createProfile(SIM_SYSTEMS)
 const events: HeroEvent[] = []
 const hud = element('hud')
-const loop = { last: started, nextHud: 0, fitted: false, frames: 0, fpsAt: started, fps: 0 }
+const loop = {
+  last: started,
+  nextHud: 0,
+  nextRoster: 0,
+  fitted: false,
+  frames: 0,
+  fpsAt: started,
+  fps: 0,
+}
+const marker = createSelectionMarker()
+const queue = createAttentionQueue(sim)
+world.addChildAt(marker.ring, 1)
 attachCamera(app.canvas, camera)
+
+const focusHero = (eid: number): void => {
+  const { x, y } = sim.stores.position
+  glideTo(camera, screenX(x[eid]!, y[eid]!), screenY(x[eid]!, y[eid]!) - 40)
+}
+
+const south = atlas.directions.indexOf(SOUTH)
+const bridge = createBridge(
+  sim,
+  {
+    url: '/sprites/heroes-atlas.png',
+    width: texture.width,
+    height: texture.height,
+    origins: atlas.cells.map((animations) => animations[0]![south]![0]!),
+  },
+  {
+    glideTo: focusHero,
+    relayout: (kind) => {
+      relayoutTown(sim, kind, performance.now())
+    },
+  },
+  settings.roster,
+)
+const ui = mountUi(bridge, source.label, element('ui'))
+
+camera.onClick = (pointerX, pointerY) => {
+  const worldX = (pointerX - app.screen.width / 2) / camera.zoom + camera.x
+  const worldY = (pointerY - app.screen.height / 2) / camera.zoom + camera.y
+  bridge.select(pickHero(sim, heroes, worldX, worldY, PICK_REACH / Math.min(1, camera.zoom)))
+}
 
 const fitTown = (): void => {
   const bounds = townBounds(sim)
@@ -107,14 +167,21 @@ const fitTown = (): void => {
 }
 
 window.addEventListener('keydown', (event) => {
-  if (event.key === KEYS.layout) {
-    const next = sim.town.kind === 'ring' ? 'road' : 'ring'
-    relayoutTown(sim, next, performance.now())
+  if (KEYBINDS.layout.some((key) => key === event.key)) {
+    bridge.setLayout(sim.town.kind === 'ring' ? 'road' : 'ring')
     fitTown()
   }
 
-  if (event.key === KEYS.fit) {
+  if (KEYBINDS.fit.some((key) => key === event.key)) {
     fitTown()
+  }
+
+  if (KEYBINDS.attention.some((key) => key === event.key)) {
+    const next = nextInQueue(queue, sim, bridge.selected())
+
+    if (next !== NOBODY) {
+      bridge.focus(next)
+    }
   }
 })
 
@@ -123,7 +190,7 @@ const paintHud = (now: number): void => {
     `${loop.fps.toFixed(0)} fps`,
     `${heroCount(sim.index)} heroes · ${sim.groups.guildKeys.length} guilds · ${sim.groups.partyWorkspace.length} parties`,
     `town: ${sim.town.kind} (seed ${sim.town.seed}) · ${source.label}`,
-    `[${KEYS.layout}] layout  [${KEYS.fit}] fit  wasd/drag pan  wheel zoom`,
+    `[q] next who needs you  [l] layout  [f] fit  wasd/drag pan  wheel zoom`,
   ].join('\n')
   loop.nextHud = now + HUD_EVERY_MS
 }
@@ -156,11 +223,17 @@ const frame = (now: number): void => {
 
   updateCamera(camera, world, app.screen.width, app.screen.height, dt, view)
   syncHeroes(heroes, sim, atlas, view, now)
+  syncSelectionMarker(marker, sim, bridge.selected())
   syncEffects(effects, sim, now)
   app.render()
 
   if (now >= loop.nextHud) {
     paintHud(now)
+  }
+
+  if (now >= loop.nextRoster) {
+    loop.nextRoster = now + ROSTER_EVERY_MS
+    ui.roster.flush()
   }
 
   requestAnimationFrame(frame)

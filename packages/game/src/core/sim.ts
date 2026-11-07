@@ -101,6 +101,7 @@ export type Sim = {
   readonly attachedEmitters: DenseSet
   readonly transitions: Transitions
   readonly levelUps: DenseSet
+  readonly changed: DenseSet
   readonly wanders: Uint8Array
   readonly thresholds: Float64Array
   readonly groups: Groups
@@ -174,6 +175,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
       dropped: 0,
     },
     levelUps: createDenseSet(budgets.entities),
+    changed: createDenseSet(budgets.entities),
     wanders: stateFlags(machine, config.tuning.wanderStates),
     thresholds: levelThresholds(config.curve),
     groups: createGroups(budgets.guilds, budgets.parties),

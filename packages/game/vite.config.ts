@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
+import solid from 'vite-plugin-solid'
 import { traceAll } from './trace-all.ts'
 
 const TMP = join(import.meta.dirname, '..', '..', 'tmp')
@@ -49,6 +50,7 @@ export default defineConfig({
     rolldownOptions: { input: { index: 'index.html', bench: 'bench.html' } },
   },
   plugins: [
+    solid(),
     receiver('/__bench', 'bench', 'bench'),
     receiver('/__trace', 'traces', 'trace'),
     ...(TRACE_ALL ? [traceAll()] : []),

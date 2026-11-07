@@ -1,0 +1,278 @@
+:root {
+  --ink: #eadfc4;
+  --ink-dim: #a99f8c;
+  --panel: rgb(16 13 22 / 0.88);
+  --edge: #4a3f55;
+  --hover: rgb(255 240 210 / 0.06);
+  --selected: rgb(232 184 74 / 0.16);
+  --raven: #e0605a;
+  --loot: #e8b84a;
+  --working: #e08a3c;
+  --idle: #7fa07a;
+  --unknown: #6a6a7a;
+  --dead: #6b3a3a;
+  --font: 13px/1.3 ui-monospace, monospace;
+}
+
+.panel {
+  position: fixed;
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  color: var(--ink);
+  font: var(--font);
+}
+
+.panel button,
+.panel a {
+  font: inherit;
+  color: inherit;
+}
+
+.dev-panel {
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  padding: 4px 8px;
+}
+
+.dev-panel .label {
+  color: var(--ink-dim);
+  margin-left: 8px;
+}
+
+.dev-panel button,
+.dev-panel a {
+  background: none;
+  border: 1px solid transparent;
+  padding: 1px 6px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.dev-panel .active {
+  border-color: var(--loot);
+  color: var(--loot);
+}
+
+.roster {
+  top: 8px;
+  right: 8px;
+  bottom: 8px;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+}
+
+.roster-scroll {
+  flex: 1;
+  overflow-y: auto;
+  position: relative;
+}
+
+.roster-track {
+  position: relative;
+}
+
+.slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40px;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 40px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.line:hover {
+  background: var(--hover);
+}
+
+.line.heading {
+  color: var(--ink-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  cursor: default;
+  border-bottom: 1px solid var(--edge);
+}
+
+.line.guild .name {
+  color: var(--loot);
+}
+
+.line.party {
+  padding-left: 22px;
+  color: var(--ink-dim);
+}
+
+.line .counts {
+  margin-left: auto;
+  color: var(--ink-dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.line.selected {
+  background: var(--selected);
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.who .name,
+.who .quest {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.who .quest {
+  color: var(--ink-dim);
+  font-size: 11px;
+}
+
+.level {
+  color: var(--ink-dim);
+  font-size: 11px;
+}
+
+.badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  padding: 1px 4px;
+  border: 1px solid currentcolor;
+}
+
+.standing-raven .badge,
+.badge.standing-raven {
+  color: var(--raven);
+}
+.standing-loot .badge,
+.badge.standing-loot {
+  color: var(--loot);
+}
+.standing-working .badge,
+.badge.standing-working {
+  color: var(--working);
+}
+.standing-idle .badge,
+.badge.standing-idle {
+  color: var(--idle);
+}
+.standing-unknown .badge,
+.badge.standing-unknown {
+  color: var(--unknown);
+}
+.standing-dead .badge,
+.badge.standing-dead {
+  color: var(--dead);
+}
+
+.portrait {
+  flex: none;
+  image-rendering: pixelated;
+  background-repeat: no-repeat;
+  background-color: #1d1924;
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+
+.portrait.status-raven {
+  box-shadow: 0 0 0 2px var(--raven);
+}
+.portrait.status-loot {
+  box-shadow: 0 0 0 2px var(--loot);
+}
+.portrait.status-working {
+  box-shadow: 0 0 0 1px var(--working);
+}
+.portrait.status-dead {
+  filter: grayscale(1) brightness(0.6);
+}
+.portrait.status-unknown {
+  filter: grayscale(0.7);
+}
+
+.chips {
+  padding: 4px 0;
+}
+
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 8px 10px;
+}
+
+.chip {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.chip.selected .portrait {
+  outline: 2px solid var(--ink);
+}
+
+.chip-guild .line.guild {
+  cursor: default;
+  height: 28px;
+}
+
+.hero-card {
+  left: 8px;
+  bottom: 8px;
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  width: 380px;
+}
+
+.hero-card .close {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.hero-card .facts {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.hero-card .name {
+  color: var(--loot);
+  font-size: 15px;
+}
+
+.hero-card .meta,
+.hero-card .quest {
+  color: var(--ink-dim);
+}
+
+.hero-card .badge {
+  align-self: flex-start;
+}

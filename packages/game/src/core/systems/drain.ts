@@ -43,7 +43,7 @@ const leaveGroups = (sim: Sim, eid: number): void => {
   }
 }
 
-const withHero = (sim: Sim, id: string, apply: (eid: number) => void): boolean => {
+const withHero = (sim: Sim, id: string, apply: (eid: number) => void, quiet = false): boolean => {
   const eid = entityOfHero(sim.index, id)
 
   if (eid === NONE) {
@@ -53,6 +53,10 @@ const withHero = (sim: Sim, id: string, apply: (eid: number) => void): boolean =
   }
 
   apply(eid)
+
+  if (!quiet) {
+    addMember(sim.changed, eid)
+  }
 
   return true
 }
@@ -103,6 +107,7 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   forceState(sim, eid, startingState(sim, hero), now)
   sim.spawnsThisFrame += 1
   sim.counters.joined += 1
+  addMember(sim.changed, eid)
 
   return true
 }
@@ -131,17 +136,23 @@ const HANDLERS: Handlers = {
       sim.text.quest[eid] = event.quest
     }),
   'hero.experience': (sim, event) =>
-    withHero(sim, event.hero, (eid) => {
-      const { hero } = sim.stores
-      hero.experience[eid] = event.experience
-      const level = levelFor(sim.thresholds, event.experience)
+    withHero(
+      sim,
+      event.hero,
+      (eid) => {
+        const { hero } = sim.stores
+        hero.experience[eid] = event.experience
+        const level = levelFor(sim.thresholds, event.experience)
 
-      if (level > hero.level[eid]!) {
-        hero.level[eid] = level
-        sim.counters.levelUps += 1
-        addMember(sim.levelUps, eid)
-      }
-    }),
+        if (level > hero.level[eid]!) {
+          hero.level[eid] = level
+          sim.counters.levelUps += 1
+          addMember(sim.levelUps, eid)
+          addMember(sim.changed, eid)
+        }
+      },
+      true,
+    ),
   'hero.moved': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
       leaveGroups(sim, eid)

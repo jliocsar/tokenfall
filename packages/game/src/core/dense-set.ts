@@ -22,6 +22,14 @@ export const addMember = (set: DenseSet, value: number): void => {
   set.size += 1
 }
 
+export const clearSet = (set: DenseSet): void => {
+  for (let i = 0; i < set.size; i++) {
+    set.sparse[set.dense[i]!] = -1
+  }
+
+  set.size = 0
+}
+
 export const removeMember = (set: DenseSet, value: number): void => {
   const index = set.sparse[value]!
 
