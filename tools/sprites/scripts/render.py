@@ -177,6 +177,7 @@ def tiles():
             # grid axes sit at 45 deg to the camera, that's what makes the diamonds
             r.rotation_euler = (0, 0, math.radians(item.get('rot', 0) + 45))
             r.location = tuple(item.get('loc', (0, 0, 0)))
+            r.scale = (item.get('scale', 1),) * 3
         bpy.context.view_layer.update()
         render_to(os.path.join(cfg['out'], item['name'] + '.png'))
     print(f'RENDER tiles n={len(cfg["tiles"])} seconds={time.time() - t0:.1f}')

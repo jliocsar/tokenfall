@@ -1,0 +1,29 @@
+{
+  "ambient": "#58507a",
+  "ambientLuminance": 0.33,
+  "resolution": 0.5,
+  "hero": {
+    "on": 0.3,
+    "off": 0.42,
+    "radius": 3.2,
+    "color": "#ffd9a0",
+    "alpha": 0.75
+  },
+  "fire": {
+    "radius": 7,
+    "color": "#ffab5e",
+    "alpha": 1,
+    "flicker": 0.06,
+    "flickerHz": 7
+  },
+  "lantern": {
+    "radius": 4,
+    "color": "#ffcf8a",
+    "alpha": 0.85
+  },
+  "grid": {
+    "cell": 1,
+    "falloffPower": 2
+  },
+  "textureSize": 128
+}

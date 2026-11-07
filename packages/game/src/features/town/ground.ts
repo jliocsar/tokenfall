@@ -21,10 +21,6 @@ const { palette, draw } = town
 
 const CIRCLE_POINTS = 28
 const HUE_DEGREES = 360
-const FLAG_WIDTH = 34
-const FLAG_HEIGHT = 22
-const GRAVE_ROWS = 3
-const GRAVE_COLUMNS = 4
 
 export const createTownLayer = (): TownLayer => {
   const container = new Container({ label: 'town' })
@@ -129,39 +125,18 @@ const drawStreets = (ground: Graphics, shape: Town, bounds: Bounds): void => {
 const drawGraveyard = (ground: Graphics, shape: Town): void => {
   const [x, y, halfX, halfY] = shape.graveyard
   ground.poly(rect(x!, y!, halfX!, halfY!)).fill(palette.graveyard)
-  ground.poly(rect(x!, y!, halfX!, halfY!)).stroke({ width: 3, color: palette.fence })
-
-  for (let row = 0; row < GRAVE_ROWS; row++) {
-    for (let column = 0; column < GRAVE_COLUMNS; column++) {
-      const gx = x! - halfX! + ((column + 0.5) * halfX! * 2) / GRAVE_COLUMNS
-      const gy = y! - halfY! + ((row + 0.5) * halfY! * 2) / GRAVE_ROWS
-      ground.poly(rect(gx, gy, 0.35, 0.18)).fill(palette.grave)
-    }
-  }
 }
 
-const drawPlot = (ground: Graphics, marks: Graphics, shape: Town, plot: number, key: string) => {
+const drawPlot = (ground: Graphics, shape: Town, plot: number): void => {
   const x = shape.plotX[plot]!
   const y = shape.plotY[plot]!
-  const [entranceHalfX, entranceHalfY] = draw.entranceSize
   ground
     .poly(strip(shape.pathX[plot]!, shape.pathY[plot]!, x, y, draw.pathWidth))
     .fill(palette.path)
-  ground.poly(circle(x, y, draw.plotRadius)).fill(palette.plot)
-  ground.poly(circle(x, y, draw.fireRadius)).fill(palette.fire)
-  const ex = shape.entranceX[plot]!
-  const ey = shape.entranceY[plot]!
-  ground.poly(rect(ex, ey, entranceHalfX! / 2, entranceHalfY! / 2)).fill(palette.entrance)
   ground
-    .poly(rect(ex, ey, entranceHalfX! / 2, entranceHalfY! / 2))
-    .stroke({ width: 4, color: palette.entranceRim })
-  const poleX = screenX(x - 1, y - 1)
-  const poleY = screenY(x - 1, y - 1)
-  marks
-    .moveTo(poleX, poleY)
-    .lineTo(poleX, poleY - draw.bannerHeight)
-    .stroke({ width: 4, color: palette.pole })
-  marks.rect(poleX, poleY - draw.bannerHeight, FLAG_WIDTH, FLAG_HEIGHT).fill(guildColor(key))
+    .poly(strip(x, y, shape.entranceX[plot]!, shape.entranceY[plot]!, draw.pathWidth))
+    .fill(palette.path)
+  ground.poly(circle(x, y, draw.plotRadius)).fill(palette.plot)
 }
 
 const label = (text: string, x: number, y: number): Text => {
@@ -209,7 +184,6 @@ const redraw = (layer: TownLayer, sim: Sim): void => {
   drawStreets(ground, shape, bounds)
   const [squareX, squareY, squareRadius] = shape.square
   ground.poly(circle(squareX!, squareY!, squareRadius!)).fill(palette.square)
-  ground.poly(circle(squareX!, squareY!, 0.8)).fill(palette.well)
   drawGraveyard(ground, shape)
 
   for (let plot = 0; plot < shape.guildOfPlot.length; plot++) {
@@ -217,7 +191,7 @@ const redraw = (layer: TownLayer, sim: Sim): void => {
 
     if (guild !== NO_PLOT) {
       const key = sim.groups.guildKeys[guild] ?? ''
-      drawPlot(ground, marks, shape, plot, key)
+      drawPlot(ground, shape, plot)
       labels.addChild(label(guildLabel(key), shape.plotX[plot]!, shape.plotY[plot]!))
     }
   }

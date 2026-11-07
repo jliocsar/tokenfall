@@ -12,3 +12,22 @@ python3 -I tools/sprites/scripts/atlas.py assets/sprites/heroes assets/sprites/h
 ```
 
 The scripts came from the M0 spike and still assume its folder layout. Check paths at the top of `run_final.sh` before running it.
+
+## Props
+
+Town props are single-direction renders packed under the hero cells of `heroes-atlas.png`, so Heroes and props share one texture and sort together.
+
+1. Download the packs listed in `assets/CREDITS.md` into `tmp/asset-research/` (the paths in `props.json` point there).
+2. Render, with each prop's scale in `props.json` set so it reads next to a Hero:
+
+```sh
+cd tools/sprites/scripts && blender -b --factory-startup --disable-autoexec -P render.py -- <props.json with absolute paths>
+```
+
+3. Pack the band. It replaces any earlier band, so rerunning is safe:
+
+```sh
+python3 -I tools/sprites/scripts/props_pack.py tools/sprites/props.json tmp/sprites/props/raw assets/sprites/heroes-atlas
+```
+
+Rerun step 3 after rebuilding the hero atlas with `atlas.py`, since that drops the band.

@@ -41,7 +41,38 @@
     "fieldMargin": 12,
     "entranceSize": [2.2, 1.3],
     "labelSize": 30,
-    "bannerHeight": 130,
+    "bannerHeight": 90,
     "fireRadius": 0.45
+  },
+  "props": {
+    "square": [
+      {
+        "name": "tavern",
+        "angle": 200
+      },
+      {
+        "name": "home_a",
+        "angle": 140
+      },
+      {
+        "name": "home_b",
+        "angle": 255
+      },
+      {
+        "name": "lantern",
+        "angle": 310
+      },
+      {
+        "name": "lantern",
+        "angle": 70
+      }
+    ],
+    "graveyard": {
+      "rows": 2,
+      "columns": 4
+    },
+    "tents": 3,
+    "tentRadius": 4.4,
+    "treeArea": 45
   }
 }

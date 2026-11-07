@@ -13,7 +13,16 @@ import {
   pickHero,
   syncSelectionMarker,
 } from '../features/selection/marker.ts'
+import {
+  createLightLayer,
+  lightSystem,
+  renderLight,
+  resizeLight,
+  setStaticLights,
+  type StaticLight,
+} from '../features/light/light.ts'
 import { createTownLayer, syncTown, townBounds } from '../features/town/ground.ts'
+import { townProps } from '../features/town/props.ts'
 import {
   attachCamera,
   fitCamera,
@@ -22,7 +31,7 @@ import {
   updateCamera,
   type Camera,
 } from '../render/camera.ts'
-import { createHeroLayer, loadAtlas, syncHeroes, type View } from '../render/heroes.ts'
+import { createHeroLayer, loadAtlas, setProps, syncHeroes, type View } from '../render/heroes.ts'
 import { createBridge, NOBODY } from '../ui/bridge.ts'
 import { mountUi } from '../ui/mount.tsx'
 import { replaySource, syntheticSource, type Source } from './source.ts'
@@ -86,7 +95,12 @@ const heroes = createHeroLayer(sim, atlas, texture, ['delving'])
 const effects = createEffectLayer(sim, EFFECT_DEFINITIONS)
 const world = new Container({ label: 'world' })
 world.addChild(town.container, heroes.container, effects.container, town.labels)
-app.stage.addChild(world)
+const light = createLightLayer(sim, app.screen.width, app.screen.height)
+const heroLight = lightSystem(light, heroes)
+app.stage.addChild(world, light.overlay)
+window.addEventListener('resize', () => {
+  resizeLight(light, app.screen.width, app.screen.height)
+})
 
 const camera: Camera = { x: 0, y: 0, zoom: 0.35, keys: new Set() }
 const view: View = { left: 0, top: 0, right: 0, bottom: 0 }
@@ -169,6 +183,23 @@ window.addEventListener('keydown', (event) => {
   }
 })
 
+const furnishTown = (): void => {
+  const placements = townProps(sim, townBounds(sim))
+  setProps(heroes, placements)
+  setStaticLights(
+    light,
+    placements.flatMap((placement): StaticLight[] => {
+      if (placement.name === 'campfire') {
+        return [{ x: placement.x, y: placement.y, kind: 'fire' }]
+      }
+
+      return placement.name === 'lantern'
+        ? [{ x: placement.x, y: placement.y, kind: 'lantern' }]
+        : []
+    }),
+  )
+}
+
 const paintHud = (now: number): void => {
   hud.textContent = [
     `${loop.fps.toFixed(0)} fps`,
@@ -198,7 +229,12 @@ const frame = (now: number): void => {
   }
 
   runSystems(SIM_SYSTEMS, profile, sim, now, dt)
-  syncTown(town, sim)
+
+  if (syncTown(town, sim)) {
+    furnishTown()
+  }
+
+  heroLight.run(sim, now, dt)
 
   if (!loop.fitted && now - started > FIT_AFTER_MS) {
     loop.fitted = true
@@ -209,6 +245,7 @@ const frame = (now: number): void => {
   syncHeroes(heroes, sim, atlas, view, now)
   syncSelectionMarker(marker, sim, bridge.selected())
   syncEffects(effects, sim, now)
+  renderLight(light, sim, heroes, app.renderer, world, view, now)
   app.render()
 
   if (now >= loop.nextHud) {

@@ -1,0 +1,137 @@
+{
+  "mode": "tiles",
+  "name": "props",
+  "cell": 256,
+  "ss": 2,
+  "ppu": 25.6,
+  "pivot_y": 0.8,
+  "shadows": true,
+  "out": "tmp/sprites/props/raw",
+  "tiles": [
+    {
+      "name": "tent",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/props/tent.gltf",
+      "scale": 3.4
+    },
+    {
+      "name": "campfire",
+      "glb": "tmp/asset-research/kenney-survival-kit/extracted/Models/GLB format/campfire-pit.glb",
+      "scale": 5
+    },
+    {
+      "name": "flag_red",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/props/flag_red.gltf",
+      "scale": 9
+    },
+    {
+      "name": "flag_blue",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/props/flag_blue.gltf",
+      "scale": 9
+    },
+    {
+      "name": "flag_green",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/props/flag_green.gltf",
+      "scale": 9
+    },
+    {
+      "name": "flag_yellow",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/props/flag_yellow.gltf",
+      "scale": 9
+    },
+    {
+      "name": "well",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/buildings/red/building_well_red.gltf",
+      "scale": 3.4
+    },
+    {
+      "name": "mine",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/buildings/red/building_mine_red.gltf",
+      "scale": 3.4
+    },
+    {
+      "name": "tavern",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/buildings/red/building_tavern_red.gltf",
+      "scale": 3.4
+    },
+    {
+      "name": "home_a",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/buildings/red/building_home_A_red.gltf",
+      "scale": 3.4
+    },
+    {
+      "name": "home_b",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/buildings/red/building_home_B_red.gltf",
+      "scale": 3.4
+    },
+    {
+      "name": "grave_a",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/grave_A.gltf",
+      "scale": 0.8
+    },
+    {
+      "name": "gravestone",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/gravestone.gltf",
+      "scale": 0.9
+    },
+    {
+      "name": "gravemarker",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/gravemarker_A.gltf",
+      "scale": 1.2
+    },
+    {
+      "name": "crypt",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/crypt.gltf",
+      "scale": 0.6
+    },
+    {
+      "name": "iron_fence",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/fence.gltf",
+      "scale": 0.7
+    },
+    {
+      "name": "dead_tree",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/tree_dead_large.gltf",
+      "scale": 0.9
+    },
+    {
+      "name": "lantern",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/lantern_standing.gltf",
+      "scale": 2.2
+    },
+    {
+      "name": "tree",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/nature/tree_single_A.gltf",
+      "scale": 3.6
+    },
+    {
+      "name": "trees",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/nature/trees_A_large.gltf",
+      "scale": 3.6
+    },
+    {
+      "name": "rock",
+      "glb": "tmp/asset-research/kaykit-forest-nature/extracted/KayKit_Forest_Nature_Pack_1.0_FREE/Assets/gltf/Rock_1_A_Color1.gltf",
+      "scale": 2.2
+    },
+    {
+      "name": "barrel",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/props/barrel.gltf",
+      "scale": 4.5
+    },
+    {
+      "name": "crates",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/props/crate_A_small.gltf",
+      "scale": 6
+    },
+    {
+      "name": "sack",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/props/sack.gltf",
+      "scale": 6
+    },
+    {
+      "name": "weaponrack",
+      "glb": "tmp/asset-research/kaykit-medieval-hexagon/extracted/KayKit-Medieval-Hexagon-Pack-1.0-main/addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/props/weaponrack.gltf",
+      "scale": 6
+    }
+  ]
+}

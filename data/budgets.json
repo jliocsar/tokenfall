@@ -8,5 +8,6 @@
   "effectEmittersPerKind": 512,
   "levelUpBurstsPerFrame": 8,
   "guilds": 256,
-  "parties": 1024
+  "parties": 1024,
+  "heroLights": 512
 }

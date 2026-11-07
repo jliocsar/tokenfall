@@ -22,6 +22,16 @@ export type Atlas = {
   readonly animations: readonly { readonly name: string; readonly frames: number }[]
   readonly directions: readonly string[]
   readonly cells: readonly (readonly (readonly (readonly (readonly number[])[])[])[])[]
+  readonly props?: Readonly<Record<string, readonly number[]>>
+}
+
+export type PropPlacement = { readonly name: string; readonly x: number; readonly y: number }
+
+export type PropSlots = {
+  readonly particles: Particle[]
+  readonly depth: number[]
+  readonly sx: number[]
+  readonly sy: number[]
 }
 
 export type View = { left: number; top: number; right: number; bottom: number }
@@ -38,6 +48,9 @@ export type HeroLayer = {
   readonly query: { readonly dense: ArrayLike<number> }
   readonly states: { readonly dying: number; readonly dead: number; readonly warpIn: number }
   readonly hidden: Uint8Array
+  readonly propTextures: ReadonlyMap<string, Texture>
+  props: PropSlots
+  propCursor: number
   count: number
 }
 
@@ -84,6 +97,46 @@ const buildTextures = (atlas: Atlas, source: TextureSource): Texture[] => {
   return textures
 }
 
+const buildPropTextures = (atlas: Atlas, source: TextureSource): Map<string, Texture> =>
+  new Map(
+    Object.entries(atlas.props ?? {}).map(([name, [x, y, width, height, pivotX, pivotY]]) => [
+      name,
+      new Texture({
+        source,
+        frame: new Rectangle(x, y, width, height),
+        defaultAnchor: { x: pivotX! / width!, y: pivotY! / height! },
+      }),
+    ]),
+  )
+
+export const setProps = (layer: HeroLayer, placements: readonly PropPlacement[]): void => {
+  const sorted = placements
+    .filter((placement) => layer.propTextures.has(placement.name))
+    .toSorted((a, b) => a.x + a.y - (b.x + b.y))
+  layer.props = {
+    particles: sorted.map((placement) => {
+      const texture = layer.propTextures.get(placement.name)!
+
+      return new Particle({
+        texture,
+        anchorX: texture.defaultAnchor?.x ?? 0.5,
+        anchorY: texture.defaultAnchor?.y ?? 1,
+        x: screenX(placement.x, placement.y),
+        y: screenY(placement.x, placement.y),
+      })
+    }),
+    depth: sorted.map((placement) => placement.x + placement.y),
+    sx: sorted.map((placement) => screenX(placement.x, placement.y)),
+    sy: sorted.map((placement) => screenY(placement.x, placement.y)),
+  }
+}
+
+const outside = (view: View, sx: number, sy: number): boolean =>
+  sx < view.left - CULL_MARGIN ||
+  sx > view.right + CULL_MARGIN ||
+  sy < view.top - CULL_MARGIN ||
+  sy > view.bottom + CULL_MARGIN
+
 export const createHeroLayer = (
   sim: Sim,
   atlas: Atlas,
@@ -115,6 +168,9 @@ export const createHeroLayer = (
       warpIn: stateId(sim.machine, 'warping-in'),
     },
     hidden: stateFlags(sim.machine, hiddenStates),
+    propTextures: buildPropTextures(atlas, source),
+    props: { particles: [], depth: [], sx: [], sy: [] },
+    propCursor: 0,
     count: 0,
   }
 }
@@ -181,6 +237,24 @@ const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now:
   }
 }
 
+const paintProps = (layer: HeroLayer, view: View, depth: number, visible: number): number => {
+  const { props } = layer
+  const children = layer.container.particleChildren
+  let count = visible
+
+  while (layer.propCursor < props.depth.length && props.depth[layer.propCursor]! <= depth) {
+    const prop = layer.propCursor
+    layer.propCursor += 1
+
+    if (!outside(view, props.sx[prop]!, props.sy[prop]!)) {
+      children[count] = props.particles[prop]!
+      count += 1
+    }
+  }
+
+  return count
+}
+
 export const syncHeroes = (
   layer: HeroLayer,
   sim: Sim,
@@ -205,6 +279,7 @@ export const syncHeroes = (
   const children = layer.container.particleChildren
   const { x, y } = sim.stores.position
   let visible = 0
+  layer.propCursor = 0
 
   for (let i = 0; i < layer.count; i++) {
     const eid = layer.order[i]!
@@ -216,15 +291,11 @@ export const syncHeroes = (
     const sx = screenX(x[eid]!, y[eid]!)
     const sy = screenY(x[eid]!, y[eid]!)
 
-    if (
-      sx < view.left - CULL_MARGIN ||
-      sx > view.right + CULL_MARGIN ||
-      sy < view.top - CULL_MARGIN ||
-      sy > view.bottom + CULL_MARGIN
-    ) {
+    if (outside(view, sx, sy)) {
       continue
     }
 
+    visible = paintProps(layer, view, x[eid]! + y[eid]!, visible)
     const particle = layer.particles[eid]!
     particle.x = sx
     particle.y = sy
@@ -233,6 +304,7 @@ export const syncHeroes = (
     visible += 1
   }
 
+  visible = paintProps(layer, view, Number.POSITIVE_INFINITY, visible)
   children.length = visible
   traceEnd()
 
