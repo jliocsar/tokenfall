@@ -65,6 +65,10 @@
       {
         "name": "lantern",
         "angle": 30
+      },
+      {
+        "name": "notice_board",
+        "angle": 70
       }
     ],
     "graveyard": {

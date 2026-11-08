@@ -8,7 +8,14 @@ import { push } from '../core/queue.ts'
 import { createProfile, runSystems } from '../core/system.ts'
 import { SIM_SYSTEMS } from '../core/systems/index.ts'
 import { createEffectLayer, syncEffects } from '../effects/gpu.ts'
-import { createAttentionQueue, nextInQueue } from '../features/attention/queue.ts'
+import {
+  BOARD,
+  createAttentionQueue,
+  nextInQueue,
+  WAIT_INBOX,
+  WAIT_PERMISSION,
+  waitOf,
+} from '../features/attention/queue.ts'
 import {
   createSelectionMarker,
   pickHero,
@@ -48,7 +55,10 @@ import { mountUi } from '../ui/mount.tsx'
 import { createChronicle } from '../features/chronicle/model.ts'
 import { createInbox } from '../features/ravens/model.ts'
 import { createSheet } from '../features/sheet/model.ts'
-import { createFlock, syncFlock } from '../features/ravens/flock.ts'
+import { createFlock, ravenAt, syncFlock } from '../features/ravens/flock.ts'
+import { createNoticeBoard } from '../features/notices/model.ts'
+import { boardAt, createBoardBadge, ravenReach, syncBoardBadge } from '../features/notices/badge.ts'
+import { threadUrl, type InboxState } from '@tokenfall/protocol/inbox'
 import { createChests, syncChests } from '../features/loot/chests.ts'
 import {
   createTownMeasure,
@@ -76,6 +86,7 @@ const ROSTER_SPACE = 360
 const SOUTH = 'S'
 const FIT_AFTER_MS = 1500
 const DEFAULT_REPLAY = 'ws://127.0.0.1:47330'
+const LANTERN_LIT: ReadonlySet<string> = new Set(['lantern', 'notice_board'])
 
 const readSettings = (): Settings => {
   const params = new URLSearchParams(window.location.search)
@@ -134,13 +145,17 @@ const pickSource = (): Source => {
     ? syntheticSource(settings, started)
     : daemonSource(daemonUrl(), {
         chronicle: chronicle.add,
-        inbox: inbox.set,
+        inbox: (state: InboxState) => {
+          inbox.set(state)
+          noticeBoard.update(state)
+        },
         screen: sheet.receive,
       })
 }
 
 const chronicle = createChronicle()
 const inbox = createInbox()
+const noticeBoard = createNoticeBoard()
 const sheet = createSheet()
 const source = pickSource()
 const sim = bootSim(await source.ready, started, {})
@@ -169,9 +184,10 @@ const light = createLightLayer(sim, app.screen.width, app.screen.height)
 const heroLight = lightSystem(light, heroes)
 const bubbles = createBubbles(sim)
 const badges = createBadges(sim)
+const boardBadge = createBoardBadge()
 bubbles.avoid = (x, y, halfWidth, halfHeight) => overlapsBadge(badges, x, y, halfWidth, halfHeight)
 const overlay = new Container({ label: 'overlay', isRenderGroup: true })
-overlay.addChild(badges.container, bubbles.container)
+overlay.addChild(badges.container, boardBadge.container, bubbles.container)
 app.stage.addChild(world, light.overlay, glow, overlay)
 const screen: Screen = { width: 0, height: 0, x: 0, y: 0, zoom: 1 }
 const tip = element('tip')
@@ -195,6 +211,7 @@ const loop = {
   fps: 0,
   report: '',
   rosterPending: false,
+  atBoard: false,
 }
 const off: ReadonlySet<string> = settings.measure?.off ?? new Set()
 const measure: TownMeasure | undefined =
@@ -220,12 +237,58 @@ const bridge = createBridge(
   },
   { glideTo: focusHero },
 )
+
+const focusBoard = (): void => {
+  const { spot } = noticeBoard
+
+  if (spot.placed) {
+    glideTo(camera, screenX(spot.x, spot.y), screenY(spot.x, spot.y) - 40)
+  }
+
+  bridge.select(NOBODY)
+  loop.atBoard = true
+  noticeBoard.show()
+}
+
 sheet.connect(sim, source.watch)
-const ui = mountUi(bridge, source.label, chronicle, inbox, sheet, element('ui'))
+const ui = mountUi(
+  bridge,
+  source.label,
+  { chronicle, inbox, sheet, board: noticeBoard, onBoard: focusBoard },
+  element('ui'),
+)
+
+const answerRaven = (eid: number): void => {
+  const wait = waitOf(sim, eid)
+  const { url } = inbox.state()
+  const thread = sim.text.ravenThread[eid] ?? ''
+  bridge.select(eid)
+
+  if (wait === WAIT_PERMISSION) {
+    sheet.show(eid)
+  } else if (wait === WAIT_INBOX && url !== null && thread !== '') {
+    window.open(threadUrl(url, thread), '_blank', 'noopener')
+  }
+}
 
 camera.onClick = (pointerX, pointerY) => {
   const worldX = (pointerX - app.screen.width / 2) / camera.zoom + camera.x
   const worldY = (pointerY - app.screen.height / 2) / camera.zoom + camera.y
+  const raven =
+    flock === undefined ? NOBODY : ravenAt(flock, worldX, worldY, ravenReach(camera.zoom))
+
+  if (raven !== NOBODY) {
+    answerRaven(raven)
+
+    return
+  }
+
+  if (boardAt(noticeBoard.spot, worldX, worldY, PICK_REACH / Math.min(1, camera.zoom))) {
+    noticeBoard.toggle()
+
+    return
+  }
+
   bridge.select(pickHero(sim, heroes, worldX, worldY, PICK_REACH / Math.min(1, camera.zoom)))
 }
 
@@ -263,9 +326,13 @@ window.addEventListener('keydown', (event) => {
   }
 
   if (KEYBINDS.attention.some((key) => key === event.key)) {
-    const next = nextInQueue(queue, sim, bridge.selected())
+    const current = loop.atBoard && bridge.selected() === NOBODY ? BOARD : bridge.selected()
+    const next = nextInQueue(queue, sim, noticeBoard.board, current)
+    loop.atBoard = false
 
-    if (next !== NOBODY) {
+    if (next === BOARD) {
+      focusBoard()
+    } else if (next !== NOBODY) {
       bridge.focus(next)
     }
   }
@@ -290,6 +357,10 @@ app.canvas.addEventListener('pointermove', (event) => {
 
 const furnishTown = (): void => {
   const placements = townProps(sim, townBounds(sim))
+  const board = placements.find((placement) => placement.name === 'notice_board')
+  noticeBoard.spot.placed = board !== undefined
+  noticeBoard.spot.x = board?.x ?? 0
+  noticeBoard.spot.y = board?.y ?? 0
   setProps(heroes, off.has('props') ? [] : placements)
   setStaticLights(
     light,
@@ -298,7 +369,7 @@ const furnishTown = (): void => {
         return [{ x: placement.x, y: placement.y, kind: 'fire' }]
       }
 
-      return placement.name === 'lantern'
+      return LANTERN_LIT.has(placement.name)
         ? [{ x: placement.x, y: placement.y, kind: 'lantern' }]
         : []
     }),
@@ -397,6 +468,7 @@ const frame = (now: number): void => {
 
   if (overlaid) {
     syncBadges(badges, sim, screen, now)
+    syncBoardBadge(boardBadge, noticeBoard.spot, noticeBoard.board.count, screen)
   }
 
   const speaking = overlaid ? syncBubbles(bubbles, sim, heroes, screen, bridge.selected(), now) : 0

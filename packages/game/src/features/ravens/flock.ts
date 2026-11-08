@@ -10,6 +10,7 @@ export type Flock = {
   readonly particles: Particle[]
   readonly frames: Texture[]
   readonly stamp: Uint32Array
+  readonly owner: Int32Array
   frame: number
   used: number
 }
@@ -18,6 +19,7 @@ const { flock: bird } = tuning
 
 const OCTANT = Math.PI / 4
 const GOLDEN = 2.399_963
+const NO_OWNER = -1
 
 const octant = (dx: number, dy: number): number =>
   (Math.round(Math.atan2(dy, dx) / OCTANT) + bird.directions) % bird.directions
@@ -60,6 +62,7 @@ export const createFlock = (sim: Sim, layer: HeroLayer): Flock | undefined => {
     particles,
     frames,
     stamp: new Uint32Array(sim.config.budgets.guilds),
+    owner: new Int32Array(sim.config.budgets.ravens).fill(NO_OWNER),
     frame: 0,
     used: 0,
   }
@@ -100,6 +103,7 @@ export const syncFlock = (flock: Flock, sim: Sim, layer: HeroLayer, now: number)
       const x = position.x[eid]!
       const y = position.y[eid]!
       place(flock, flock.used, eid, screenX(x, y), screenY(x, y) - bird.height, now)
+      flock.owner[flock.used] = eid
       flock.used += 1
       continue
     }
@@ -115,10 +119,27 @@ export const syncFlock = (flock: Flock, sim: Sim, layer: HeroLayer, now: number)
     const ex = town.entranceX[plot]!
     const ey = town.entranceY[plot]!
     place(flock, flock.used, guild, screenX(ex, ey), screenY(ex, ey) - bird.entranceLift, now)
+    flock.owner[flock.used] = NO_OWNER
     flock.used += 1
   }
 
   for (let i = flock.used; i < previous; i++) {
     flock.particles[i]!.alpha = 0
   }
+}
+
+export const ravenAt = (flock: Flock, worldX: number, worldY: number, reach: number): number => {
+  for (let i = 0; i < flock.used; i++) {
+    const particle = flock.particles[i]!
+
+    if (
+      flock.owner[i] !== NO_OWNER &&
+      Math.abs(particle.x - worldX) < reach &&
+      Math.abs(particle.y - worldY) < reach
+    ) {
+      return flock.owner[i]!
+    }
+  }
+
+  return NO_OWNER
 }

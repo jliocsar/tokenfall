@@ -67,6 +67,9 @@ Things learned from that source that the docs don't say:
 - **Bitmap font glyph textures** carry a 100 px logical size: scale Sprites by `fontSize / font.baseMeasurementFontSize`.
 - **Headless Chrome here has no GPU** (it falls back to SwiftShader), so its frame numbers are meaningless and it burns ~10 cores while a Town page is open. Close `agent-browser` when done. Real numbers come from the user running `/?measure` on `bun run preview` (:47321).
 - **Herdr's `agent.list`** carries the Claude session id in `agent_session.value` when Herdr's own Claude integration reported it. Use it as the Hero id when it's there.
+- **Herdr sends no event when `done` turns `idle`** (seen). The daemon re-reads `agent.list` after focus events and every few seconds while any Hero is done.
+- **Herdr's `pane.read` `revision` is always 0.** Hash the text to spot changes. The size comes from `pane.layout` (`rect.width` is the column count).
+- **The Plannotator Inbox** is a private format. `adapters/inbox/parse.ts` follows its own state rules (spec §8). Read only `url` from `inbox.json`, never the token.
 
 ## How code is written here
 
@@ -85,7 +88,7 @@ The daemon saves to `~/.local/state/tokenfall/tokenfall.sqlite` (`tokenfall-dev/
 
 ## Don't
 
-- Write to a Herdr pane, or call any Herdr method outside `events.subscribe`, `agent.list`, `pane.read` and snapshot reads.
+- Write to a Herdr pane, or call any Herdr method outside `events.subscribe`, `agent.list`, `pane.read`, `pane.layout` and snapshot reads.
 - Create Herdr panes except throwaway ones you close yourself, with `--no-focus`. Never touch the user's panes.
 - `pkill bun` or kill by name: other Bun servers run on this machine. Kill the PID listening on our port.
 - Edit `~/.claude*/settings.json` hooks. Hooks ship only through `plugin/`.

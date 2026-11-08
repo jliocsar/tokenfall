@@ -1,6 +1,9 @@
+import tuning from '@tokenfall/data/ravens.json'
 import { createMemo, createSignal, Index, Show, type JSX } from 'solid-js'
 import type { Bridge } from '../../ui/bridge.ts'
 import { Portrait } from '../../ui/Portrait.tsx'
+import { WAIT_INBOX, WAIT_LOOT } from '../attention/queue.ts'
+import type { NoticeBoard } from '../notices/model.ts'
 import type { Counts, GuildGroup, PartyGroup, Roster } from './model.ts'
 
 type Line =
@@ -13,12 +16,25 @@ type Line =
       readonly open: boolean
     }
   | { readonly kind: 'hero'; readonly eid: number; readonly depth: number }
+  | { readonly kind: 'board' }
 
-type RosterProps = { readonly bridge: Bridge; readonly roster: Roster }
+type RosterProps = {
+  readonly bridge: Bridge
+  readonly roster: Roster
+  readonly board: NoticeBoard
+  readonly onBoard: () => void
+}
+
+type GroupActions = {
+  readonly toggle: (key: string) => void
+  readonly onBoard: () => void
+  readonly total: number
+}
 
 const ROW_HEIGHT = 40
 const OVERSCAN = 6
 const OPEN_ALL_UNDER = 60
+const BOARD_LINE: Line = { kind: 'board' }
 
 const SUMMARY: readonly (readonly [keyof Counts, string])[] = [
   ['raven', 'raven'],
@@ -55,9 +71,20 @@ const heroLine = (cache: Map<number, Line>, eid: number, depth: number): Line =>
   return line
 }
 
-const groupLine = (line: Line, toggle: (key: string) => void): JSX.Element => {
+const groupLine = (line: Line, actions: GroupActions): JSX.Element => {
+  const { toggle } = actions
+
   if (line.kind === 'heading') {
     return <div class="line heading">{line.text}</div>
+  }
+
+  if (line.kind === 'board') {
+    return (
+      <button type="button" class="line board standing-raven" onClick={actions.onBoard}>
+        <span class="name">{tuning.board.row.replace('{count}', String(actions.total))}</span>
+        <span class="badge">raven</span>
+      </button>
+    )
   }
 
   if (line.kind === 'guild') {
@@ -93,6 +120,36 @@ const groupLine = (line: Line, toggle: (key: string) => void): JSX.Element => {
   }
 
   return null
+}
+
+const attentionLines = (
+  out: Line[],
+  roster: Roster,
+  total: number,
+  heroLines: Map<number, Line>,
+): void => {
+  const attention = roster.attention()
+  const needs = attention.length + (total > 0 ? 1 : 0)
+
+  if (needs === 0) {
+    return
+  }
+
+  out.push({ kind: 'heading', text: `needs you · ${needs}` })
+  let pinned = total === 0
+
+  for (const eid of attention) {
+    if (!pinned && (roster.rows[eid]?.wait ?? WAIT_LOOT) > WAIT_INBOX) {
+      out.push(BOARD_LINE)
+      pinned = true
+    }
+
+    out.push(heroLine(heroLines, eid, 0))
+  }
+
+  if (!pinned) {
+    out.push(BOARD_LINE)
+  }
 }
 
 export const HeroLine = (props: {
@@ -155,18 +212,11 @@ export const RosterTree = (props: RosterProps) => {
 
   const lines = createMemo<Line[]>(() => {
     const guilds = props.roster.guilds()
-    const attention = props.roster.attention()
     const heroes = guilds.reduce((sum, guild) => sum + guild.size, 0)
     const defaultOpen = heroes <= OPEN_ALL_UNDER
     const out: Line[] = []
 
-    if (attention.length > 0) {
-      out.push({ kind: 'heading', text: `needs you · ${attention.length}` })
-
-      for (const eid of attention) {
-        out.push(heroLine(heroLines, eid, 0))
-      }
-    }
+    attentionLines(out, props.roster, props.board.total(), heroLines)
 
     out.push({ kind: 'heading', text: `guilds · ${guilds.length}` })
 
@@ -218,7 +268,14 @@ export const RosterTree = (props: RosterProps) => {
         <Index each={visible()}>
           {(item, offset) => (
             <div class="slot" style={{ top: `${(first() + offset) * ROW_HEIGHT}px` }}>
-              <Show when={item().kind === 'hero'} fallback={groupLine(item(), toggle)}>
+              <Show
+                when={item().kind === 'hero'}
+                fallback={groupLine(item(), {
+                  toggle,
+                  onBoard: props.onBoard,
+                  total: props.board.total(),
+                })}
+              >
                 <HeroLine
                   bridge={props.bridge}
                   roster={props.roster}

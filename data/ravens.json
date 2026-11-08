@@ -20,5 +20,24 @@
     "offsetY": 6,
     "scale": 1.2,
     "openMs": 600
-  }
+  },
+  "board": {
+    "title": "Notice Board",
+    "row": "Notice Board ({count})",
+    "badge": "{count} on the board",
+    "empty": "Nothing on the board",
+    "noticeOne": "1 open item",
+    "noticeMany": "{count} open items",
+    "reach": 60,
+    "height": 150,
+    "offsetY": 80,
+    "ageEveryMs": 30000
+  },
+  "age": {
+    "now": "just now",
+    "minutes": "{n}m ago",
+    "hours": "{n}h ago",
+    "days": "{n}d ago"
+  },
+  "reach": 45
 }

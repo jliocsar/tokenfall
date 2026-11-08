@@ -50,9 +50,11 @@ Status: M0 and M1 done. Benchmarked on your machine (Intel Raptor Lake integrate
 
 ### Attention
 
-- **Ravens** appear for exactly two things: a permission prompt in the terminal (Herdr's `blocked`) and a question sent to the Plannotator Inbox. Each Raven shows where to answer. Reports and FYI messages get nothing.
+- **Ravens** appear for exactly two things: a prompt in the terminal (Herdr's `blocked`: a permission, a question or a plan to approve) and an open question or action item in the Plannotator Inbox. Each Raven shows where to answer. Reports and FYI messages get nothing.
+- **Notice Board:** open Inbox items whose Agent has no living Hero (a dead Hero, an unknown session, a non-Claude author) go on the board by the gate, grouped by thread: project, host, count and age, with no subject.
+- **Clicking a Raven:** an Inbox Raven opens its thread in the Inbox. A permission Raven opens the Hero's Character Sheet, so you see the prompt.
 - **Loot Chests** appear when an Agent finishes. A chest opens only once you've looked at that Agent in Herdr, so the game never marks anything seen itself.
-- **Attention Queue order:** Ravens first, then Loot Chests. One key cycles through it.
+- **Attention Queue order:** permission Ravens, Inbox Ravens, the Notice Board, then Loot Chests, oldest first within each. One key cycles through it.
 - **Nothing leaves the game:** no phone or desktop notifications.
 
 ### Feel
@@ -122,10 +124,10 @@ Prompting or starting Agents, the character creator, the software factory, Blend
 | `idle` | Relaxing at the Guild's Camp |
 | `working` | Walks to the Dungeon entrance, warps in, and works at its Depth Tier |
 | `done` | Warps out to Camp with a Loot Chest |
-| `blocked` | Raven, terminal kind |
+| `blocked` | Raven, terminal kind: a permission, an AskUserQuestion or a plan to approve |
 | `unknown` | Stands still, shown dimmed |
 
-Herdr's `done` means idle and not yet seen. Seen is per tab, not per pane: switching to the tab or refocusing the terminal on it marks every pane in that tab seen. There's no status event for that, so the daemon re-reads status after `workspace.focused`, `tab.focused` and `pane.focused` events. None of this has been tested live yet.
+Herdr's `done` means idle and not yet seen. Seen is per tab, not per pane: switching to the tab or refocusing the terminal on it marks every pane in that tab seen. Herdr sends no event when done turns idle, so the daemon re-reads status (debounced) after `workspace.focused`, `tab.focused` and `pane.focused`, and every 3 s while any Hero is done. A Loot Chest opens when that re-read says idle. If the status flips while a Hero is mid-warp, the timer settles it to the current status when the warp ends.
 
 ### Level curve
 
@@ -290,12 +292,12 @@ No frame missed a vsync. The CPU bar holds. GPU p99 at 1000 Heroes drifts betwee
 - **Connections:** a connection that has subscribed can't take another request; a second message closed it in testing. Plain requests also hung on reuse, so assume one request per connection.
 - **Status subscriptions:** `pane.agent_status_changed` requires a `pane_id`. New panes are batched about every 250 ms onto a new subscription connection, and connections get compacted over time.
 - **Gaps:** after subscribing, re-read with `agent.list`, and reconcile every 30 seconds so missed changes don't stick.
-- **Event names:** you subscribe to `pane.closed` and receive `pane_closed`, while `pane.agent_status_changed` keeps its dot. Accept both.
+- **Event names:** you subscribe to `pane.closed` and receive `pane_closed`, while `pane.agent_status_changed` keeps its dot. Accept both. The focus events arrive as `workspace_focused`, `tab_focused` and `pane_focused`.
 - **Repos:** Herdr only fills `worktree` for workspaces it created as worktrees, so the daemon resolves the Repo itself from each Agent's working folder through git.
 - **Labels:** the `tokens` fields aren't token usage, they're sidebar labels. The `/team` lead marker is one of them.
 - **Session ids:** `agent.list` carries the Claude session id in `agent_session.value` when Herdr's own Claude integration reported it, seen live on some panes and null on others. When it's there, a Hero is keyed on it from the first sight, without waiting for a hook.
 - **Remote machines:** they only answer one-off requests, with no event stream. A future multi-machine view would poll `api snapshot`.
-- **Allowed methods in v1:** `events.subscribe`, `agent.list`, `pane.read` and snapshot reads, enforced with an allowlist.
+- **Allowed methods in v1:** `events.subscribe`, `agent.list`, `pane.read`, `pane.layout` and snapshot reads, enforced with an allowlist.
 
 ### Claude hooks
 
@@ -320,16 +322,17 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 
 ### Plannotator Inbox
 
-- **Source:** a read-only tail of `~/.plannotator/inbox/projects/*/questions.jsonl` and `messages.jsonl`.
-- **Matching:** a message's `author.session` ties it to a Hero by session id. Questions from sessions with no Hero land on the Town board.
-- **Clearing:** a Raven clears when its question has `sent_reply_id`, has `superseded_by`, or its thread has `resolved_at`. Only the superseded case has been seen in real data, so M3 has to check the answered case.
-- **Stability:** these files are a private format, so the adapter fails soft and the game shows "inbox unavailable" instead of breaking. `inbox.json` holds a token and is never read.
-- **Click-through:** opens the thread, using the address from `plannotator inbox --background`.
+- **Source:** a read-only tail of `~/.plannotator/inbox/projects/*/questions.jsonl` and `messages.jsonl`, polled every 2 s from a byte offset, with the project folders rescanned every 10 s. Each line is `{v, seq, at, kind, id, record}`, and the last line per id wins.
+- **What raises a Raven:** an open question or an open action item. The state rules come from the Inbox's own code: superseded clears it; an action closed by an agent, a resolved or set-aside thread, or an archived message clears it; an answer clears it only once it's sent. A crashed send (`sent_reply_id` with no reply message) still counts as unsent.
+- **Matching:** a message's `author.session` ties it to a live Hero by session id. The rest go on the Notice Board, recomputed every tick, so a Stranger getting linked moves its items onto the Hero.
+- **Chronicle:** "A Raven flies from {name}" once per new message, keyed on the Inbox `seq`. The high mark is saved, so a restart writes no old lines.
+- **Stability:** these files are a private format, so the adapter fails soft and the game shows "Ravens unavailable" instead of breaking. Herdr Ravens keep working.
+- **Address:** only the `url` field of `~/.plannotator/inbox/inbox.json` is read, and only from loopback. The token is dropped on arrival. Links are `<url>/#thread=<root id>`.
 
 ### Terminal view
 
-- **Source:** wterm reading `pane.read` with `format: ansi` and `source: visible`, polled at 1–2 Hz while the Character Sheet is open. Repaints are skipped when `revision` hasn't changed.
-- **Setup:** a no-op `onData` handler plus `inert`, because wterm echoes keystrokes without one. Columns come from the source pane, scaled to fit, with a bundled nerd font.
+- **Source:** the daemon reads `pane.read` with `format: ansi` and `source: visible` every 500 ms for the one Hero a socket watches, and `pane.layout` every 2 s for the size (columns are the pane's width). `revision` is always 0, so the daemon hashes the text and sends a screen only when it changed, and only to the watching socket. Daemon CPU with a Sheet open: under 1%.
+- **Setup:** wterm with a no-op `onData` handler plus `inert`, because wterm echoes keystrokes without one. Columns come from the source pane, with the font size scaled to fit. It uses the system monospace for now, so Nerd Font icons show as boxes.
 
 ### bitECS
 
@@ -376,7 +379,7 @@ Each one ends with something you can run.
 
 **M2: Live, read-only. Done.** Daemon as a service, the Herdr, hook and transcript adapters, Experience with backfill, Levels and the level-up effect, the Aura, the Roster and Attention Queue on real data, Narration, the Chronicle, SQLite, and graceful resume. Done when your real Agents appear at their true Levels and survive a reboot.
 
-**M3: Ravens, chests and the terminal.** Inbox adapter, permission Ravens, Loot Chests cleared by seen state, the Character Sheet and the terminal view. Done when a real question raises a Raven that clears once answered, and looking at a finished Agent in Herdr opens its chest.
+**M3: Ravens, chests and the terminal. Built, waiting on your live test.** Inbox adapter, the Notice Board, permission Ravens, Loot Chests cleared by seen state, the Character Sheet and the terminal view. Done when a real question raises a Raven that clears once answered, and looking at a finished Agent in Herdr opens its chest.
 
 **M4: Dungeons.** Seeded generator using rot.js, with a seed stored per Guild, four Depth Tiers, Warp Portals, Minions and the lead's crown. Like Diablo, only one Dungeon is open at a time, showing one tier. It opens on the tier of the Hero you clicked, and stairs or keys switch tiers. Done when you can watch a Guild at any tier.
 
@@ -409,7 +412,14 @@ Each one ends with something you can run.
 
 - A reboot: the service came back with the same Heroes, Levels and plots, and wrote no false Chronicle lines.
 
-**Not yet seen live:** hook events from real Claude sessions (the plugin is installed in both configs, but no event was watched arriving), and the Aura and level-up ring on a real GPU.
+**Built and tested in M3:**
+
+- The inbox adapter against the real Inbox files, matching an independent check: one open action item, on the Notice Board.
+- A real Inbox question raised a Raven on its Hero in about 2 s, with its Chronicle line.
+- The Character Sheet's terminal view on a live pane, at the pane's size.
+- The first live hook event, from a real Claude session.
+
+**Not yet seen live:** a Raven clearing once its question is answered, a chest opening after you look at the tab in Herdr, and the Aura, level-up ring, Ravens and chests on a real GPU.
 
 **Read in Herdr's and Claude's source, docs or local data, but not tested live:**
 

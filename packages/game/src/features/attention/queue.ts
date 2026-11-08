@@ -2,6 +2,11 @@ import { stateId } from '../../core/fsm.ts'
 import { NONE } from '../../core/hero-index.ts'
 import type { Sim } from '../../core/sim.ts'
 
+export type Board = {
+  count: number
+  since: number
+}
+
 export type AttentionQueue = {
   readonly order: Int32Array
   readonly dying: number
@@ -15,10 +20,14 @@ const DONE = 2
 export const WAIT_NONE = -1
 export const WAIT_PERMISSION = 0
 export const WAIT_INBOX = 1
-export const WAIT_LOOT = 2
+export const WAIT_NOTICE = 2
+export const WAIT_LOOT = 3
+export const BOARD = 0
+
+export const createBoard = (): Board => ({ count: 0, since: 0 })
 
 export const createAttentionQueue = (sim: Sim): AttentionQueue => ({
-  order: new Int32Array(sim.config.budgets.heroes),
+  order: new Int32Array(sim.config.budgets.heroes + 1),
   dying: stateId(sim.machine, 'dying'),
   dead: stateId(sim.machine, 'dead'),
   size: 0,
@@ -41,16 +50,26 @@ export const waitOf = (sim: Sim, eid: number): number => {
 export const waitSince = (sim: Sim, eid: number, wait: number): number =>
   wait === WAIT_INBOX ? sim.stores.hero.ravenSince[eid]! : sim.stores.hero.statusSince[eid]!
 
-const before = (sim: Sim, a: number, b: number): number => {
-  const waitA = waitOf(sim, a)
-  const waitB = waitOf(sim, b)
+const rankOf = (sim: Sim, id: number): number => (id === BOARD ? WAIT_NOTICE : waitOf(sim, id))
 
-  return waitA - waitB || waitSince(sim, a, waitA) - waitSince(sim, b, waitB) || a - b
+const sinceOf = (sim: Sim, board: Board, id: number, wait: number): number =>
+  id === BOARD ? board.since : waitSince(sim, id, wait)
+
+const before = (sim: Sim, board: Board, a: number, b: number): number => {
+  const waitA = rankOf(sim, a)
+  const waitB = rankOf(sim, b)
+
+  return waitA - waitB || sinceOf(sim, board, a, waitA) - sinceOf(sim, board, b, waitB) || a - b
 }
 
-const collect = (queue: AttentionQueue, sim: Sim): void => {
+const collect = (queue: AttentionQueue, sim: Sim, board: Board): void => {
   const { index } = sim
   const { behavior } = sim.stores
+
+  if (board.count > 0) {
+    queue.order[0] = BOARD
+    queue.size = 1
+  }
 
   for (let slot = 0; slot < index.nextSlot; slot++) {
     const eid = index.entityOf[slot]!
@@ -68,15 +87,20 @@ const collect = (queue: AttentionQueue, sim: Sim): void => {
   }
 }
 
-export const nextInQueue = (queue: AttentionQueue, sim: Sim, current: number): number => {
+export const nextInQueue = (
+  queue: AttentionQueue,
+  sim: Sim,
+  board: Board,
+  current: number,
+): number => {
   queue.size = 0
-  collect(queue, sim)
+  collect(queue, sim, board)
 
   if (queue.size === 0) {
     return NONE
   }
 
-  queue.order.subarray(0, queue.size).sort((a, b) => before(sim, a, b))
+  queue.order.subarray(0, queue.size).sort((a, b) => before(sim, board, a, b))
 
   for (let i = 0; i < queue.size; i++) {
     if (queue.order[i] === current) {

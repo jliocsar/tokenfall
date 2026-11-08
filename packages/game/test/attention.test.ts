@@ -6,7 +6,12 @@ import { entityOfHero, NONE } from '../src/core/hero-index.ts'
 import { push } from '../src/core/queue.ts'
 import { runSystems, createProfile } from '../src/core/system.ts'
 import { SIM_SYSTEMS } from '../src/core/systems/index.ts'
-import { createAttentionQueue, nextInQueue } from '../src/features/attention/queue.ts'
+import {
+  BOARD,
+  createAttentionQueue,
+  createBoard,
+  nextInQueue,
+} from '../src/features/attention/queue.ts'
 
 const hero = (id: string, status: HeroStatus): HeroInfo => ({
   id,
@@ -47,15 +52,16 @@ describe('attention queue', () => {
     runSystems(SIM_SYSTEMS, createProfile(SIM_SYSTEMS), sim, 0, 16)
     const queue = createAttentionQueue(sim)
     const eid = (id: string): number => entityOfHero(sim.index, id)
-    const first = nextInQueue(queue, sim, NONE)
-    const second = nextInQueue(queue, sim, first)
-    const third = nextInQueue(queue, sim, second)
+    const board = createBoard()
+    const first = nextInQueue(queue, sim, board, NONE)
+    const second = nextInQueue(queue, sim, board, first)
+    const third = nextInQueue(queue, sim, board, second)
 
     expect([first, second, third]).toEqual([eid('blocked-1'), eid('blocked-2'), eid('done-1')])
-    expect(nextInQueue(queue, sim, third)).toBe(first)
+    expect(nextInQueue(queue, sim, board, third)).toBe(first)
   })
 
-  test('orders permission Ravens, then Inbox Ravens, then chests, oldest first', () => {
+  test('orders permission Ravens, Inbox Ravens, the Notice Board, then chests, oldest first', () => {
     const sim = bootSim(1, 0, {})
     const joins: readonly HeroInfo[] = [
       { ...hero('loot-old', 'done') },
@@ -78,19 +84,25 @@ describe('attention queue', () => {
     })
     runSystems(SIM_SYSTEMS, createProfile(SIM_SYSTEMS), sim, 0, 16)
     const queue = createAttentionQueue(sim)
+    const board = { count: 3, since: 5 }
     const order: number[] = []
     let current = NONE
 
-    for (let i = 0; i < joins.length; i++) {
-      current = nextInQueue(queue, sim, current)
+    for (let i = 0; i <= joins.length; i++) {
+      current = nextInQueue(queue, sim, board, current)
       order.push(current)
     }
 
     const eid = (id: string): number => entityOfHero(sim.index, id)
 
-    expect(order).toEqual(
-      ['blocked-old', 'blocked-new', 'inbox-old', 'inbox-new', 'loot-old'].map(eid),
-    )
+    expect(order).toEqual([
+      eid('blocked-old'),
+      eid('blocked-new'),
+      eid('inbox-old'),
+      eid('inbox-new'),
+      BOARD,
+      eid('loot-old'),
+    ])
   })
 
   test('a chest seen during the warp out still opens once the warp ends', () => {
