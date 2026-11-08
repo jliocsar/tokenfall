@@ -56,6 +56,9 @@ Things learned from that source that the docs don't say:
 - **bitECS entity ids** start at 1 and get recycled, so stores sized to `budgets.entities` are enough. Don't turn on versioning: versioned ids overflow the stores.
 - **Pixi's asset loader** treats any JSON with a top-level `frames` key as a spritesheet. Our atlas uses `cells`.
 - **WebGL can't upload views of a `SharedArrayBuffer`**, so buffers the GPU reads (effect emitter data) are plain `ArrayBuffer`s. Sim stores stay on `SharedArrayBuffer`.
+- **Pixi rebuilds a render group's whole instruction list** when anything in it flips `visible`, changes a BitmapText's text, or redraws a batchable Graphics. Keep churny layers in their own small render group (`isRenderGroup: true`), hide with `alpha`, and swap Sprite textures instead of changing text (see `features/entrance/badges.ts`).
+- **Bitmap font glyph textures** carry a 100 px logical size: scale Sprites by `fontSize / font.baseMeasurementFontSize`.
+- **Headless Chrome here has no GPU** (it falls back to SwiftShader), so its frame numbers are meaningless and it burns ~10 cores while a Town page is open. Close `agent-browser` when done. Real numbers come from the user running `/?measure` on `bun run preview` (:47321).
 - **Herdr's `agent.list`** carries the Claude session id in `agent_session.value` when Herdr's own Claude integration reported it. Use it as the Hero id when it's there.
 
 ## How code is written here
