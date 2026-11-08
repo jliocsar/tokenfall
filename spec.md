@@ -374,7 +374,7 @@ Each one ends with something you can run.
 
 **M1: Town and roster prototype. Done.** Answers section 4 on replayed and synthetic data. Includes the UI skin, Hero light, placeholder portraits, names, Personalities and Titles. Done when you've picked a direction.
 
-**M2: Live, read-only. Built; the reboot test is yours.** Daemon as a service, the Herdr, hook and transcript adapters, Experience with backfill, Levels and the level-up effect, the Aura, the Roster and Attention Queue on real data, Narration, the Chronicle, SQLite, and graceful resume. Done when your real Agents appear at their true Levels and survive a reboot.
+**M2: Live, read-only. Done.** Daemon as a service, the Herdr, hook and transcript adapters, Experience with backfill, Levels and the level-up effect, the Aura, the Roster and Attention Queue on real data, Narration, the Chronicle, SQLite, and graceful resume. Done when your real Agents appear at their true Levels and survive a reboot.
 
 **M3: Ravens, chests and the terminal.** Inbox adapter, permission Ravens, Loot Chests cleared by seen state, the Character Sheet and the terminal view. Done when a real question raises a Raven that clears once answered, and looking at a finished Agent in Herdr opens its chest.
 
@@ -407,7 +407,9 @@ Each one ends with something you can run.
 - The service on :47300: the token in the page, COOP and COEP headers, `/ws`, and one Chronicle line per Agent on its first run.
 - The hook socket (mode 0600) and the real `send.sh` against it, in tests.
 
-**Not yet seen live:** hooks from real Claude sessions (waiting on the plugin install), the Aura and level-up ring on a real GPU, and a reboot.
+- A reboot: the service came back with the same Heroes, Levels and plots, and wrote no false Chronicle lines.
+
+**Not yet seen live:** hook events from real Claude sessions (the plugin is installed in both configs, but no event was watched arriving), and the Aura and level-up ring on a real GPU.
 
 **Read in Herdr's and Claude's source, docs or local data, but not tested live:**
 
