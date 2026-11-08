@@ -3,7 +3,12 @@ import { createGpuTimer, type GpuTimer } from '../bench/gpu-timer.ts'
 import { createSeries, record, summarize, type Series } from '../bench/stats.ts'
 import type { Profile } from '../core/system.ts'
 
-export type MeasurePlan = { readonly heroes: number; readonly rest: readonly number[] }
+export type MeasurePlan = {
+  readonly heroes: number
+  readonly off: ReadonlySet<string>
+  readonly label: string
+  readonly rest: readonly string[]
+}
 
 export type MeasureExtra = { readonly guilds: number; readonly parties: number }
 
@@ -14,7 +19,6 @@ export type FrameCost = {
   sim: number
   sync: number
   render: number
-  roster: number
   bubbles: number
 }
 
@@ -22,7 +26,7 @@ export type TownMeasure = {
   readonly plan: MeasurePlan
   readonly gpu: GpuTimer
   readonly samples: number[]
-  readonly series: Record<keyof FrameCost | 'cpu' | 'gpu' | 'heap', Series>
+  readonly series: Record<keyof FrameCost | 'cpu' | 'gpu' | 'heap' | 'roster', Series>
   readonly cost: FrameCost
   measuring: boolean
   done: boolean
@@ -36,6 +40,7 @@ const CAPACITY = 6000
 const STORAGE_KEY = 'tokenfall.measure'
 const CONTINUE = 'continue'
 const MB = 1_048_576
+const DEFAULT_PLAN = '500,1000,1000-light,1000-props,1000-overlay'
 
 export const readMeasurePlan = (params: URLSearchParams): MeasurePlan | undefined => {
   const value = params.get('measure')
@@ -44,13 +49,19 @@ export const readMeasurePlan = (params: URLSearchParams): MeasurePlan | undefine
     return undefined
   }
 
-  const counts = (value || '500,1000').split(',').map(Number).filter(Number.isFinite)
+  const entries = (value || DEFAULT_PLAN).split(',')
+  const [heroes = '500', ...off] = (entries[0] ?? '500').split('-')
 
   if (!params.has(CONTINUE)) {
     sessionStorage.removeItem(STORAGE_KEY)
   }
 
-  return { heroes: counts[0] ?? 500, rest: counts.slice(1) }
+  return {
+    heroes: Number(heroes) || 500,
+    off: new Set(off),
+    label: entries[0] ?? '500',
+    rest: entries.slice(1),
+  }
 }
 
 export const createTownMeasure = (
@@ -72,7 +83,7 @@ export const createTownMeasure = (
     gpu: createSeries(CAPACITY),
     heap: createSeries(CAPACITY),
   },
-  cost: { interval: 0, sim: 0, sync: 0, render: 0, roster: 0, bubbles: 0 },
+  cost: { interval: 0, sim: 0, sync: 0, render: 0, bubbles: 0 },
   measuring: false,
   done: false,
   phaseEnds: now + WARMUP_MS,
@@ -93,8 +104,9 @@ const result = (measure: TownMeasure, profile: Profile, extra: MeasureExtra) => 
   const heap = series.heap.values.slice(0, series.heap.count)
 
   return {
-    scenario: `town ${measure.plan.heroes} heroes`,
+    scenario: `town ${measure.plan.label}`,
     heroes: measure.plan.heroes,
+    off: [...measure.plan.off],
     fps: Math.round((series.interval.count / MEASURE_MS) * 10_000) / 10,
     frameIntervalMs: summarize(series.interval),
     cpuMs: summarize(series.cpu),
@@ -192,9 +204,8 @@ export const measureFrame = (
   record(series.sim, cost.sim)
   record(series.sync, cost.sync)
   record(series.render, cost.render)
-  record(series.roster, cost.roster)
   record(series.bubbles, cost.bubbles)
-  record(series.cpu, cost.sim + cost.sync + cost.render + cost.roster)
+  record(series.cpu, cost.sim + cost.sync + cost.render)
   record(series.heap, heapMb())
 
   for (const sample of samples) {
@@ -207,10 +218,16 @@ export const measureFrame = (
   }
 }
 
+export const recordRoster = (measure: TownMeasure, ms: number): void => {
+  if (measure.measuring && !measure.done) {
+    record(measure.series.roster, ms)
+  }
+}
+
 export const measureLabel = (measure: TownMeasure): string => {
   if (measure.done) {
     return 'measure: done'
   }
 
-  return `measure: ${measure.measuring ? 'measuring' : 'warming up'} ${measure.plan.heroes} heroes, then ${measure.plan.rest.join(', ') || 'save'}`
+  return `measure: ${measure.measuring ? 'measuring' : 'warming up'} ${measure.plan.label}, then ${measure.plan.rest.join(', ') || 'save'}`
 }

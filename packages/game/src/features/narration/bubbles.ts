@@ -66,7 +66,7 @@ const createBubble = (): Bubble => {
 
 export const createBubbles = (sim: Sim): Bubbles => {
   const pool = Array.from({ length: budgets.bubbles }, createBubble)
-  const container = new Container({ label: 'bubbles' })
+  const container = new Container({ label: 'bubbles', isRenderGroup: true })
   container.addChild(...pool.map((bubble) => bubble.box))
 
   return {

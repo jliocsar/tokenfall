@@ -49,6 +49,7 @@ import {
   type MeasurePlan,
   measureFrame,
   measureLabel,
+  recordRoster,
   readMeasurePlan,
   type TownMeasure,
 } from './measure.ts'
@@ -122,14 +123,14 @@ const source: Source =
 const town = createTownLayer()
 const heroes = createHeroLayer(sim, atlas, texture, ['delving'])
 const effects = createEffectLayer(sim, EFFECT_DEFINITIONS)
-const world = new Container({ label: 'world' })
+const world = new Container({ label: 'world', isRenderGroup: true })
 world.addChild(town.container, heroes.container, effects.container, town.labels)
 const light = createLightLayer(sim, app.screen.width, app.screen.height)
 const heroLight = lightSystem(light, heroes)
 const bubbles = createBubbles(sim)
 const badges = createBadges(sim)
 bubbles.avoid = (x, y, halfWidth, halfHeight) => overlapsBadge(badges, x, y, halfWidth, halfHeight)
-const overlay = new Container({ label: 'overlay' })
+const overlay = new Container({ label: 'overlay', isRenderGroup: true })
 overlay.addChild(badges.container, bubbles.container)
 app.stage.addChild(world, light.overlay, overlay)
 const screen: Screen = { width: 0, height: 0, x: 0, y: 0, zoom: 1 }
@@ -153,7 +154,9 @@ const loop = {
   fpsAt: started,
   fps: 0,
   report: '',
+  rosterPending: false,
 }
+const off: ReadonlySet<string> = settings.measure?.off ?? new Set()
 const measure: TownMeasure | undefined =
   settings.measure === undefined ? undefined : createTownMeasure(gl, settings.measure, started)
 const marker = createSelectionMarker()
@@ -242,7 +245,7 @@ app.canvas.addEventListener('pointermove', (event) => {
 
 const furnishTown = (): void => {
   const placements = townProps(sim, townBounds(sim))
-  setProps(heroes, placements)
+  setProps(heroes, off.has('props') ? [] : placements)
   setStaticLights(
     light,
     placements.flatMap((placement): StaticLight[] => {
@@ -276,6 +279,16 @@ const measureExtra = () => ({
   guilds: sim.groups.guildKeys.length,
   parties: sim.groups.partyWorkspace.length,
 })
+
+const flushRoster = (): void => {
+  const start = performance.now()
+  ui.roster.flush()
+  loop.rosterPending = false
+
+  if (measure !== undefined) {
+    recordRoster(measure, performance.now() - start)
+  }
+}
 
 const frame = (now: number): void => {
   const frameStart = performance.now()
@@ -320,11 +333,22 @@ const frame = (now: number): void => {
   screen.x = camera.x
   screen.y = camera.y
   screen.zoom = camera.zoom
-  syncBadges(badges, sim, screen, now)
-  const speaking = syncBubbles(bubbles, sim, heroes, screen, bridge.selected(), now)
+  const overlaid = !off.has('overlay')
+  overlay.visible = overlaid
+
+  if (overlaid) {
+    syncBadges(badges, sim, screen, now)
+  }
+
+  const speaking = overlaid ? syncBubbles(bubbles, sim, heroes, screen, bridge.selected(), now) : 0
   const syncEnd = performance.now()
   measure?.gpu.begin()
-  renderLight(light, sim, heroes, app.renderer, world, view, now)
+  light.overlay.visible = !off.has('light')
+
+  if (light.overlay.visible) {
+    renderLight(light, sim, heroes, app.renderer, world, view, now)
+  }
+
   app.render()
   measure?.gpu.end()
   const renderEnd = performance.now()
@@ -333,9 +357,10 @@ const frame = (now: number): void => {
     paintHud(now)
   }
 
-  if (now >= loop.nextRoster) {
+  if (now >= loop.nextRoster && !loop.rosterPending) {
     loop.nextRoster = now + ROSTER_EVERY_MS
-    ui.roster.flush()
+    loop.rosterPending = true
+    requestIdleCallback(flushRoster, { timeout: ROSTER_EVERY_MS })
   }
 
   if (measure !== undefined) {
@@ -344,7 +369,6 @@ const frame = (now: number): void => {
     cost.sim = simEnd - frameStart
     cost.sync = syncEnd - simEnd
     cost.render = renderEnd - syncEnd
-    cost.roster = performance.now() - renderEnd
     cost.bubbles = speaking
     measureFrame(measure, gl, profile, now, measureExtra, report)
   }

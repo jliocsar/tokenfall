@@ -39,7 +39,7 @@ export const createBadges = (sim: Sim): Badges => {
   const guilds = sim.config.budgets.guilds
 
   return {
-    container: new Container({ label: 'entrance-badges' }),
+    container: new Container({ label: 'entrance-badges', isRenderGroup: true }),
     back: new GraphicsContext()
       .roundRect(-WIDTH / 2, -HEIGHT, WIDTH, HEIGHT, 4)
       .fill({ color: 0x10_0d_16, alpha: 0.85 })

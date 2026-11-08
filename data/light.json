@@ -1,7 +1,7 @@
 {
   "ambient": "#58507a",
   "ambientLuminance": 0.33,
-  "resolution": 0.5,
+  "resolution": 0.25,
   "hero": {
     "on": 0.3,
     "off": 0.42,
