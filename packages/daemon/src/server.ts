@@ -1,7 +1,9 @@
 import type { Server, ServerWebSocket } from 'bun'
 import { join, normalize } from 'node:path'
+import chronicleTuning from '@tokenfall/data/chronicle.json'
 import { PROTOCOL_VERSION, type Delta, type Snapshot } from '@tokenfall/protocol/wire'
 import type { Config } from './config.ts'
+import { tailChronicle } from './store/chronicle.ts'
 import { snapshotHeroes, type World } from './world.ts'
 
 export type Hub = {
@@ -29,16 +31,18 @@ export const snapshotOf = (world: World, hub: Hub, now: number): Snapshot => ({
   at: now,
   townSeed: world.townSeed,
   heroes: snapshotHeroes(world),
+  chronicle: tailChronicle(world.db, chronicleTuning.tail),
 })
 
 export const broadcast = (world: World, hub: Hub, now: number): void => {
-  if (world.outbox.length === 0) {
+  if (world.outbox.length === 0 && world.chronicle.length === 0) {
     return
   }
 
   const events = world.outbox.splice(0)
+  const chronicle = world.chronicle.splice(0)
   hub.seq += 1
-  const delta: Delta = { kind: 'delta', seq: hub.seq, at: now, events }
+  const delta: Delta = { kind: 'delta', seq: hub.seq, at: now, events, chronicle }
   const message = JSON.stringify(delta)
 
   for (const client of hub.clients) {

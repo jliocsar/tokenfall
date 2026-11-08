@@ -2,7 +2,7 @@ import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { DaemonTuning } from '../../config.ts'
 import { claimUsage, experienceOf, fileMark, saveFileMark, type Usage } from '../../store/ledger.ts'
-import type { World } from '../../world.ts'
+import { gainExperience, settleArrival, type World } from '../../world.ts'
 import { readLines } from './reader.ts'
 import { usageOf } from './usage.ts'
 
@@ -106,19 +106,15 @@ const publish = (context: Context, tracked: Tracked, now: number): void => {
   const record = world.live.get(tracked.hero)
   const experience = experienceOf(world.db, tracked.hero)
 
-  if (record === undefined || record.experience === experience) {
+  if (record === undefined) {
     return
   }
 
-  record.experience = experience
-  world.dirty.add(record)
-  world.outbox.push({
-    kind: 'hero.experience',
-    at: now,
-    hero: tracked.hero,
-    experience,
-    catchUp: !tracked.caughtUp,
-  })
+  if (record.experience === experience) {
+    settleArrival(world, record, now)
+  } else {
+    gainExperience(world, record, experience, !tracked.caughtUp, now)
+  }
 }
 
 const readHero = async (context: Context, tracked: Tracked): Promise<void> => {

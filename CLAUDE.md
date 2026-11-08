@@ -15,9 +15,11 @@ bun install
 bun run dev          # dev daemon on :47310 (state in ~/.local/state/tokenfall-dev) plus the game
                      # at http://127.0.0.1:47320/, showing your live Agents. ?heroes=100 is
                      # synthetic, ?replay reads a running replayer, benchmark at /bench.html
+                     # /?measure measures the full Town into tmp/bench/
 bun run dev:game     # only the game dev server
 bun run daemon       # the daemon alone (--dev for the dev instance)
-                     # /?measure measures the full Town into tmp/bench/
+bun run install-service    # build, copy to ~/.local/share/tokenfall, run as systemd user unit on :47300
+bun run uninstall-service  # remove the unit and the copy; the save in ~/.local/state/tokenfall stays
 bun run preview      # production build served at http://127.0.0.1:47321 (measure the shipped build here)
 bun run trace        # same, but every function in packages/game and tools/replay is wrapped in a trace span
 bun run test         # unit tests plus the 1000-Hero synthetic load test
@@ -47,7 +49,7 @@ data/                every tuning number: budgets, level curve, hero states, eff
 assets/              committed art. sprites/heroes-atlas.* is what the game loads
 ```
 
-The hooks plugin arrives later in M2.
+`plugin/` is the Claude hooks plugin. Its README has the install commands, which the user runs.
 
 ## References: read the source, don't guess
 
@@ -86,5 +88,5 @@ The daemon saves to `~/.local/state/tokenfall/tokenfall.sqlite` (`tokenfall-dev/
 - Write to a Herdr pane, or call any Herdr method outside `events.subscribe`, `agent.list`, `pane.read` and snapshot reads.
 - Create Herdr panes except throwaway ones you close yourself, with `--no-focus`. Never touch the user's panes.
 - `pkill bun` or kill by name: other Bun servers run on this machine. Kill the PID listening on our port.
-- Edit `~/.claude*/settings.json` hooks. The plugin comes in M2, with approval.
+- Edit `~/.claude*/settings.json` hooks. Hooks ship only through `plugin/`.
 - Put scratch work anywhere but `tmp/`.

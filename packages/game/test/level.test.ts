@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import curve from '@tokenfall/data/level-curve.json'
-import { levelFor, levelThresholds } from '../src/core/level.ts'
+import { levelFor, levelThresholds } from '@tokenfall/protocol/level'
 
 const thresholds = levelThresholds(curve)
 

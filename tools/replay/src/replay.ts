@@ -44,6 +44,7 @@ const snapshot = (): Snapshot => ({
   at: state.clock,
   townSeed: Number(values.seed),
   heroes: [...state.table.values()],
+  chronicle: [],
 })
 
 setInterval(() => {
@@ -71,7 +72,7 @@ setInterval(() => {
   }
 
   state.seq += 1
-  const delta: Delta = { kind: 'delta', seq: state.seq, at: state.clock, events }
+  const delta: Delta = { kind: 'delta', seq: state.seq, at: state.clock, events, chronicle: [] }
   const message = JSON.stringify(delta)
 
   for (const client of clients) {

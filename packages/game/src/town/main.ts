@@ -45,6 +45,7 @@ import { createHeroLayer, loadAtlas, setProps, syncHeroes, type View } from '../
 import { createBridge, NOBODY } from '../ui/bridge.ts'
 import { loadFonts } from '../ui/fonts.ts'
 import { mountUi } from '../ui/mount.tsx'
+import { createChronicle } from '../features/chronicle/model.ts'
 import {
   createTownMeasure,
   type MeasurePlan,
@@ -125,9 +126,12 @@ const pickSource = (): Source => {
     return replaySource(settings.replay)
   }
 
-  return settings.synthetic ? syntheticSource(settings, started) : daemonSource(daemonUrl())
+  return settings.synthetic
+    ? syntheticSource(settings, started)
+    : daemonSource(daemonUrl(), chronicle.add)
 }
 
+const chronicle = createChronicle()
 const source = pickSource()
 const sim = bootSim(await source.ready, started, {})
 const town = createTownLayer()
@@ -192,7 +196,7 @@ const bridge = createBridge(
   },
   { glideTo: focusHero },
 )
-const ui = mountUi(bridge, source.label, element('ui'))
+const ui = mountUi(bridge, source.label, chronicle, element('ui'))
 
 camera.onClick = (pointerX, pointerY) => {
   const worldX = (pointerX - app.screen.width / 2) / camera.zoom + camera.x

@@ -1,5 +1,7 @@
 import { createRoot } from 'solid-js'
 import { render } from 'solid-js/web'
+import { Chronicle } from '../features/chronicle/Chronicle.tsx'
+import type { ChronicleModel } from '../features/chronicle/model.ts'
 import { HeroCard } from '../features/roster/HeroCard.tsx'
 import { createRoster, type Roster } from '../features/roster/model.ts'
 import { RosterTree } from '../features/roster/Roster.tsx'
@@ -10,7 +12,12 @@ import './ui.css'
 
 export type Ui = { readonly roster: Roster }
 
-export const mountUi = (bridge: Bridge, source: string, root: HTMLElement): Ui => {
+export const mountUi = (
+  bridge: Bridge,
+  source: string,
+  chronicle: ChronicleModel,
+  root: HTMLElement,
+): Ui => {
   const roster = createRoot(() => createRoster(bridge.sim))
   render(
     () => (
@@ -19,7 +26,10 @@ export const mountUi = (bridge: Bridge, source: string, root: HTMLElement): Ui =
         <aside class="roster panel">
           <RosterTree bridge={bridge} roster={roster} />
         </aside>
-        <HeroCard bridge={bridge} roster={roster} />
+        <div class="dock-left">
+          <HeroCard bridge={bridge} roster={roster} />
+          <Chronicle bridge={bridge} model={chronicle} />
+        </div>
       </>
     ),
     root,

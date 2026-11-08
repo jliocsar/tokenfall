@@ -1,0 +1,17 @@
+{
+  "tail": 200,
+  "joined": "{name} arrived in Town at Level {level}",
+  "linked": "The Stranger lowers the hood: {name}, Level {level}",
+  "level": "{name} reached Level {level}",
+  "resurrected": "{name} rose again",
+  "died": {
+    "exited": "{name} laid down their arms",
+    "killed": "{name} was slain",
+    "cleared": "{name} drank from the river of forgetting",
+    "released": "{name} was released from service",
+    "missing": "{name} vanished without a trace"
+  },
+  "away": "while you were away",
+  "seenKey": "tokenfall.chronicle.seen",
+  "collapsedKey": "tokenfall.chronicle.collapsed"
+}

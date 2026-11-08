@@ -153,7 +153,7 @@ Signals are deduped per Hero. Losing the Herdr connection kills nobody. Herdr re
 
 ### Narration
 
-Narration lines live in data files keyed by Personality and tool name. They're written once by Claude, skimmed by you, and committed, so nothing is generated while the game runs. Unknown and MCP tools fall back to a generic pool per Personality. `tool_input` never reaches a line.
+Narration lines live in data files keyed by Personality and tool name. They're written once by Claude, skimmed by you, and committed, so nothing is generated while the game runs. Unknown and MCP tools fall back to a generic pool per Personality. `tool_input` never reaches a line. A working Hero is inside its Dungeon, so its bubble rises from above its Guild's entrance badge.
 
 ### Light
 
@@ -191,8 +191,9 @@ Inbox JSONL files ─────┘   adapters, identity,                      
 ```
 
 - **The daemon owns the truth** and persists it. The game is a projection that can be thrown away and rebuilt from a snapshot, which is also how it recovers when a system throws.
-- **Graceful resume:** after a reboot or a Herdr restart, the daemon starts from its last saved state, serves it immediately, and resyncs with Herdr, the transcripts and the inbox. The game never shows an empty world while syncing.
-- **First run:** the daemon picks up whatever Herdr has right now and backfills Experience from the transcripts.
+- **Graceful resume:** after a reboot or a Herdr restart, the daemon starts from its last saved state, serves it immediately, and resyncs with Herdr, the transcripts and the inbox. The game never shows an empty world while syncing. Saved Heroes start as `unknown`, and one still missing after two `agent.list` re-reads dies as `missing`.
+- **First run:** the daemon picks up whatever Herdr has right now. There is no separate backfill: when a Hero first appears, its session's own transcript files are read once from the start and then tailed. SQLite only caches the totals and byte offsets, so a session you resume next month is read the moment its Hero shows up.
+- **Service:** `bun run install-service` builds the game, bundles the daemon into `~/.local/share/tokenfall/` and runs it as the systemd user unit `tokenfall.service` on port 47300. The dev daemon uses 47310. The game is served on the same port as `/ws`, with a per-launch token in a `<meta>` tag and an Origin check.
 - **Adapters:** they're the only code that knows external formats. Everything past them uses the types in `protocol`.
 
 ### Repo layout
@@ -202,7 +203,7 @@ CLAUDE.md            agent instructions: references, save migrations, the rules 
 .claude/skills/      migrate-save-files
 references/repos/    dependency source and docs, read-only
 packages/protocol/   event, snapshot and id types, no dependencies
-packages/daemon/     adapters/{herdr,hooks,transcripts,inbox}, identity, experience, store, server
+packages/daemon/     adapters/{herdr,hooks,transcripts}, world.ts (identity), store/ (migrations, heroes, ledger, chronicle), server, install
 packages/game/       core/, effects/, ui/, features/{town,roster,narration,light,dungeon,minions,raven,chest,death,chronicle,character-sheet,terminal}
 plugin/              Claude plugin with the hooks
 data/                personalities, narration, names, level curve, effect definitions
@@ -300,7 +301,9 @@ No frame missed a vsync. The CPU bar holds. GPU p99 at 1000 Heroes drifts betwee
 
 Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you approve it.
 
-- **Events:** `SessionStart`, `SessionEnd`, `PreToolUse`, `PostToolUseFailure`, `SubagentStart`, `SubagentStop` and `Stop`. `PostToolUse` is left out because its `tool_response` can be huge.
+- **Events:** `SessionStart`, `SessionEnd`, `PreToolUse`, `SubagentStart` and `SubagentStop`. `PostToolUse` is left out because its `tool_response` can be huge. `PostToolUseFailure` and `Stop` were dropped in M2: Herdr's status already says done and blocked, and nothing in the game reacts to a failed tool yet.
+- **Meaning:** `SessionStart` ties the pane to its session and wins over a stale session id from Herdr. `SessionEnd` with any reason but `resume` is a Death, `cleared` for `/clear` and `exited` otherwise. The main agent's `PreToolUse` (no `agent_id`) feeds Narration once a tick. `SubagentStart` and `SubagentStop` count Minions.
+- **Install:** `plugin/README.md`. You run the commands; nothing edits `settings.json`.
 - **Delivery:** each is a command hook with `async: true`. It sends stdin with `curl --max-time 1` to every socket in `$XDG_RUNTIME_DIR/tokenfall/`, with `$HERDR_PANE_ID` in a header and `|| true` at the end, so a dead daemon can't hurt an Agent.
 - **Dev alongside the service:** the service and a dev daemon each put a socket in that folder, so both get live events. The dev daemon also gets its own state folder (`~/.local/state/tokenfall-dev/`) and port, so your real save is never touched. One dev command runs the dev daemon and the game.
 - **Minions:** tool events inside a Subagent carry `agent_id`, which ties them to the right Minion.
@@ -311,6 +314,8 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 - **Where:** `<config>/projects/<project>/<session>.jsonl`, with Subagents in `<session>/subagents/` and workflow agents in `<session>/subagents/workflows/`. Subagent lines carry the parent's session id.
 - **What counts:** `message.usage` on assistant lines, deduped as in rule 16. Counting naively nearly doubles the total.
 - **Session ids:** `/clear` and forks write a new session file. `/compact`, `--resume` and `--continue` append to the same file under the same id.
+- **Reading:** each live Hero's files are polled every 2 s from a saved byte offset, whole lines only, and the folder is rescanned for new Subagent files every 10 s. No file watching: hundreds of watchers are fragile, and a poll that finds no growth costs one `stat` per file.
+- **Ledger:** one row per message id for the whole save, first claimant wins (ADR 0004).
 - **Privacy:** only usage numbers and ids are read. Message content is never parsed or stored.
 
 ### Plannotator Inbox
@@ -369,7 +374,7 @@ Each one ends with something you can run.
 
 **M1: Town and roster prototype. Done.** Answers section 4 on replayed and synthetic data. Includes the UI skin, Hero light, placeholder portraits, names, Personalities and Titles. Done when you've picked a direction.
 
-**M2: Live, read-only.** Daemon as a service, the Herdr, hook and transcript adapters, Experience with backfill, Levels and the level-up effect, the Aura, the Roster and Attention Queue on real data, Narration, the Chronicle, SQLite, and graceful resume. Done when your real Agents appear at their true Levels and survive a reboot.
+**M2: Live, read-only. Built; the reboot test is yours.** Daemon as a service, the Herdr, hook and transcript adapters, Experience with backfill, Levels and the level-up effect, the Aura, the Roster and Attention Queue on real data, Narration, the Chronicle, SQLite, and graceful resume. Done when your real Agents appear at their true Levels and survive a reboot.
 
 **M3: Ravens, chests and the terminal.** Inbox adapter, permission Ravens, Loot Chests cleared by seen state, the Character Sheet and the terminal view. Done when a real question raises a Raven that clears once answered, and looking at a finished Agent in Herdr opens its chest.
 
@@ -394,6 +399,15 @@ Each one ends with something you can run.
 - An ECS with Pixi in the browser, though that spike used becsy, not bitECS.
 - wterm with real ANSI output.
 - The sprite pipeline and the light map.
+
+**Built and tested in M2:**
+
+- The dev daemon against live Herdr: 6 real Agents, one of them a Stranger. Five sessions caught up to Levels 50 to 91 in about 0.6 s, with the daemon at about 50 MB.
+- A daemon restart keeps the saved Heroes, the Town seed and the plots.
+- The service on :47300: the token in the page, COOP and COEP headers, `/ws`, and one Chronicle line per Agent on its first run.
+- The hook socket (mode 0600) and the real `send.sh` against it, in tests.
+
+**Not yet seen live:** hooks from real Claude sessions (waiting on the plugin install), the Aura and level-up ring on a real GPU, and a reboot.
 
 **Read in Herdr's and Claude's source, docs or local data, but not tested live:**
 

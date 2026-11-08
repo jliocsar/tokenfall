@@ -1,3 +1,4 @@
+import type { ChronicleLine } from './chronicle.ts'
 import type { HeroEvent } from './events.ts'
 import type { HeroInfo } from './hero.ts'
 
@@ -8,6 +9,7 @@ export type Snapshot = {
   readonly at: number
   readonly townSeed: number
   readonly heroes: readonly HeroInfo[]
+  readonly chronicle: readonly ChronicleLine[]
 }
 
 export type Delta = {
@@ -15,6 +17,7 @@ export type Delta = {
   readonly seq: number
   readonly at: number
   readonly events: readonly HeroEvent[]
+  readonly chronicle: readonly ChronicleLine[]
 }
 
 export type ServerMessage = Snapshot | Delta
