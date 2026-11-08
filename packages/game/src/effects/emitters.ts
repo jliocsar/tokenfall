@@ -10,6 +10,7 @@ export type EffectDefinition = {
   readonly particles: number
   readonly lifetime: number
   readonly attached: boolean
+  readonly loop?: boolean
   readonly blend: string
   readonly params: Readonly<Record<string, number | readonly number[]>>
 }
@@ -30,6 +31,7 @@ export const registerEffectKind = (sim: Sim, definition: EffectDefinition): numb
     particles: definition.particles,
     lifetimeMs: definition.lifetime * 1000,
     attached: definition.attached,
+    loop: definition.loop === true,
     data,
     used: new Uint8Array(capacity),
     free: new Uint16Array(capacity),
@@ -111,7 +113,7 @@ export const spawnEffect = (sim: Sim, kindId: number, target: number, now: numbe
   emitter.kind[eid] = kindId
   emitter.slot[eid] = slot
   emitter.target[eid] = target
-  emitter.end[eid] = now + kind.lifetimeMs
+  emitter.end[eid] = kind.loop ? Number.POSITIVE_INFINITY : now + kind.lifetimeMs
   emitter.serial[eid] = (emitter.serial[eid]! + 1) >>> 0
   kind.used[slot] = 1
   kind.active += 1
@@ -119,7 +121,10 @@ export const spawnEffect = (sim: Sim, kindId: number, target: number, now: numbe
   kind.data[slot * EMITTER_STRIDE + 2] = effectClock(sim, now)
   kind.data[slot * EMITTER_STRIDE + 3] = sim.random() * 1000
   kind.dirty = true
-  schedule(sim.timers, emitter.end[eid], eid, emitter.serial[eid], TIMER_EFFECT_END)
+
+  if (!kind.loop) {
+    schedule(sim.timers, emitter.end[eid], eid, emitter.serial[eid], TIMER_EFFECT_END)
+  }
 
   if (kind.attached) {
     addMember(sim.attachedEmitters, eid)

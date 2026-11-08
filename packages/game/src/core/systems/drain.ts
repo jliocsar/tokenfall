@@ -122,6 +122,7 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   sim.spawnsThisFrame += 1
   sim.counters.joined += 1
   addMember(sim.changed, eid)
+  addMember(sim.auraCheck, eid)
 
   return true
 }
@@ -161,9 +162,13 @@ const HANDLERS: Handlers = {
 
         if (level > hero.level[eid]!) {
           hero.level[eid] = level
-          sim.counters.levelUps += 1
-          addMember(sim.levelUps, eid)
           addMember(sim.changed, eid)
+          addMember(sim.auraCheck, eid)
+
+          if (!event.catchUp) {
+            sim.counters.levelUps += 1
+            addMember(sim.levelUps, eid)
+          }
         }
       },
       true,
@@ -189,12 +194,16 @@ const HANDLERS: Handlers = {
   },
   'hero.died': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
+      addMember(sim.auraCheck, eid)
+
       if (sendInput(sim, eid, sim.inputs['died']!, now)) {
         sim.counters.died += 1
       }
     }),
   'hero.resurrected': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
+      addMember(sim.auraCheck, eid)
+
       if (sendInput(sim, eid, sim.inputs['resurrected']!, now)) {
         sim.counters.resurrected += 1
       }

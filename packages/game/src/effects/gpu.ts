@@ -9,6 +9,7 @@ import {
 } from 'pixi.js'
 import type { Sim } from '../core/sim.ts'
 import { effectClock, EMITTER_STRIDE, type EffectDefinition } from './emitters.ts'
+import { AURA_VERTEX } from './shaders/aura.ts'
 import { RING_BURST_FRAGMENT, RING_BURST_VERTEX } from './shaders/ring-burst.ts'
 
 type ShaderSource = { readonly vertex: string; readonly fragment: string }
@@ -22,6 +23,7 @@ export type EffectLayer = {
 
 const SHADERS = new Map<string, ShaderSource>([
   ['ring-burst', { vertex: RING_BURST_VERTEX, fragment: RING_BURST_FRAGMENT }],
+  ['aura', { vertex: AURA_VERTEX, fragment: RING_BURST_FRAGMENT }],
 ])
 
 const QUAD = new Float32Array([-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5])

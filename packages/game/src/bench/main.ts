@@ -17,7 +17,12 @@ import { createGpuTimer, type GpuTimer } from './gpu-timer.ts'
 import { createSession, destroySession, heroBounds, stepSession, type Session } from './session.ts'
 import { createSeries, record, summarize, type Series } from './stats.ts'
 
-type Scenario = { readonly label: string; readonly heroes: number; readonly storm: number }
+type Scenario = {
+  readonly label: string
+  readonly heroes: number
+  readonly storm: number
+  readonly auras: number
+}
 
 type Measure = {
   readonly interval: Series
@@ -53,6 +58,7 @@ const SERIES_CAPACITY = 6000
 const HUD_EVERY_MS = 250
 const SIZES = [100, 250, 500, 1000]
 const STORMS = [100, 250, 400, 512]
+const AURA_STORM = 512
 const TRACE_FRAMES = 120
 const TRACE_DELAY_MS = 3000
 const TOP_COSTS = 25
@@ -64,10 +70,13 @@ const SPAN_GPU_POLL = traceId('gpu.poll')
 const SPAN_HUD = traceId('hud')
 const COUNTER_GPU = traceId('gpu ms')
 
-const SCENARIOS: readonly Scenario[] = SIZES.flatMap((heroes, i) => [
-  { label: `${heroes} heroes`, heroes, storm: 0 },
-  { label: `${heroes} heroes + ${STORMS[i]!} rings`, heroes, storm: STORMS[i]! },
-])
+const SCENARIOS: readonly Scenario[] = [
+  ...SIZES.flatMap((heroes, i) => [
+    { label: `${heroes} heroes`, heroes, storm: 0, auras: 0 },
+    { label: `${heroes} heroes + ${STORMS[i]!} rings`, heroes, storm: STORMS[i]!, auras: 0 },
+  ]),
+  { label: `1000 heroes + ${AURA_STORM} auras`, heroes: 1000, storm: 0, auras: AURA_STORM },
+]
 
 const createMeasure = (): Measure => ({
   interval: createSeries(SERIES_CAPACITY),
@@ -113,7 +122,7 @@ const bounds: View = { left: 0, top: 0, right: 0, bottom: 0 }
 const hud = element('hud')
 const gpuSamples: number[] = []
 const state: BenchState = {
-  session: createSession(app, atlas, source, 500, 0),
+  session: createSession(app, atlas, source, 500, 0, 0),
   run: undefined,
   last: performance.now(),
   nextHud: 0,
@@ -144,9 +153,9 @@ const selectedHeroes = (): string => {
   return select instanceof HTMLSelectElement ? select.value : '500'
 }
 
-const replaceSession = (heroes: number, storm: number): void => {
+const replaceSession = (heroes: number, storm: number, auras: number): void => {
   destroySession(state.session)
-  state.session = createSession(app, atlas, source, heroes, storm)
+  state.session = createSession(app, atlas, source, heroes, storm, auras)
 }
 
 const fit = (): void => {
@@ -195,7 +204,7 @@ const finishScenario = (run: Run): void => {
 
 const startScenario = (run: Run, now: number): void => {
   const scenario = run.scenarios[run.index]!
-  replaceSession(scenario.heroes, scenario.storm)
+  replaceSession(scenario.heroes, scenario.storm, scenario.auras)
   run.measuring = false
   run.phaseEnds = now + WARMUP_MS
   run.measure = createMeasure()
@@ -405,7 +414,7 @@ element('run').addEventListener('click', startRun)
 element('trace').addEventListener('click', captureTrace)
 element('explore').addEventListener('click', () => {
   state.run = undefined
-  replaceSession(Number(selectedHeroes()), 0)
+  replaceSession(Number(selectedHeroes()), 0, 0)
   setTimeout(fit, 1500)
 })
 element('storm').addEventListener('click', () => {

@@ -33,6 +33,7 @@ export type HeroExperienceChanged = {
   readonly at: number
   readonly hero: HeroId
   readonly experience: number
+  readonly catchUp: boolean
 }
 
 export type HeroMoved = {

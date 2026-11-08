@@ -59,6 +59,7 @@ export type EffectKindState = {
   readonly particles: number
   readonly lifetimeMs: number
   readonly attached: boolean
+  readonly loop: boolean
   readonly data: Float32Array
   readonly used: Uint8Array
   readonly free: Uint16Array
@@ -101,6 +102,8 @@ export type Sim = {
   readonly attachedEmitters: DenseSet
   readonly transitions: Transitions
   readonly levelUps: DenseSet
+  readonly auraCheck: DenseSet
+  readonly auraOf: Int32Array
   readonly changed: DenseSet
   readonly statusChanged: DenseSet
   readonly wanders: Uint8Array
@@ -116,6 +119,7 @@ export type Sim = {
   spawnsThisFrame: number
 }
 
+export const NO_AURA = -1
 export const TIMER_STATE = 0
 export const TIMER_WANDER = 1
 export const TIMER_EFFECT_END = 2
@@ -176,6 +180,8 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
       dropped: 0,
     },
     levelUps: createDenseSet(budgets.entities),
+    auraCheck: createDenseSet(budgets.entities),
+    auraOf: new Int32Array(budgets.entities).fill(NO_AURA),
     changed: createDenseSet(budgets.entities),
     statusChanged: createDenseSet(budgets.entities),
     wanders: stateFlags(machine, config.tuning.wanderStates),

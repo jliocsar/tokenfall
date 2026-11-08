@@ -134,7 +134,9 @@ const town = createTownLayer()
 const heroes = createHeroLayer(sim, atlas, texture, ['delving'])
 const effects = createEffectLayer(sim, EFFECT_DEFINITIONS)
 const world = new Container({ label: 'world', isRenderGroup: true })
-world.addChild(town.container, heroes.container, effects.container, town.labels)
+world.addChild(town.container, heroes.container, town.labels)
+const glow = new Container({ label: 'glow', isRenderGroup: true })
+glow.addChild(effects.container)
 const light = createLightLayer(sim, app.screen.width, app.screen.height)
 const heroLight = lightSystem(light, heroes)
 const bubbles = createBubbles(sim)
@@ -142,7 +144,7 @@ const badges = createBadges(sim)
 bubbles.avoid = (x, y, halfWidth, halfHeight) => overlapsBadge(badges, x, y, halfWidth, halfHeight)
 const overlay = new Container({ label: 'overlay', isRenderGroup: true })
 overlay.addChild(badges.container, bubbles.container)
-app.stage.addChild(world, light.overlay, overlay)
+app.stage.addChild(world, light.overlay, glow, overlay)
 const screen: Screen = { width: 0, height: 0, x: 0, y: 0, zoom: 1 }
 const tip = element('tip')
 const hover = { guild: -1 }
@@ -335,6 +337,8 @@ const frame = (now: number): void => {
   }
 
   updateCamera(camera, world, app.screen.width, app.screen.height, dt, view)
+  glow.position.copyFrom(world.position)
+  glow.scale.copyFrom(world.scale)
   syncHeroes(heroes, sim, atlas, view, now)
   syncSelectionMarker(marker, sim, bridge.selected())
   syncEffects(effects, sim, now)

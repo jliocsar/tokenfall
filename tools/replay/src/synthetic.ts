@@ -221,6 +221,7 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
       at: now,
       hero: ids[i]!,
       experience: Math.round(experience[i]),
+      catchUp: false,
     })
   }
 

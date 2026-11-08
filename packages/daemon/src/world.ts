@@ -300,7 +300,13 @@ const link = (
   world.outbox.push({ kind: 'hero.linked', at: now, from: stranger.id, to: id, session })
 
   if (record.experience > 0) {
-    world.outbox.push({ kind: 'hero.experience', at: now, hero: id, experience: record.experience })
+    world.outbox.push({
+      kind: 'hero.experience',
+      at: now,
+      hero: id,
+      experience: record.experience,
+      catchUp: true,
+    })
   }
 
   update(world, record, seen, now)

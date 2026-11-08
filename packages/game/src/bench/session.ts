@@ -36,6 +36,7 @@ export type Session = {
 }
 
 const FEED_EVERY_MS = 100
+const AURA_EXPERIENCE = 4_500_000_000
 const STORM_SPAWNS_PER_FRAME = 32
 const TEMPO = 6
 const SPAN_FEED = traceId('bench.feed')
@@ -50,6 +51,7 @@ export const createSession = (
   source: TextureSource,
   heroCount: number,
   storm: number,
+  auras: number,
 ): Session => {
   const now = performance.now()
   const sim = bootSim(heroCount, now, {})
@@ -62,8 +64,9 @@ export const createSession = (
     startAt: now,
   })
 
-  for (const hero of synthetic.heroes) {
-    push(sim.inbound, { kind: 'hero.joined', at: now, hero })
+  for (const [i, hero] of synthetic.heroes.entries()) {
+    const top = i < auras ? { ...hero, experience: AURA_EXPERIENCE } : hero
+    push(sim.inbound, { kind: 'hero.joined', at: now, hero: top })
   }
 
   const heroes = createHeroLayer(sim, atlas, source)
