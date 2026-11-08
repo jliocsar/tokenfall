@@ -1,4 +1,12 @@
-import { BitmapText, Container, Graphics, GraphicsContext } from 'pixi.js'
+import {
+  BitmapFontManager,
+  BitmapText,
+  Container,
+  Graphics,
+  GraphicsContext,
+  Sprite,
+  Texture,
+} from 'pixi.js'
 import world from '@tokenfall/data/world.json'
 import { displayName, titleOf } from '../../core/character.ts'
 import { stateFlags } from '../../core/fsm.ts'
@@ -11,14 +19,25 @@ import type { Screen } from '../../render/camera.ts'
 export type Badge = {
   readonly box: Container
   readonly pips: readonly Graphics[]
-  readonly count: BitmapText
+  readonly digits: readonly Sprite[]
+  readonly word: BitmapText
   shown: number
+  seen: boolean
+}
+
+type Glyphs = {
+  readonly textures: readonly Texture[]
+  readonly offsetX: number
+  readonly offsetY: number
+  readonly advance: number
+  readonly scale: number
 }
 
 export type Badges = {
   readonly container: Container
   readonly back: GraphicsContext
   readonly pip: GraphicsContext
+  readonly glyphs: Glyphs
   readonly badges: Badge[]
   readonly counts: Uint16Array
   readonly inside: Uint8Array
@@ -34,6 +53,32 @@ const WIDTH = 92
 const HEIGHT = 34
 const HOVER_REACH = 40
 const UNLIT = 0x2a_24_30
+const MAX_DIGITS = 3
+const WORD = 'inside'
+const WORD_GAP = 5
+const TEXT_TOP = -HEIGHT + 3
+const STYLE = { fontFamily: fonts.pixel, fontSize: fonts.pixelSize, fill: '#eadfc4' }
+
+const installGlyphs = (): Glyphs => {
+  const font = BitmapFontManager.install({
+    name: 'entrance-digits',
+    style: STYLE,
+    chars: [['0', '9']],
+  })
+  const zero = font.chars['0']!
+  const scale = fonts.pixelSize / font.baseMeasurementFontSize
+
+  return {
+    textures: Array.from(
+      { length: 10 },
+      (_unused, digit) => font.chars[String(digit)]?.texture ?? Texture.EMPTY,
+    ),
+    offsetX: zero.xOffset * scale,
+    offsetY: zero.yOffset * scale,
+    advance: zero.xAdvance * scale,
+    scale,
+  }
+}
 
 export const createBadges = (sim: Sim): Badges => {
   const guilds = sim.config.budgets.guilds
@@ -45,6 +90,7 @@ export const createBadges = (sim: Sim): Badges => {
       .fill({ color: 0x10_0d_16, alpha: 0.85 })
       .stroke({ width: 1, color: 0x4a_3f_55 }),
     pip: new GraphicsContext().circle(0, 0, tuning.pip / 2).fill(0xff_ff_ff),
+    glyphs: installGlyphs(),
     badges: [],
     counts: new Uint16Array(guilds * tuning.tiers),
     inside: stateFlags(sim.machine, ['warping-in', 'delving']),
@@ -83,30 +129,66 @@ const badgeFor = (badges: Badges, guild: number): Badge => {
 
       return pip
     })
-    const label = new BitmapText({
-      text: '',
-      style: { fontFamily: fonts.pixel, fontSize: fonts.pixelSize, fill: '#eadfc4' },
+    const word = new BitmapText({ text: WORD, style: STYLE })
+    word.position.y = TEXT_TOP
+    const digits = Array.from({ length: MAX_DIGITS }, () => {
+      const digit = new Sprite(badges.glyphs.textures[0])
+      digit.position.y = TEXT_TOP + badges.glyphs.offsetY
+      digit.alpha = 0
+      digit.scale.set(badges.glyphs.scale)
+
+      return digit
     })
-    label.anchor.set(0.5, 0)
-    label.position.set(0, -HEIGHT + 3)
-    box.addChild(back, label, ...pips)
-    box.visible = false
+    box.addChild(back, word, ...digits, ...pips)
+    box.alpha = 0
     badges.container.addChild(box)
-    badges.badges.push({ box, pips, count: label, shown: -1 })
+    badges.badges.push({ box, pips, digits, word, shown: -1, seen: false })
   }
 
   return badges.badges[guild]!
 }
 
-const paint = (badge: Badge, total: number, lit: number): void => {
+const writeCount = (glyphs: Glyphs, badge: Badge, total: number): void => {
+  const value = Math.min(total, 10 ** MAX_DIGITS - 1)
+  const length = String(value).length
+  const width = length * glyphs.advance + WORD_GAP + badge.word.width
+  const left = Math.round(-width / 2)
+  let rest = value
+
+  for (let i = MAX_DIGITS - 1; i >= 0; i--) {
+    const digit = badge.digits[i]!
+    const place = i - (MAX_DIGITS - length)
+
+    if (place < 0) {
+      digit.alpha = 0
+      continue
+    }
+
+    digit.texture = glyphs.textures[rest % 10]!
+    digit.alpha = 1
+    digit.position.x = left + place * glyphs.advance + glyphs.offsetX
+    rest = Math.floor(rest / 10)
+  }
+
+  badge.word.position.x = left + length * glyphs.advance + WORD_GAP
+}
+
+const paint = (glyphs: Glyphs, badge: Badge, total: number, lit: number): void => {
   if (badge.shown >> 4 !== total) {
-    badge.count.text = `${total} inside`
+    writeCount(glyphs, badge, total)
   }
 
   badge.shown = total * 16 + lit
 
   for (let tier = 0; tier < tuning.tiers; tier++) {
     badge.pips[tier]!.tint = (lit >> tier) & 1 ? TIER_COLORS[tier]! : UNLIT
+  }
+}
+
+const show = (badge: Badge, seen: boolean): void => {
+  if (badge.seen !== seen) {
+    badge.seen = seen
+    badge.box.alpha = seen ? 1 : 0
   }
 }
 
@@ -131,12 +213,12 @@ export const syncBadges = (badges: Badges, sim: Sim, screen: Screen, now: number
     }
 
     if (plot === NO_PLOT || total === 0) {
-      badge.box.visible = false
+      show(badge, false)
       continue
     }
 
     if (badge.shown !== total * 16 + lit) {
-      paint(badge, total, lit)
+      paint(badges.glyphs, badge, total, lit)
     }
 
     const ex = town.entranceX[plot]!
@@ -146,8 +228,7 @@ export const syncBadges = (badges: Badges, sim: Sim, screen: Screen, now: number
       (screenY(ex, ey) - screen.y) * screen.zoom + screen.height / 2 - tuning.offsetY * screen.zoom
     badges.sx[guild] = sx
     badges.sy[guild] = sy
-    badge.box.visible =
-      sx > -WIDTH && sx < screen.width + WIDTH && sy > 0 && sy < screen.height + HEIGHT
+    show(badge, sx > -WIDTH && sx < screen.width + WIDTH && sy > 0 && sy < screen.height + HEIGHT)
     badge.box.position.set(Math.round(sx), Math.round(sy))
   }
 }
@@ -161,7 +242,7 @@ export const overlapsBadge = (
 ): boolean => {
   for (let guild = 0; guild < badges.badges.length; guild++) {
     if (
-      badges.badges[guild]!.box.visible &&
+      badges.badges[guild]!.seen &&
       Math.abs(badges.sx[guild]! - x) < halfWidth + WIDTH / 2 &&
       Math.abs(badges.sy[guild]! - HEIGHT / 2 - y) < halfHeight + HEIGHT / 2
     ) {
@@ -177,7 +258,7 @@ export const badgeAt = (badges: Badges, pointerX: number, pointerY: number): num
     const badge = badges.badges[guild]!
 
     if (
-      badge.box.visible &&
+      badge.seen &&
       Math.abs(badges.sx[guild]! - pointerX) < HOVER_REACH &&
       Math.abs(badges.sy[guild]! - HEIGHT / 2 - pointerY) < HOVER_REACH / 2
     ) {
