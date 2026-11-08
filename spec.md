@@ -4,7 +4,7 @@ Tokenfall is a 2D isometric idle RPG that shows every Claude agent running in He
 
 The vocabulary is defined in `GLOSSARY.md`, and this spec uses those terms. Spike code lives in `tmp/` and gets rewritten, not promoted.
 
-Status: M0 done. Benchmarked on your machine (Intel Raptor Lake integrated graphics, 144 Hz). M1 in progress.
+Status: M0 and M1 done. Benchmarked on your machine (Intel Raptor Lake integrated graphics, 144 Hz). M2 is next.
 
 ## 1. Decisions
 
@@ -71,7 +71,7 @@ Status: M0 done. Benchmarked on your machine (Intel Raptor Lake integrated graph
 - **Generated art:** rendered sheets are committed, not rebuilt on each machine.
 - **References:** a minimal shallow copy of each dependency's source and docs lives in `references/repos/{tool}`, pinned to the exact version we use, with no git history. One script refreshes them on upgrade, tooling ignores the folder, and `CLAUDE.md` lists them so agents read the real source instead of guessing. This covers bitECS, Pixi, Solid, wterm and rot.js, plus Herdr and Plannotator.
 - **Save migrations:** handled by Claude through a `.claude/skills/migrate-save-files` skill, described in `CLAUDE.md`.
-- **Keybinds:** decided during the build and listed in `packages/game/src/render/camera.ts`. So far: WASD or arrows pan, drag pans, wheel or `+`/`-` zooms. Rotation and the Attention Queue key come in M1.
+- **Keybinds:** decided during the build and listed in `packages/game/src/render/camera.ts`. So far: WASD or arrows pan, drag pans, wheel or `+`/`-` zooms. `Q` jumps to the next Hero who needs you and `F` fits the Town. Rotation is still open.
 
 ### Failure states
 
@@ -171,11 +171,14 @@ Built first, on recorded and synthetic data. It needs to answer:
 
 You pick a direction from running builds, not mockups.
 
-**Picked so far:**
+**Picked in M1:**
 
 - **Layout:** the road town. A main road leads out of the gate, with side streets every two plots. Guild plots fill outward along it in seeded order: two deep on each side of the road, then further back. The Graveyard sits by the gate. Each Dungeon entrance sits at the back of its Guild's plot.
 - **Roster:** a tree of Guild, then Party, then Hero rows. "Needs you" is pinned on top, with Ravens first and then Loot Chests. Collapsed rows show counts. Above 60 Heroes the Guilds start collapsed. Each Hero row shows a portrait, name and Title, Quest, Level and status.
 - **Dungeon entrance:** a badge above it with the number of Heroes inside and four tier pips.
+- **Narration bubbles:** at most 12 at once, spoken on status changes in priority order (Raven, Loot, working, idle), plus the selected Hero now and then. A bubble never overlaps another bubble, an entrance badge or the Roster, and each lives 4 s.
+- **UI skin:** Dusk. Windows use tinted Kenney Fantasy UI Borders through `border-image`. Pixel Operator is the pixel face for labels, levels and badges. Alegreya is the readable face for names, Quests and bubbles. Variables live in `ui/skins/dusk.css`.
+- **Prop scale:** every prop's height is a preset in Hero heights, so every asset pack matches the Heroes. A house is 3 Heroes tall and a tree 4.5.
 
 ## 5. Architecture
 
@@ -258,6 +261,15 @@ On your real machine: 60 fps with 500 Heroes, 30+ fps with 1000, no steady-state
 | 1000 Heroes + 512 angel rings (49k particles) | 1.41 / 2.19 ms | 0.44 ms | 0.48 ms |
 
 The display's 144 Hz was the ceiling in every scenario where the tab stayed in front. So the targets are raised: **144 fps with 1000 Heroes** on this machine, a frame budget of **4 ms CPU** and **3 ms GPU** at p99, and an effects budget of **1.5 ms GPU** for the worst storm. **Heap (traced in M1):** nothing is retained. After a forced GC the Town at 500 Heroes holds 70.0 → 70.5 MB over 90 s, flattening out, with DOM nodes and listeners flat. The "creep" was garbage between collections. M1 cut it from 2.5 to 1.4 MB/s: entrance badges share `GraphicsContext`s and tint their pips instead of re-triangulating, Hero tint is written as Pixi's packed `color` instead of going through `Color`, and bubble sizes are measured once per line. What's left is mostly the Roster's 4 Hz Solid updates and Pixi's own per-frame instruction building. `tmp/`-only CDP scripts did the sampling: `HeapProfiler.startSampling` with collected objects included shows allocation by call site.
+
+**Measured in M1:** the full Town (light, props, bubbles, badges, Roster), production build, same machine, 1646x913, from `/?measure`:
+
+| Scenario | fps | frame p99 | CPU p99 | GPU mean / p99 |
+| --- | --- | --- | --- | --- |
+| 500 Heroes | 143 | 6.96 ms | 2.9 ms | 1.8 / 3.0 ms |
+| 1000 Heroes | 143 | 6.95 ms | 3.5 ms | 2.5 / 3.85 ms |
+
+No frame missed a vsync. The CPU bar holds. GPU p99 at 1000 Heroes drifts between 2.8 and 3.85 ms from run to run on the integrated GPU, with every scenario moving together, so it's accepted as within noise of the 3 ms bar. Turning off the light, props or overlay saves 0.4 to 0.5 ms GPU each, which is where to look if it ever matters. What got the CPU there: separate Pixi render groups for the world, badges and bubbles, since any text change or visibility flip rebuilds a whole group's instructions; badge counts drawn with digit sprites and hidden with alpha; the Roster flushed in idle time, keeping its rows mounted and re-sorting once a second; light at quarter resolution.
 
 **Tracing:** every system and render phase records a span into a typed-array ring buffer (`core/trace.ts`), exported as a Chrome trace that Perfetto shows as a waterfall. A dev mode wraps every function. M1 can draw the in-game waterfall from the same buffer.
 
@@ -355,7 +367,7 @@ Each one ends with something you can run.
 
 **M0: Foundations. Done.** Repo, toolchain, `protocol`, recorder and replayer, synthetic load, the effects core with one stateless particle effect, and the id-to-entity index. Done when we have real render and effect benchmarks for 100 to 1000 Heroes on your GPU, and section 6 is adjusted to match.
 
-**M1: Town and roster prototype.** Answers section 4 on replayed and synthetic data. Includes the UI skin, Hero light, placeholder portraits, names, Personalities and Titles. Done when you've picked a direction.
+**M1: Town and roster prototype. Done.** Answers section 4 on replayed and synthetic data. Includes the UI skin, Hero light, placeholder portraits, names, Personalities and Titles. Done when you've picked a direction.
 
 **M2: Live, read-only.** Daemon as a service, the Herdr, hook and transcript adapters, Experience with backfill, Levels and the level-up effect, the Aura, the Roster and Attention Queue on real data, Narration, the Chronicle, SQLite, and graceful resume. Done when your real Agents appear at their true Levels and survive a reboot.
 
