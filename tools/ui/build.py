@@ -1,13 +1,15 @@
 """Build the UI skin assets: tinted window frames and web fonts.
-Usage: uv run --with pillow --with 'fonttools[woff]' python -I build.py <skin.json> <kenney borders dir> <pixel operator dir> <alegreya dir> <assets dir>
+Usage: uv run --with pillow --with 'fonttools[woff]' python -I build.py <skin.json> <kenney borders dir> <pixel operator dir> <alegreya dir> <assets dir> [nerd font dir]
 Each frame stacks a Kenney panel shape filled with the panel colour under the matching
 border drawn in the frame colour, so CSS border-image can draw it with `fill`.
-Fonts become woff2: Pixel Operator whole, Alegreya subset to Latin."""
+Fonts become woff2: Pixel Operator whole, Alegreya subset to Latin, and JetBrains Mono NL
+Nerd Font Mono (for the terminal view) subset to Latin, symbols, box drawing and the icon ranges."""
 import json, os, sys
 from PIL import Image
 from fontTools import subset
 
 skin_path, kenney, pixel, alegreya, out = sys.argv[1:6]
+nerd = sys.argv[6] if len(sys.argv) > 6 else None
 skin = json.load(open(skin_path))
 
 
@@ -49,3 +51,17 @@ for source, target in [('Alegreya[wght].ttf', 'Alegreya.woff2'), ('Alegreya-Ital
     subsetter.subset(font)
     subset.save_font(font, os.path.join(out, 'fonts', target), options)
     print('font', target)
+
+if nerd is not None:
+    mono = subset.Options()
+    mono.flavor = 'woff2'
+    mono.layout_features = []
+    mono.hinting = False
+    ranges = [(0x20, 0x7F), (0xA0, 0x180), (0x2000, 0x2C00), (0xE000, 0xF900), (0xF0000, 0xF1B00)]
+    for weight in ['Regular', 'Bold']:
+        font = subset.load_font(os.path.join(nerd, f'JetBrainsMonoNLNerdFontMono-{weight}.ttf'), mono)
+        subsetter = subset.Subsetter(mono)
+        subsetter.populate(unicodes=[code for low, high in ranges for code in range(low, high)])
+        subsetter.subset(font)
+        subset.save_font(font, os.path.join(out, 'fonts', f'JetBrainsMonoNerd-{weight}.woff2'), mono)
+        print('font', f'JetBrainsMonoNerd-{weight}')

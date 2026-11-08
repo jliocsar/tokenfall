@@ -1,3 +1,17 @@
+@font-face {
+  font-family: 'JetBrainsMono Nerd';
+  src: url('/fonts/JetBrainsMonoNerd-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'JetBrainsMono Nerd';
+  src: url('/fonts/JetBrainsMonoNerd-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: block;
+}
+
 .panel {
   position: fixed;
   box-sizing: border-box;
@@ -518,7 +532,7 @@
 }
 
 .terminal-frame .terminal {
-  --term-font-family: ui-monospace, 'DejaVu Sans Mono', monospace;
+  --term-font-family: 'JetBrainsMono Nerd', ui-monospace, monospace;
   --term-bg: #0b0a10;
   width: 100%;
   height: 100%;

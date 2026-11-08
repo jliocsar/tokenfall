@@ -332,7 +332,7 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 ### Terminal view
 
 - **Source:** the daemon reads `pane.read` with `format: ansi` and `source: visible` every 500 ms for the one Hero a socket watches, and `pane.layout` every 2 s for the size (columns are the pane's width). `revision` is always 0, so the daemon hashes the text and sends a screen only when it changed, and only to the watching socket. Daemon CPU with a Sheet open: under 1%.
-- **Setup:** wterm with a no-op `onData` handler plus `inert`, because wterm echoes keystrokes without one. Columns come from the source pane, with the font size scaled to fit. It uses the system monospace for now, so Nerd Font icons show as boxes.
+- **Setup:** wterm with a no-op `onData` handler plus `inert`, because wterm echoes keystrokes without one. Columns come from the source pane, with the font size scaled to fit. The font is a bundled JetBrains Mono NL Nerd Font Mono, subset to about 1 MB per weight, loaded only when a Sheet opens.
 
 ### bitECS
 
@@ -379,7 +379,7 @@ Each one ends with something you can run.
 
 **M2: Live, read-only. Done.** Daemon as a service, the Herdr, hook and transcript adapters, Experience with backfill, Levels and the level-up effect, the Aura, the Roster and Attention Queue on real data, Narration, the Chronicle, SQLite, and graceful resume. Done when your real Agents appear at their true Levels and survive a reboot.
 
-**M3: Ravens, chests and the terminal. Built, waiting on your live test.** Inbox adapter, the Notice Board, permission Ravens, Loot Chests cleared by seen state, the Character Sheet and the terminal view. Done when a real question raises a Raven that clears once answered, and looking at a finished Agent in Herdr opens its chest.
+**M3: Ravens, chests and the terminal. Done.** Inbox adapter, the Notice Board, permission Ravens, Loot Chests cleared by seen state, the Character Sheet and the terminal view. Done when a real question raises a Raven that clears once answered, and looking at a finished Agent in Herdr opens its chest.
 
 **M4: Dungeons.** Seeded generator using rot.js, with a seed stored per Guild, four Depth Tiers, Warp Portals, Minions and the lead's crown. Like Diablo, only one Dungeon is open at a time, showing one tier. It opens on the tier of the Hero you clicked, and stairs or keys switch tiers. Done when you can watch a Guild at any tier.
 
@@ -418,8 +418,9 @@ Each one ends with something you can run.
 - A real Inbox question raised a Raven on its Hero in about 2 s, with its Chronicle line.
 - The Character Sheet's terminal view on a live pane, at the pane's size.
 - The first live hook event, from a real Claude session.
+- Your live test: a Raven cleared once its question was answered, a chest opened after you looked at its tab in Herdr, the Sheet showed the terminal, and Ravens and chests read fine on your GPU.
 
-**Not yet seen live:** a Raven clearing once its question is answered, a chest opening after you look at the tab in Herdr, and the Aura, level-up ring, Ravens and chests on a real GPU.
+**Not yet seen live:** the Aura and level-up ring on a real GPU.
 
 **Read in Herdr's and Claude's source, docs or local data, but not tested live:**
 

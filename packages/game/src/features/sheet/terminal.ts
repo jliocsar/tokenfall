@@ -7,6 +7,7 @@ export type TerminalView = {
   readonly destroy: () => void
 }
 
+const TERMINAL_FONT = '400 14px "JetBrainsMono Nerd"'
 const HOME_AND_CLEAR = '\u001B[H\u001B[2J'
 const FALLBACK_COLS = 80
 const FALLBACK_ROWS = 24
@@ -40,6 +41,7 @@ const widest = (text: string): number => {
 }
 
 export const mountTerminal = async (element: HTMLElement): Promise<TerminalView> => {
+  await document.fonts.load(TERMINAL_FONT).catch(() => [])
   const term = new WTerm(element, {
     cols: FALLBACK_COLS,
     rows: FALLBACK_ROWS,
