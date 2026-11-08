@@ -74,6 +74,7 @@ export type HeroText = {
   readonly name: string[]
   readonly title: string[]
   readonly quest: string[]
+  readonly tool: string[]
 }
 
 export type Counters = {
@@ -106,6 +107,7 @@ export type Sim = {
   readonly auraOf: Int32Array
   readonly changed: DenseSet
   readonly statusChanged: DenseSet
+  readonly toolChanged: DenseSet
   readonly wanders: Uint8Array
   readonly thresholds: Float64Array
   readonly groups: Groups
@@ -184,6 +186,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
     auraOf: new Int32Array(budgets.entities).fill(NO_AURA),
     changed: createDenseSet(budgets.entities),
     statusChanged: createDenseSet(budgets.entities),
+    toolChanged: createDenseSet(budgets.entities),
     wanders: stateFlags(machine, config.tuning.wanderStates),
     thresholds: levelThresholds(config.curve),
     groups: createGroups(budgets.guilds, budgets.parties),
@@ -191,6 +194,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
       name: Array.from({ length: budgets.entities }, () => ''),
       title: Array.from({ length: budgets.entities }, () => ''),
       quest: Array.from({ length: budgets.entities }, () => ''),
+      tool: Array.from({ length: budgets.entities }, () => ''),
     },
     town: buildTown(config.seed, config.town, budgets.guilds),
     effects: [],

@@ -1,0 +1,150 @@
+{
+  "personality": "Brave",
+  "status": {
+    "working": [
+      "Into the depths, steel first!",
+      "Stand aside, darkness. I'm coming in.",
+      "The dungeon calls. I answer!",
+      "Shield up, blade out. Onward!",
+      "No beast below can turn me back."
+    ],
+    "idle": [
+      "A fine fire. Tomorrow, glory.",
+      "My blade rests. My eyes do not.",
+      "Sharpening steel for the next fight.",
+      "Rest now. Battle soon enough.",
+      "Tell me a tale of great deeds!"
+    ],
+    "done": [
+      "Victory! Loot for the guild!",
+      "Another foe fallen. Come see!",
+      "The deed is done, commander!",
+      "Back from the deep, chest in hand!",
+      "Glory won. The spoils are yours."
+    ],
+    "blocked": [
+      "I await your word, commander.",
+      "A sealed door. Your leave?",
+      "Shall I charge? Say the word.",
+      "Give the order and I march!",
+      "Your command, and I strike."
+    ]
+  },
+  "tools": {
+    "Read": [
+      "I study the old scrolls for weakness.",
+      "Know thy foe. Reading the tome.",
+      "A warrior reads before he strikes.",
+      "These scrolls hold battle plans!",
+      "Reading the map. Then we march!"
+    ],
+    "Edit": [
+      "Reforging these runes, stronger!",
+      "I strike out the weak inscription.",
+      "Hammering the runes into shape!",
+      "A bold new mark upon the stone!",
+      "Recarving the rune. Hold fast!"
+    ],
+    "Write": [
+      "I scribe a new scroll of valor!",
+      "A fresh scroll, written in courage.",
+      "Ink and steel! A new scroll!",
+      "Let this scroll tell of our deeds!",
+      "Writing new orders for the ranks!"
+    ],
+    "Bash": [
+      "Strike the forge! Again!",
+      "I command the forge to roar!",
+      "By my blade, spirits, obey!",
+      "Hammer down! Sparks fly!",
+      "Forge, heed me! Burn hot!"
+    ],
+    "Grep": [
+      "Tracking the beast through the halls!",
+      "I follow the trail, sword drawn.",
+      "Every word, every mark. I hunt it.",
+      "No quarry escapes my search!",
+      "Hunting through the old records!"
+    ],
+    "Glob": [
+      "Scouting every chamber ahead!",
+      "I sweep the halls for our target.",
+      "Mapping the rooms, blade ready.",
+      "Charting the corridors. Onward!",
+      "Every door checked. None hide it."
+    ],
+    "WebFetch": [
+      "A raven flies! Bring back word!",
+      "Fly, raven, to the far keep!",
+      "Sending a rider to distant lands!",
+      "Fetch me that far missive, raven!",
+      "Word from afar? Bring it swift!"
+    ],
+    "WebSearch": [
+      "I scry the far lands for allies!",
+      "Show me distant realms, crystal!",
+      "Searching the horizon for answers!",
+      "Ravens out! Scour every kingdom!",
+      "The seeing stone. Show me all!"
+    ],
+    "Agent": [
+      "Squire! Take up arms with me!",
+      "I summon a stout companion!",
+      "Go, brave minion. Make me proud!",
+      "A squire rides out on my orders!",
+      "Fall in, soldier! You have a task!"
+    ],
+    "Task": [
+      "To the front, squire! Go!",
+      "I send a minion on a bold errand.",
+      "Carry my banner on this errand!",
+      "Off you go, and return victorious!",
+      "Every knight needs a loyal squire."
+    ],
+    "TodoWrite": [
+      "The quest log grows. Good!",
+      "Marking deeds done and deeds to come!",
+      "New quests inked. I fear none!",
+      "Checking off another victory!",
+      "The battle plan, written plain."
+    ],
+    "Skill": [
+      "A technique learned in battle!",
+      "Behold my practiced form!",
+      "My master's secret strike!",
+      "Drawing on years of training!",
+      "A trained hand never falters!"
+    ],
+    "Workflow": [
+      "Rally the war band! To arms!",
+      "Form ranks! We march as one!",
+      "Sound the horn! All to me!",
+      "A host of blades at my back!",
+      "Banners high! The band rides!"
+    ],
+    "AskUserQuestion": [
+      "Commander, your orders?",
+      "Which path, commander? Left or right?",
+      "I seek your counsel before the charge.",
+      "Speak, and the blade follows.",
+      "Point the way. I'll take it."
+    ],
+    "NotebookEdit": [
+      "Marking the grimoire with my notes.",
+      "A soldier's notes in the grimoire!",
+      "Inking battle lessons in the tome.",
+      "I amend the grimoire, boldly!",
+      "Notes in the margins. Courage!"
+    ]
+  },
+  "generic": [
+    "A strange relic! I'll wield it!",
+    "Unknown magic? I fear it not!",
+    "An odd tool, but steel is steel.",
+    "Whatever this is, I'll master it!",
+    "Strange arts! Into the fray!",
+    "Never seen this before. Charge!",
+    "Bold hands for an odd device.",
+    "A new weapon for the fight!"
+  ]
+}

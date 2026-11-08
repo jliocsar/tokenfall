@@ -14,7 +14,8 @@
     "fontSize": 16,
     "offsetY": 96,
     "reserveRight": 380,
-    "gap": 6
+    "gap": 6,
+    "aboveBadge": 44
   },
   "entrance": {
     "everyMs": 250,

@@ -1,0 +1,11 @@
+{
+  "name": "tokenfall",
+  "owner": { "name": "jliocsar" },
+  "plugins": [
+    {
+      "name": "tokenfall",
+      "source": "./",
+      "description": "Sends Claude session events to the local Tokenfall daemon. Async, never blocks an agent."
+    }
+  ]
+}

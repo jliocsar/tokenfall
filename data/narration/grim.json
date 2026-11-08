@@ -1,0 +1,150 @@
+{
+  "personality": "Grim",
+  "status": {
+    "working": [
+      "The darkness deepens. Good.",
+      "Down again. Into the cold.",
+      "The depths always wait for me.",
+      "Another descent. Another toll.",
+      "Nothing below is kind. Neither am I."
+    ],
+    "idle": [
+      "The fire mocks me.",
+      "Rest. Then more suffering.",
+      "The night is long.",
+      "Ash and embers. Fitting.",
+      "I sit with my shadow."
+    ],
+    "done": [
+      "It is done. For now.",
+      "Take it. Before it rots.",
+      "Survived. Again. Pity.",
+      "Loot from the grave. Enjoy.",
+      "Back from the dark. Unchanged."
+    ],
+    "blocked": [
+      "Fate awaits your decree.",
+      "Decide. The shadows grow.",
+      "Your answer, or my doom.",
+      "I wait. The dead are patient.",
+      "Choose. All roads end the same."
+    ]
+  },
+  "tools": {
+    "Read": [
+      "Reading the old curses.",
+      "The scrolls speak of ruin.",
+      "Dusty pages. Darker words.",
+      "Every tome ends in tragedy.",
+      "I read. I despair. I go on."
+    ],
+    "Edit": [
+      "Carving over the old runes.",
+      "These runes needed to die.",
+      "Mending what fate broke.",
+      "The inscription bleeds anew.",
+      "I scratch out the past."
+    ],
+    "Write": [
+      "A new scroll. An epitaph.",
+      "Ink like old blood.",
+      "Writing what no one will read.",
+      "Another scroll for the pyre.",
+      "Scribing in the dark."
+    ],
+    "Bash": [
+      "Wake, spirits. I have need.",
+      "The forge hungers. Feed it.",
+      "Strike. Let it burn.",
+      "I command the restless dead.",
+      "Fire answers. Fire always does."
+    ],
+    "Grep": [
+      "Hunting through the bones.",
+      "Something hides. I will find it.",
+      "The trail smells of decay.",
+      "Searching the crypt rows.",
+      "Nothing stays buried from me."
+    ],
+    "Glob": [
+      "Walking the tombs.",
+      "Counting the crypts.",
+      "Every chamber, a coffin.",
+      "Scouting the barrow halls.",
+      "Mapping the catacombs."
+    ],
+    "WebFetch": [
+      "A raven of ill omen flies.",
+      "Fetch me grim tidings.",
+      "The crow returns. Bad news.",
+      "Word from afar. Likely ruin.",
+      "Fly, carrion bird."
+    ],
+    "WebSearch": [
+      "Scrying the doomed lands.",
+      "The black mirror shows all.",
+      "Far realms. Same despair.",
+      "I gaze into the abyss afar.",
+      "Seeking omens in the smoke."
+    ],
+    "Agent": [
+      "Rise, minion. Serve me.",
+      "I raise a thrall.",
+      "A summoned shade obeys.",
+      "Another soul bound to the work.",
+      "Come forth from the dark."
+    ],
+    "Task": [
+      "Go, wretch. Do not fail.",
+      "An errand. Try not to die.",
+      "Squire, into the gloom.",
+      "Send the thrall. It won't mind.",
+      "Off with you. Return, perhaps."
+    ],
+    "TodoWrite": [
+      "The list of burdens grows.",
+      "One less grave to dig.",
+      "The quest log. A litany.",
+      "Marked done. More remain.",
+      "Ledger of my sorrows."
+    ],
+    "Skill": [
+      "A dark art, long mastered.",
+      "Old necromancy. Still works.",
+      "A technique paid for in blood.",
+      "Forbidden knowledge serves.",
+      "I learned this the hard way."
+    ],
+    "Workflow": [
+      "Raise the war band.",
+      "The legion of the damned forms.",
+      "All shades, to my side.",
+      "Assemble. We march to ruin.",
+      "A grim host gathers."
+    ],
+    "AskUserQuestion": [
+      "Speak, commander. Seal my fate.",
+      "Which doom do you prefer?",
+      "Choose. I will not.",
+      "Your word. Quickly.",
+      "A question, before the end."
+    ],
+    "NotebookEdit": [
+      "Scrawling in the black grimoire.",
+      "Notes in the margins of doom.",
+      "The grimoire drinks my ink.",
+      "Amending the book of shadows.",
+      "A dark note, added."
+    ]
+  },
+  "generic": [
+    "Strange magic. Probably cursed.",
+    "Unknown arts. Fitting.",
+    "This will end badly.",
+    "A cursed relic. Naturally.",
+    "I use it. Fate decides.",
+    "Odd. Ominous. Onward.",
+    "Nothing new under the moon.",
+    "Some dark device. Fine."
+  ]
+}

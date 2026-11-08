@@ -1,0 +1,150 @@
+{
+  "personality": "Pious",
+  "status": {
+    "working": [
+      "Light guide me into the dark.",
+      "I descend with faith as my shield.",
+      "Bless this labor, O Light.",
+      "Into the depths, by holy grace.",
+      "The gods watch over this work."
+    ],
+    "idle": [
+      "A moment of quiet prayer.",
+      "The gods favor the rested.",
+      "Light keep us all this night.",
+      "I tend the shrine by the fire.",
+      "Peace be upon this camp."
+    ],
+    "done": [
+      "Praise be, it is complete!",
+      "A blessing upon this work.",
+      "The Light has delivered us.",
+      "Our labor is sanctified. Come.",
+      "Give thanks! The chest is full."
+    ],
+    "blocked": [
+      "I seek your blessing to go on.",
+      "Grant me leave, I pray.",
+      "A trial only you may judge.",
+      "I kneel and await your word.",
+      "Bless this path, if you will."
+    ]
+  },
+  "tools": {
+    "Read": [
+      "I study the holy scrolls.",
+      "Wisdom dwells in these pages.",
+      "Reading, as the scriptures bid.",
+      "The sacred text reveals much.",
+      "Let these words enlighten me."
+    ],
+    "Edit": [
+      "Purifying the old runes.",
+      "I mend this inscription in faith.",
+      "Sanctifying the carved words.",
+      "Cleansing the runes of error.",
+      "A holy hand amends the stone."
+    ],
+    "Write": [
+      "I scribe a new psalm-scroll.",
+      "A fresh scroll, blessed in ink.",
+      "Writing as the Light guides me.",
+      "New words for the holy archive.",
+      "May this scroll serve the faithful."
+    ],
+    "Bash": [
+      "By the Light, forge, kindle!",
+      "I command the spirits, in faith.",
+      "Holy fire, answer my call!",
+      "Strike, in the name of the gods!",
+      "Spirits, heed this humble plea."
+    ],
+    "Grep": [
+      "I seek, and I shall find.",
+      "Searching, as a pilgrim seeks.",
+      "Following the trail of truth.",
+      "The Light reveals what is hidden.",
+      "Tracking with patient devotion."
+    ],
+    "Glob": [
+      "Scouting the halls with a prayer.",
+      "Blessing each chamber I pass.",
+      "The Light shows every room.",
+      "I walk every corridor in faith.",
+      "Surveying the sacred grounds."
+    ],
+    "WebFetch": [
+      "Fly, holy raven, bring word.",
+      "A message from a far temple.",
+      "Ravens bear tidings. Praise!",
+      "I send for the distant scripture.",
+      "May the raven return safely."
+    ],
+    "WebSearch": [
+      "I scry the far lands in prayer.",
+      "Show me, O Light, what lies afar.",
+      "Seeking visions of distant realms.",
+      "The holy mirror shows the world.",
+      "Divine sight, guide my search."
+    ],
+    "Agent": [
+      "I call a faithful acolyte.",
+      "Go with my blessing, minion.",
+      "A servant of the Light arrives.",
+      "Rise, acolyte. There is work.",
+      "Summoned in holy purpose."
+    ],
+    "Task": [
+      "Go forth, squire, and be blessed.",
+      "An acolyte bears this errand.",
+      "Walk in the Light, little one.",
+      "I send a pilgrim on this task.",
+      "May the gods speed your errand."
+    ],
+    "TodoWrite": [
+      "I record our vows in the log.",
+      "The quest log, kept in faith.",
+      "A deed fulfilled. Amen.",
+      "Listing the trials ahead.",
+      "Each duty noted, each one holy."
+    ],
+    "Skill": [
+      "A rite learned in the temple.",
+      "I invoke a sacred technique.",
+      "The old liturgy serves me.",
+      "By practiced prayer, I act.",
+      "A blessing I have long studied."
+    ],
+    "Workflow": [
+      "Gather, faithful! We march!",
+      "A holy procession forms.",
+      "Rally the crusade!",
+      "The pilgrims assemble as one.",
+      "Brothers and sisters, to me!"
+    ],
+    "AskUserQuestion": [
+      "Commander, I seek guidance.",
+      "Speak, and I shall obey.",
+      "Which path is righteous?",
+      "Enlighten me, I beseech you.",
+      "Your counsel, humbly asked."
+    ],
+    "NotebookEdit": [
+      "Annotating the holy grimoire.",
+      "A devout note in the margin.",
+      "I amend the sacred grimoire.",
+      "Inking blessings into the tome.",
+      "The grimoire receives my prayer."
+    ]
+  },
+  "generic": [
+    "A strange relic. I bless it.",
+    "Unknown magic, yet the Light leads.",
+    "The gods move in odd ways.",
+    "Faith guides even this.",
+    "An unfamiliar rite. I trust.",
+    "Light, sanctify this tool.",
+    "Mysterious, but holy enough.",
+    "I pray this works as intended."
+  ]
+}

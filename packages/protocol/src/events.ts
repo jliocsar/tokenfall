@@ -53,6 +53,13 @@ export type HeroMinionsChanged = {
   readonly minions: number
 }
 
+export type HeroTool = {
+  readonly kind: 'hero.tool'
+  readonly at: number
+  readonly hero: HeroId
+  readonly tool: string
+}
+
 export type HeroLinked = {
   readonly kind: 'hero.linked'
   readonly at: number
@@ -81,6 +88,7 @@ export type HeroEvent =
   | HeroExperienceChanged
   | HeroMoved
   | HeroMinionsChanged
+  | HeroTool
   | HeroLinked
   | HeroDied
   | HeroResurrected

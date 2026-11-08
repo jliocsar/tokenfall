@@ -1,0 +1,150 @@
+{
+  "personality": "Scholarly",
+  "status": {
+    "working": [
+      "To the archives below.",
+      "Fieldwork, at last.",
+      "The depths hold much to study.",
+      "Descending for research.",
+      "A fine day for discovery."
+    ],
+    "idle": [
+      "Annotating my grimoire.",
+      "One more chapter by the fire.",
+      "Footnotes are a kind of rest.",
+      "Pondering a curious theorem.",
+      "Reading by firelight."
+    ],
+    "done": [
+      "Thesis proven. Results enclosed.",
+      "Q.E.D., as the sages say.",
+      "My findings await your review.",
+      "Research concluded. See the chest.",
+      "A most productive expedition."
+    ],
+    "blocked": [
+      "I require a citation from you.",
+      "A question only you can answer.",
+      "Pending your peer review.",
+      "I must consult your authority.",
+      "The matter needs your ruling."
+    ]
+  },
+  "tools": {
+    "Read": [
+      "Consulting the ancient tomes.",
+      "Per my reading of this scroll...",
+      "Fascinating. Truly fascinating.",
+      "Cross-referencing the codex.",
+      "A primary source! Splendid."
+    ],
+    "Edit": [
+      "Revising the runic notation.",
+      "An erratum, now corrected.",
+      "Amending the inscription.",
+      "A precise emendation.",
+      "Correcting the scribe's error."
+    ],
+    "Write": [
+      "Composing a new treatise.",
+      "Drafting a scroll, chapter one.",
+      "A monograph in fresh ink.",
+      "Scribing my latest findings.",
+      "Committing theory to parchment."
+    ],
+    "Bash": [
+      "Invoking the forge, per theory.",
+      "A controlled incantation.",
+      "Testing a hypothesis on the forge.",
+      "The spirits respond as predicted.",
+      "Experiment begins. Observe."
+    ],
+    "Grep": [
+      "Indexing every mention.",
+      "Searching the concordance.",
+      "A thorough literature search.",
+      "Tracing the term through texts.",
+      "Seeking a specific passage."
+    ],
+    "Glob": [
+      "Cataloguing the halls.",
+      "Surveying the archive shelves.",
+      "A systematic survey of rooms.",
+      "Mapping the library stacks.",
+      "Classifying each chamber."
+    ],
+    "WebFetch": [
+      "Requesting a distant manuscript.",
+      "A raven to the far academy.",
+      "Fetching a scholar's letter.",
+      "Inter-library raven, dispatched.",
+      "Retrieving a remote text."
+    ],
+    "WebSearch": [
+      "Scrying the far libraries.",
+      "A broad survey of the realms.",
+      "Consulting the scrying lens.",
+      "What do distant sages say?",
+      "Gathering sources from afar."
+    ],
+    "Agent": [
+      "Summoning a research assistant.",
+      "An apprentice for the fieldwork.",
+      "A familiar to aid my studies.",
+      "Delegating to a junior scholar.",
+      "Conjuring a diligent minion."
+    ],
+    "Task": [
+      "Squire, fetch me that volume.",
+      "A small errand for my apprentice.",
+      "Assigning a study to a pupil.",
+      "Go, and take careful notes.",
+      "Dispatching an assistant."
+    ],
+    "TodoWrite": [
+      "Updating the research agenda.",
+      "Annotating the quest log.",
+      "Item complete. Next entry.",
+      "A tidy index of open quests.",
+      "Revising the syllabus."
+    ],
+    "Skill": [
+      "Applying a learned method.",
+      "As I studied at the academy...",
+      "A technique from my thesis.",
+      "Textbook execution.",
+      "Method, not mere luck."
+    ],
+    "Workflow": [
+      "Convening the faculty.",
+      "A symposium of blades.",
+      "Assembling the expedition.",
+      "Every scholar to their station.",
+      "A coordinated inquiry begins."
+    ],
+    "AskUserQuestion": [
+      "A query for the commander.",
+      "Might I trouble you to clarify?",
+      "Which hypothesis do you favor?",
+      "Your expert opinion, please.",
+      "I seek your clarification."
+    ],
+    "NotebookEdit": [
+      "Footnoting the grimoire.",
+      "Marginalia, in my neatest hand.",
+      "Revising the grimoire's chapter.",
+      "A scholarly note, appended.",
+      "The grimoire grows wiser."
+    ]
+  },
+  "generic": [
+    "An unfamiliar instrument. Curious.",
+    "Undocumented magic! Splendid.",
+    "I shall study this device.",
+    "A new discipline. Intriguing.",
+    "No treatise covers this yet.",
+    "Hm, an obscure art.",
+    "Novel. I must take notes.",
+    "Empirical inquiry, then."
+  ]
+}

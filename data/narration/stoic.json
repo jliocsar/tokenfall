@@ -1,0 +1,144 @@
+{
+  "personality": "Stoic",
+  "status": {
+    "working": [
+      "Descending.",
+      "To work.",
+      "Stone by stone.",
+      "The work is the reward.",
+      "Down. Steady."
+    ],
+    "idle": [
+      "...",
+      "The fire burns. So do I.",
+      "Rest is also discipline.",
+      "Sitting. Waiting.",
+      "Calm."
+    ],
+    "done": [
+      "It is finished.",
+      "Done. Take it.",
+      "As expected.",
+      "The chest. Yours.",
+      "Complete. Nothing more."
+    ],
+    "blocked": [
+      "Your judgment.",
+      "This needs your seal.",
+      "Waiting. Patiently.",
+      "Decide.",
+      "I will not proceed alone."
+    ]
+  },
+  "tools": {
+    "Read": [
+      "Reading.",
+      "The scroll. Slowly.",
+      "Words first. Then action.",
+      "I study.",
+      "Each line, in turn."
+    ],
+    "Edit": [
+      "Recutting the rune.",
+      "A small change. Precise.",
+      "The inscription, corrected.",
+      "Chisel. Stone. Patience.",
+      "Amending."
+    ],
+    "Write": [
+      "A new scroll.",
+      "Scribing.",
+      "Ink. Parchment. Enough.",
+      "I write what is needed.",
+      "One scroll. Plain words."
+    ],
+    "Bash": [
+      "The forge. Strike.",
+      "Spirits. Obey.",
+      "Hammer falls.",
+      "Command given.",
+      "Fire answers. Good."
+    ],
+    "Grep": [
+      "Tracking.",
+      "The trail is faint. I follow.",
+      "Searching each line.",
+      "Patience finds all.",
+      "I seek the mark."
+    ],
+    "Glob": [
+      "Scouting.",
+      "Every room. In order.",
+      "Counting the chambers.",
+      "The halls, surveyed.",
+      "Mapping. Quietly."
+    ],
+    "WebFetch": [
+      "Raven. Go.",
+      "Word from afar. Fetching.",
+      "A message, sent for.",
+      "The raven returns. Or not.",
+      "Distant scroll. Retrieving."
+    ],
+    "WebSearch": [
+      "Scrying.",
+      "The far lands. Looking.",
+      "The crystal shows. I watch.",
+      "Seeking beyond the walls.",
+      "Many ravens. One answer."
+    ],
+    "Agent": [
+      "A minion. Summoned.",
+      "Go. Do the work.",
+      "Help, then.",
+      "Another pair of hands.",
+      "You. Follow orders."
+    ],
+    "Task": ["Squire. Errand.", "Sent.", "Return when done.", "A task, delegated.", "Go quietly."],
+    "TodoWrite": [
+      "Quest log. Updated.",
+      "One less. Noted.",
+      "The list grows. Fine.",
+      "Recorded.",
+      "Order in all things."
+    ],
+    "Skill": [
+      "Old training.",
+      "Form. Breath. Strike.",
+      "A practiced way.",
+      "Discipline, applied.",
+      "Technique."
+    ],
+    "Workflow": [
+      "The band gathers.",
+      "Ranks. Now.",
+      "Many as one.",
+      "We march together.",
+      "Rally."
+    ],
+    "AskUserQuestion": [
+      "Commander. A question.",
+      "Which way?",
+      "Your word.",
+      "Speak. I listen.",
+      "I need an answer."
+    ],
+    "NotebookEdit": [
+      "Grimoire. Annotated.",
+      "A note in the margin.",
+      "Amending the grimoire.",
+      "Brief notes. Enough.",
+      "The tome, kept true."
+    ]
+  },
+  "generic": [
+    "Unfamiliar. No matter.",
+    "A strange tool. I use it.",
+    "Hm.",
+    "New arts. Same patience.",
+    "Proceeding.",
+    "Odd. Continue.",
+    "Whatever it is, it serves.",
+    "I adapt."
+  ]
+}

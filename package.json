@@ -12,6 +12,8 @@
     "dev": "bun packages/daemon/src/dev.ts",
     "dev:game": "bun run --cwd packages/game dev",
     "daemon": "bun packages/daemon/src/main.ts",
+    "install-service": "bun packages/daemon/src/install.ts install",
+    "uninstall-service": "bun packages/daemon/src/install.ts uninstall",
     "bench": "bun run --cwd packages/game dev",
     "preview": "bun run --cwd packages/game preview",
     "trace": "bun run --cwd packages/game dev:trace",

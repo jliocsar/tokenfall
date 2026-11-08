@@ -45,6 +45,10 @@ export type World = {
   readonly missing: Map<HeroId, number>
   readonly dirty: Set<HeroRecord>
   readonly outbox: HeroEvent[]
+  readonly hookSessions: Map<PaneId, string>
+  readonly ended: Set<string>
+  readonly minions: Map<HeroId, Set<string>>
+  readonly tools: Map<HeroId, string>
 }
 
 const SEED_KEY = 'townSeed'
@@ -95,6 +99,10 @@ export const createWorld = (db: Database, plotCount: number): World => {
     missing: new Map(),
     dirty: new Set(),
     outbox: [],
+    hookSessions: new Map(),
+    ended: new Set(),
+    minions: new Map(),
+    tools: new Map(),
   }
 
   for (const record of loadAliveHeroes(db, plots)) {
@@ -217,7 +225,12 @@ const spawn = (world: World, id: HeroId, seen: Observed, now: number): void => {
   world.known.add(id)
 }
 
-const die = (world: World, record: HeroRecord, cause: DeathCause, now: number): void => {
+export const killHero = (
+  world: World,
+  record: HeroRecord,
+  cause: DeathCause,
+  now: number,
+): void => {
   world.live.delete(record.id)
   world.missing.delete(record.id)
 
@@ -281,7 +294,7 @@ const link = (
   const id = sessionHeroId(LOCAL_MACHINE, session)
 
   if (world.live.has(id) || world.known.has(id)) {
-    die(world, stranger, 'missing', now)
+    killHero(world, stranger, 'missing', now)
 
     return false
   }
@@ -314,7 +327,20 @@ const link = (
   return true
 }
 
-export const observe = (world: World, seen: Observed, now: number): void => {
+export const sessionFor = (world: World, pane: PaneId, reported: string | null): string | null =>
+  world.hookSessions.get(pane) ??
+  (reported !== null && !world.ended.has(reported) ? reported : null)
+
+export const flushTools = (world: World, now: number): void => {
+  for (const [hero, tool] of world.tools) {
+    world.outbox.push({ kind: 'hero.tool', at: now, hero, tool })
+  }
+
+  world.tools.clear()
+}
+
+export const observe = (world: World, reported: Observed, now: number): void => {
+  const seen = { ...reported, session: sessionFor(world, reported.pane, reported.session) }
   const id = heroIdOf(seen.pane, seen.session)
   const currentId = world.paneHero.get(seen.pane)
   const current = currentId === undefined ? undefined : world.live.get(currentId)
@@ -328,7 +354,7 @@ export const observe = (world: World, seen: Observed, now: number): void => {
     }
 
     if (current.session !== null) {
-      die(world, current, 'cleared', now)
+      killHero(world, current, 'cleared', now)
     } else if (link(world, current, seen, seen.session, now)) {
       return
     }
@@ -357,8 +383,10 @@ export const paneGone = (world: World, pane: PaneId, cause: DeathCause, now: num
   const id = world.paneHero.get(pane)
   const record = id === undefined ? undefined : world.live.get(id)
 
+  world.hookSessions.delete(pane)
+
   if (record !== undefined) {
-    die(world, record, cause, now)
+    killHero(world, record, cause, now)
   }
 }
 
@@ -384,7 +412,7 @@ export const sweepMissing = (
       const misses = (world.missing.get(record.id) ?? 0) + 1
 
       if (misses >= limit) {
-        die(world, record, 'missing', now)
+        killHero(world, record, 'missing', now)
       } else {
         world.missing.set(record.id, misses)
       }

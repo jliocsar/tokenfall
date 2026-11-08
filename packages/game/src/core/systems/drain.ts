@@ -179,6 +179,16 @@ const HANDLERS: Handlers = {
       joinGroups(sim, eid, event.guild, event.workspace, event.plot)
       reenterState(sim, eid, now)
     }),
+  'hero.tool': (sim, event) =>
+    withHero(
+      sim,
+      event.hero,
+      (eid) => {
+        sim.text.tool[eid] = event.tool
+        addMember(sim.toolChanged, eid)
+      },
+      true,
+    ),
   'hero.minions': (sim, event) =>
     withHero(sim, event.hero, (eid) => {
       sim.stores.hero.minions[eid] = event.minions
@@ -241,6 +251,10 @@ const handle = (sim: Sim, event: HeroEvent, now: number): boolean => {
 
   if (event.kind === 'hero.died') {
     return HANDLERS['hero.died'](sim, event, now)
+  }
+
+  if (event.kind === 'hero.tool') {
+    return HANDLERS['hero.tool'](sim, event, now)
   }
 
   return HANDLERS['hero.resurrected'](sim, event, now)

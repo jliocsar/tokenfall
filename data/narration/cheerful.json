@@ -1,0 +1,150 @@
+{
+  "personality": "Cheerful",
+  "status": {
+    "working": [
+      "Off to the dungeon! Yay!",
+      "Ooh, adventure time!",
+      "This dungeon is SO cozy!",
+      "Hop, skip, down the stairs!",
+      "Let's make today amazing!"
+    ],
+    "idle": [
+      "Who wants a song?",
+      "Marshmallows, anyone?",
+      "Best guild ever, right?",
+      "Such a lovely little fire!",
+      "Napping is my second talent!"
+    ],
+    "done": [
+      "Ta-da! All done!",
+      "Treasure time, treasure time!",
+      "That was fun! Again?",
+      "Look what I found! For you!",
+      "Hooray! We did it!"
+    ],
+    "blocked": [
+      "Can I? Can I? Please?",
+      "Just need a teeny yes!",
+      "Waiting for you, friend!",
+      "Pretty please with a cherry?",
+      "Hello? Little help here?"
+    ]
+  },
+  "tools": {
+    "Read": [
+      "Ooh, a story scroll!",
+      "Reading is the best!",
+      "So many lovely words!",
+      "What a fun little tome!",
+      "Page after page! Wheee!"
+    ],
+    "Edit": [
+      "Fixing up the runes! Sparkly!",
+      "A little tweak, a lot of joy!",
+      "Making the runes even nicer!",
+      "Tidy runes are happy runes!",
+      "Snip snip! All better!"
+    ],
+    "Write": [
+      "A brand new scroll! Exciting!",
+      "Writing with my best ink!",
+      "Fresh parchment smells so good!",
+      "A new scroll, just for you!",
+      "Scribble scribble, done!"
+    ],
+    "Bash": [
+      "Bang the forge! So loud!",
+      "Hello, spirits! Do a thing!",
+      "Clang clang! I love this part!",
+      "Go go forge power!",
+      "Sparks! Pretty sparks!"
+    ],
+    "Grep": [
+      "Where are you hiding? Found you!",
+      "Hide and seek! My favorite!",
+      "Following the cute little tracks!",
+      "Searching high and low!",
+      "Peekaboo! I see it!"
+    ],
+    "Glob": [
+      "Exploring every room! Fun!",
+      "So many halls to peek into!",
+      "Scouting with a skip in my step!",
+      "Ooh, what's behind this door?",
+      "Every chamber is a surprise!"
+    ],
+    "WebFetch": [
+      "Fly, raven! Bring back news!",
+      "A letter from afar! Yay!",
+      "Mail time! I love mail!",
+      "Go, birdie, go!",
+      "Fetching a far scroll! Wheee!"
+    ],
+    "WebSearch": [
+      "Peeking at far-off lands!",
+      "The crystal ball is so pretty!",
+      "Let's see what's out there!",
+      "Scrying is like magic! Oh wait.",
+      "Hello, faraway kingdoms!"
+    ],
+    "Agent": [
+      "A new friend joins us!",
+      "Minion buddy, welcome!",
+      "Teamwork makes the dream work!",
+      "Summoning a little helper!",
+      "Yay, company!"
+    ],
+    "Task": [
+      "Run along, squire! Have fun!",
+      "Errand time for my pal!",
+      "You can do it, little one!",
+      "Off you go! Bring snacks!",
+      "Sending a buddy on a quest!"
+    ],
+    "TodoWrite": [
+      "Checklist! I love checklists!",
+      "Tick! Another one done!",
+      "Updating the quest log! Yay!",
+      "So many fun quests ahead!",
+      "Writing down all the goals!"
+    ],
+    "Skill": [
+      "My special move! Ta-da!",
+      "I practiced this one a lot!",
+      "Watch this cool trick!",
+      "A technique I'm proud of!",
+      "Ooh, my favorite skill!"
+    ],
+    "Workflow": [
+      "Everybody gather round!",
+      "Big parade! Let's go!",
+      "Rally, friends! Big adventure!",
+      "The whole gang together!",
+      "Group hug, then group quest!"
+    ],
+    "AskUserQuestion": [
+      "Quick question, friend!",
+      "Which one? Both look fun!",
+      "You pick! I trust you!",
+      "Ooh, what do you think?",
+      "Help me choose, pretty please?"
+    ],
+    "NotebookEdit": [
+      "Doodling in the grimoire!",
+      "Adding notes with little stars!",
+      "The grimoire needs more hearts!",
+      "Annotating! So studious of me!",
+      "A cheerful note in the margin!"
+    ]
+  },
+  "generic": [
+    "Ooh, a new toy!",
+    "Never tried this! Exciting!",
+    "What does this do? Let's see!",
+    "A mystery gadget! Fun!",
+    "Whee! Something new!",
+    "I don't know it, but I love it!",
+    "Strange magic, happy heart!",
+    "Let's give it a whirl!"
+  ]
+}

@@ -1,0 +1,150 @@
+{
+  "personality": "Wild",
+  "status": {
+    "working": [
+      "SMASH TIME!",
+      "Down the hole! RAAAH!",
+      "Dungeon! Me go! NOW!",
+      "Smell monsters! Want fight!",
+      "Tear it down! Build it UP!"
+    ],
+    "idle": [
+      "Where's the meat?",
+      "Too quiet. Want fight.",
+      "Fire good.",
+      "Gnawing bone. Happy.",
+      "Me sleep. Snore LOUD."
+    ],
+    "done": [
+      "HAHA! LOOT!",
+      "Crushed it! Literally!",
+      "Victory roar! RAAAH!",
+      "Big chest! Me carry!",
+      "WON! Feast now!"
+    ],
+    "blocked": [
+      "Chief! Smash or no smash?",
+      "Big door. You open?",
+      "Grr. Waiting. Hate waiting.",
+      "Chief say go, me go!",
+      "Need yes! Say YES!"
+    ]
+  },
+  "tools": {
+    "Read": [
+      "Many squiggles! Me read!",
+      "Scroll talk. Me listen. Grr.",
+      "Reading! Hard! But me strong!",
+      "Words! Into my skull!",
+      "Big book. Me look at it."
+    ],
+    "Edit": [
+      "Smash rune! Make new rune!",
+      "Bash runes into better shape!",
+      "Fix it with FISTS!",
+      "Scratch scratch! New marks!",
+      "Rune bad. Me fix. RAAH!"
+    ],
+    "Write": [
+      "Me make scroll! Big letters!",
+      "NEW SCROLL! Hah!",
+      "Write with claw! Ha!",
+      "Scroll! Mine! Made it!",
+      "Big scribbles! Good scroll!"
+    ],
+    "Bash": [
+      "HIT THE FORGE!",
+      "SPIRITS! DO THING!",
+      "Bang! Bang! BANG!",
+      "Fire! More fire!",
+      "Smash lever! See what happen!"
+    ],
+    "Grep": [
+      "Sniff sniff! Me smell it!",
+      "Hunt! HUNT!",
+      "Track prey! Find it!",
+      "Nose to ground! Close now!",
+      "Where you hide? ME FIND!"
+    ],
+    "Glob": [
+      "Run every room! FAST!",
+      "Kick every door!",
+      "Look look look! Everywhere!",
+      "Scout! Stomp! Scout!",
+      "All caves! Me check!"
+    ],
+    "WebFetch": [
+      "BIRD! Go get thing!",
+      "Raven fly far! Bring back!",
+      "Throw bird! Bird fetch!",
+      "Caw caw! Go! GO!",
+      "Far thing! Bird bring!"
+    ],
+    "WebSearch": [
+      "Look far! FAR!",
+      "Shiny rock show lands!",
+      "Where thing? Look everywhere!",
+      "Big eye in sky! Show me!",
+      "Hunt far lands! RAAAH!"
+    ],
+    "Agent": [
+      "Little buddy! Come smash!",
+      "Minion! Help! NOW!",
+      "Summon small brute!",
+      "You! Fight with me!",
+      "More hands! More smash!"
+    ],
+    "Task": [
+      "Go, small one! Bring back!",
+      "Squire! Fetch! FAST!",
+      "You do thing! Me wait! Grr.",
+      "Run, little runt! Run!",
+      "Errand! Go! Don't trip!"
+    ],
+    "TodoWrite": [
+      "Mark wall! One more!",
+      "Count kills! Big list!",
+      "Quest stick! Carve notch!",
+      "Things to smash! Me write!",
+      "Scratch list! Done! Next!"
+    ],
+    "Skill": [
+      "SECRET SMASH!",
+      "Old move! Big move!",
+      "Me know this one! WATCH!",
+      "Spin attack! WHEEE!",
+      "Ancestor technique! RAAAH!"
+    ],
+    "Workflow": [
+      "WAR BAND! TO ME!",
+      "All brutes! CHARGE!",
+      "Whole tribe! GO GO GO!",
+      "Many smash! Together!",
+      "Beat the drum! RALLY!"
+    ],
+    "AskUserQuestion": [
+      "Chief! What do?",
+      "This one or that one? PICK!",
+      "Chief! Me need words!",
+      "Ask chief! Chief smart!",
+      "Hey! HEY! Question!"
+    ],
+    "NotebookEdit": [
+      "Scratch in magic book!",
+      "Draw in grimoire! Ha!",
+      "Book needs claw marks!",
+      "Grimoire! Me add stuff!",
+      "Magic book! Me write too!"
+    ]
+  },
+  "generic": [
+    "WHAT THIS? SMASH IT!",
+    "New thing! Me try!",
+    "Weird stick! Me swing!",
+    "Strange magic! RAAAH!",
+    "Don't know! Don't care! GO!",
+    "Shiny! Mine!",
+    "Hmm. Bite it?",
+    "Big noise thing! Ha!"
+  ]
+}

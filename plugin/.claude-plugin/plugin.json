@@ -1,0 +1,6 @@
+{
+  "name": "tokenfall",
+  "version": "0.1.0",
+  "description": "Sends Claude session events (session start and end, tool names, subagents) to the local Tokenfall daemon. Async, fails silently, never blocks an agent.",
+  "author": { "name": "jliocsar" }
+}

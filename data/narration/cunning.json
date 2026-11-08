@@ -1,0 +1,150 @@
+{
+  "personality": "Cunning",
+  "status": {
+    "working": [
+      "Slipping in through the back way.",
+      "Nobody sees me go below.",
+      "Quiet feet. Quick hands.",
+      "The dungeon owes me a few coins.",
+      "In the shadows, as ever."
+    ],
+    "idle": [
+      "Counting coins. Mine, mostly.",
+      "Ears open. Mouth shut.",
+      "Waiting for the right moment.",
+      "Dicing by the fire. I'm winning.",
+      "Resting? I'm planning."
+    ],
+    "done": [
+      "Swiped it clean. You're welcome.",
+      "In and out. Loot's here.",
+      "Easiest heist all week.",
+      "Not a trap sprung. Chest's yours.",
+      "Clean job. No witnesses."
+    ],
+    "blocked": [
+      "Psst. Need your signature.",
+      "Lock's tricky. Your call.",
+      "One nod and I'm through.",
+      "I could pick it. Should I?",
+      "Your mark, boss, then I move."
+    ]
+  },
+  "tools": {
+    "Read": [
+      "Skimming their secrets.",
+      "Reading over a shoulder.",
+      "Interesting scroll. Mine now.",
+      "Know what they know. Then more.",
+      "Every tome has a weak spot."
+    ],
+    "Edit": [
+      "A quiet tweak to the runes.",
+      "Nobody will notice this change.",
+      "Just a little forgery.",
+      "Rearranging the runes. Subtly.",
+      "Swapping a rune or two. Shh."
+    ],
+    "Write": [
+      "Forging a fresh scroll.",
+      "A new scroll, with a seal I made.",
+      "Scribing something useful.",
+      "A note nobody asked for. Yet.",
+      "Penning a clever little scroll."
+    ],
+    "Bash": [
+      "A whisper to the forge spirits.",
+      "Tricked the forge into helping.",
+      "Pull the lever. See what breaks.",
+      "Spirits owe me a favor.",
+      "Quick strike, then vanish."
+    ],
+    "Grep": [
+      "Picking up the scent.",
+      "Following footprints. Theirs.",
+      "Sniffing out the loot.",
+      "Hunting a whisper in the halls.",
+      "I always find what's hidden."
+    ],
+    "Glob": [
+      "Casing the joint.",
+      "Checking every door and window.",
+      "Mapping the escape routes.",
+      "Scouting. Silently.",
+      "Which rooms hold the goods?"
+    ],
+    "WebFetch": [
+      "My raven steals a letter.",
+      "Intercepting a far message.",
+      "A raven with sticky claws.",
+      "Fetching word. Discreetly.",
+      "Got a contact out there."
+    ],
+    "WebSearch": [
+      "Spying on the far lands.",
+      "My scrying stone sees all.",
+      "Asking around. Quietly.",
+      "Informants in every kingdom.",
+      "A peek beyond the borders."
+    ],
+    "Agent": [
+      "Hired help. Cheap, too.",
+      "A lackey for the dirty work.",
+      "Summoning an accomplice.",
+      "You, minion. Be my alibi.",
+      "Why work when minions can?"
+    ],
+    "Task": [
+      "Squire, fetch this. Don't ask.",
+      "Sending a runner. Deniable.",
+      "A little errand for my lackey.",
+      "Go. Don't get caught.",
+      "Delegation is an art."
+    ],
+    "TodoWrite": [
+      "Updating the heist plan.",
+      "Scores settled, scores to come.",
+      "The quest log. Mostly true.",
+      "Crossing off another job.",
+      "A list of marks. Ahem, quests."
+    ],
+    "Skill": [
+      "An old trick of the trade.",
+      "Sleight of hand, perfected.",
+      "One of my many talents.",
+      "A trick I learned in the alleys.",
+      "Watch closely. You'll miss it."
+    ],
+    "Workflow": [
+      "Gathering the crew.",
+      "The whole gang's in on it.",
+      "Every rogue to their post.",
+      "A big job needs a big crew.",
+      "Rally the thieves. Quietly."
+    ],
+    "AskUserQuestion": [
+      "Boss, a quick word?",
+      "Which way, boss? I've got ideas.",
+      "Your call. I'd pick left.",
+      "Need a nod before I move.",
+      "Psst. A question for you."
+    ],
+    "NotebookEdit": [
+      "Scribbling in the grimoire.",
+      "A margin note. In cipher.",
+      "Doctoring the grimoire a bit.",
+      "Annotating. Nobody reads these.",
+      "Slipping a page into the tome."
+    ]
+  },
+  "generic": [
+    "Never seen this. Let's steal it.",
+    "Odd trinket. Could be useful.",
+    "A strange tool. I'll figure it.",
+    "New trick? I'm in.",
+    "No idea what this does. Fun.",
+    "Whatever it is, I'll profit.",
+    "Pocketing this. For later.",
+    "Curious device. Very curious."
+  ]
+}
