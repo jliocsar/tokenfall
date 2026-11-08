@@ -27,5 +27,9 @@
     "pixel": "Pixel Operator",
     "read": "Alegreya",
     "pixelSize": 16
+  },
+  "roster": {
+    "rowsEveryMs": 250,
+    "regroupEveryMs": 1000
   }
 }

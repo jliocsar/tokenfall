@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "bun run --cwd packages/game dev",
     "bench": "bun run --cwd packages/game dev",
+    "preview": "bun run --cwd packages/game preview",
     "trace": "bun run --cwd packages/game dev:trace",
     "test": "bun test",
     "load": "bun test packages/game/test/load.test.ts",

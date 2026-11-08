@@ -1,5 +1,6 @@
 import { batch, createMemo, createSignal, type Accessor } from 'solid-js'
 import { createStore } from 'solid-js/store'
+import world from '@tokenfall/data/world.json'
 import { displayName, titleOf } from '../../core/character.ts'
 import { clearSet } from '../../core/dense-set.ts'
 import { stateId } from '../../core/fsm.ts'
@@ -47,7 +48,7 @@ export type Roster = {
   readonly rows: Readonly<Record<number, HeroRow>>
   readonly guilds: Accessor<GuildGroup[]>
   readonly attention: Accessor<number[]>
-  readonly flush: () => void
+  readonly flush: (now: number) => void
 }
 
 const STANDING_OF_STATUS = [
@@ -170,6 +171,7 @@ const group = (sim: Sim, rows: Rows): GuildGroup[] => {
 export const createRoster = (sim: Sim): Roster => {
   const [rows, setRows] = createStore<Record<number, HeroRow>>({})
   const plain = new Map<number, HeroRow>()
+  const pending = { regroup: false, nextRegroup: 0 }
   const [version, setVersion] = createSignal(0)
   const dying = stateId(sim.machine, 'dying')
   const dead = stateId(sim.machine, 'dead')
@@ -196,27 +198,23 @@ export const createRoster = (sim: Sim): Roster => {
     rows,
     guilds,
     attention,
-    flush: () => {
+    flush: (now) => {
       const { changed } = sim
 
-      if (changed.size === 0) {
-        return
-      }
-
       batch(() => {
-        let regroup = false
-
         for (let i = 0; i < changed.size; i++) {
           const eid = changed.dense[i]!
           const row = rowOf(sim, eid, dying, dead)
-          regroup ||= moved(plain.get(eid), row)
+          pending.regroup ||= moved(plain.get(eid), row)
           plain.set(eid, row)
           setRows(eid, row)
         }
 
         clearSet(changed)
 
-        if (regroup) {
+        if (pending.regroup && now >= pending.nextRegroup) {
+          pending.regroup = false
+          pending.nextRegroup = now + world.roster.regroupEveryMs
           setVersion((value) => value + 1)
         }
       })

@@ -37,6 +37,10 @@ const guildKey = (guild: number): string => `g${guild}`
 
 const partyKey = (party: number): string => `p${party}`
 
+const eidOf = (line: Line): number => (line.kind === 'hero' ? line.eid : -1)
+
+const depthOf = (line: Line): number => (line.kind === 'hero' ? line.depth : 0)
+
 const heroLine = (cache: Map<number, Line>, eid: number, depth: number): Line => {
   const key = eid * 4 + depth
   const cached = cache.get(key)
@@ -49,6 +53,46 @@ const heroLine = (cache: Map<number, Line>, eid: number, depth: number): Line =>
   cache.set(key, line)
 
   return line
+}
+
+const groupLine = (line: Line, toggle: (key: string) => void): JSX.Element => {
+  if (line.kind === 'heading') {
+    return <div class="line heading">{line.text}</div>
+  }
+
+  if (line.kind === 'guild') {
+    return (
+      <button
+        type="button"
+        class="line guild"
+        onClick={() => {
+          toggle(guildKey(line.group.guild))
+        }}
+      >
+        <span class="caret">{line.open ? '▾' : '▸'}</span>
+        <span class="name">{line.group.label}</span>
+        <span class="counts">{summary(line.group.counts)}</span>
+      </button>
+    )
+  }
+
+  if (line.kind === 'party') {
+    return (
+      <button
+        type="button"
+        class="line party"
+        onClick={() => {
+          toggle(partyKey(line.group.party))
+        }}
+      >
+        <span class="caret">{line.open ? '▾' : '▸'}</span>
+        <span class="name">{line.group.workspace}</span>
+        <span class="counts">{summary(line.group.counts)}</span>
+      </button>
+    )
+  }
+
+  return null
 }
 
 export const HeroLine = (props: {
@@ -157,48 +201,6 @@ export const RosterTree = (props: RosterProps) => {
     ),
   )
 
-  const renderLine = (line: Line): JSX.Element => {
-    if (line.kind === 'heading') {
-      return <div class="line heading">{line.text}</div>
-    }
-
-    if (line.kind === 'guild') {
-      return (
-        <button
-          type="button"
-          class="line guild"
-          onClick={() => {
-            toggle(guildKey(line.group.guild))
-          }}
-        >
-          <span class="caret">{line.open ? '▾' : '▸'}</span>
-          <span class="name">{line.group.label}</span>
-          <span class="counts">{summary(line.group.counts)}</span>
-        </button>
-      )
-    }
-
-    if (line.kind === 'party') {
-      return (
-        <button
-          type="button"
-          class="line party"
-          onClick={() => {
-            toggle(partyKey(line.group.party))
-          }}
-        >
-          <span class="caret">{line.open ? '▾' : '▸'}</span>
-          <span class="name">{line.group.workspace}</span>
-          <span class="counts">{summary(line.group.counts)}</span>
-        </button>
-      )
-    }
-
-    return (
-      <HeroLine bridge={props.bridge} roster={props.roster} eid={line.eid} depth={line.depth} />
-    )
-  }
-
   return (
     <div
       class="roster-scroll"
@@ -216,7 +218,14 @@ export const RosterTree = (props: RosterProps) => {
         <Index each={visible()}>
           {(item, offset) => (
             <div class="slot" style={{ top: `${(first() + offset) * ROW_HEIGHT}px` }}>
-              {renderLine(item())}
+              <Show when={item().kind === 'hero'} fallback={groupLine(item(), toggle)}>
+                <HeroLine
+                  bridge={props.bridge}
+                  roster={props.roster}
+                  eid={eidOf(item())}
+                  depth={depthOf(item())}
+                />
+              </Show>
             </div>
           )}
         </Index>

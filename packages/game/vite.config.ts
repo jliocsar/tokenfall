@@ -1,4 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import solid from 'vite-plugin-solid'
@@ -12,20 +13,27 @@ const save = async (folder: string, file: string, body: Buffer): Promise<void> =
   await writeFile(file, body)
 }
 
+const receive =
+  (folder: string, prefix: string) =>
+  (request: IncomingMessage, response: ServerResponse): void => {
+    const chunks: Buffer[] = []
+    request.on('data', (chunk: Buffer) => {
+      chunks.push(chunk)
+    })
+    request.on('end', () => {
+      const target = join(TMP, folder)
+      const file = join(target, `${prefix}-${new Date().toISOString().replaceAll(':', '-')}.json`)
+      void save(target, file, Buffer.concat(chunks)).then(() => response.end(file))
+    })
+  }
+
 const receiver = (route: string, folder: string, prefix: string): Plugin => ({
   name: `tokenfall-${prefix}-receiver`,
+  configurePreviewServer: (server) => {
+    server.middlewares.use(route, receive(folder, prefix))
+  },
   configureServer: (server) => {
-    server.middlewares.use(route, (request, response) => {
-      const chunks: Buffer[] = []
-      request.on('data', (chunk: Buffer) => {
-        chunks.push(chunk)
-      })
-      request.on('end', () => {
-        const target = join(TMP, folder)
-        const file = join(target, `${prefix}-${new Date().toISOString().replaceAll(':', '-')}.json`)
-        void save(target, file, Buffer.concat(chunks)).then(() => response.end(file))
-      })
-    })
+    server.middlewares.use(route, receive(folder, prefix))
   },
 })
 

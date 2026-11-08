@@ -7,6 +7,7 @@
     "dev": "vite --port 47320 --strictPort",
     "dev:trace": "TOKENFALL_TRACE=all vite --port 47320 --strictPort",
     "build": "vite build",
+    "preview": "vite build && vite preview --port 47321 --strictPort --host 127.0.0.1",
     "typecheck": "tsc"
   },
   "dependencies": {

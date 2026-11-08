@@ -1,4 +1,5 @@
 import { Application, Container, WebGLRenderer } from 'pixi.js'
+import worldTuning from '@tokenfall/data/world.json'
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import { bootSim, EFFECT_DEFINITIONS } from '../core/boot.ts'
 import { heroCount } from '../core/hero-index.ts'
@@ -64,7 +65,6 @@ type Settings = {
 }
 
 const HUD_EVERY_MS = 250
-const ROSTER_EVERY_MS = 250
 const PICK_REACH = 60
 const ROSTER_SPACE = 360
 const SOUTH = 'S'
@@ -282,7 +282,7 @@ const measureExtra = () => ({
 
 const flushRoster = (): void => {
   const start = performance.now()
-  ui.roster.flush()
+  ui.roster.flush(performance.now())
   loop.rosterPending = false
 
   if (measure !== undefined) {
@@ -358,9 +358,9 @@ const frame = (now: number): void => {
   }
 
   if (now >= loop.nextRoster && !loop.rosterPending) {
-    loop.nextRoster = now + ROSTER_EVERY_MS
+    loop.nextRoster = now + worldTuning.roster.rowsEveryMs
     loop.rosterPending = true
-    requestIdleCallback(flushRoster, { timeout: ROSTER_EVERY_MS })
+    requestIdleCallback(flushRoster, { timeout: worldTuning.roster.rowsEveryMs })
   }
 
   if (measure !== undefined) {
