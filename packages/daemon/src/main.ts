@@ -7,6 +7,7 @@ import { startInbox } from './adapters/inbox/tracker.ts'
 import { startTranscripts } from './adapters/transcripts/tracker.ts'
 import { daemonTuning, readConfig } from './config.ts'
 import { syncRavens } from './ravens.ts'
+import { createTerminals } from './terminal.ts'
 import { broadcast, startServer, type Hub } from './server.ts'
 import { openStore } from './store/db.ts'
 import { createWorld, flushDirty, flushTools } from './world.ts'
@@ -21,7 +22,8 @@ const token = Buffer.from(crypto.getRandomValues(new Uint8Array(TOKEN_BYTES))).t
 const tokenFile = join(config.runtimeDir, `${config.instance}.token`)
 mkdirSync(config.runtimeDir, { recursive: true, mode: 0o700 })
 writeFileSync(tokenFile, token, { mode: 0o600 })
-const server = startServer(config, world, hub, token)
+const terminals = createTerminals(world, daemonTuning.terminal)
+const server = startServer(config, world, hub, token, terminals)
 const herdr = startHerdr(world, daemonTuning)
 const hooks = startHooks(world, config)
 const transcripts = startTranscripts(world, config.claudeDirs, daemonTuning.transcripts)
@@ -39,6 +41,7 @@ const stop = (): void => {
   hooks.stop()
   transcripts.stop()
   inbox.stop()
+  terminals.stop()
   flushDirty(world)
   void server.stop(true)
   db.close()

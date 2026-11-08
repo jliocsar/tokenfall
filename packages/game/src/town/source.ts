@@ -1,6 +1,7 @@
 import type { ChronicleLine } from '@tokenfall/protocol/chronicle'
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import type { InboxState } from '@tokenfall/protocol/inbox'
+import type { ClientMessage, Screen } from '@tokenfall/protocol/terminal'
 import { decodeTrusted } from '@tokenfall/protocol/json'
 import type { ServerMessage } from '@tokenfall/protocol/wire'
 import { createSynthetic } from '@tokenfall/replay/synthetic'
@@ -10,17 +11,27 @@ export type Source = {
   readonly ready: Promise<number>
   readonly poll: (now: number, out: HeroEvent[]) => void
   readonly close: () => void
+  readonly watch?: (hero: string | null) => void
 }
 
 type DaemonState = {
   connected: boolean
   closed: boolean
   socket: WebSocket | undefined
+  watching: string | null
 }
 
 export type ChronicleSink = (lines: readonly ChronicleLine[]) => void
 
 export type InboxSink = (state: InboxState) => void
+
+export type ScreenSink = (screen: Screen) => void
+
+export type Sinks = {
+  readonly chronicle: ChronicleSink
+  readonly inbox: InboxSink
+  readonly screen: ScreenSink
+}
 
 export type SyntheticSettings = {
   readonly heroes: number
@@ -69,6 +80,10 @@ export const syntheticSource = (settings: SyntheticSettings, now: number): Sourc
 }
 
 const receive = (pending: HeroEvent[], message: ServerMessage): void => {
+  if (message.kind === 'screen') {
+    return
+  }
+
   if (message.kind === 'snapshot') {
     for (const hero of message.heroes) {
       pending.push({ kind: 'hero.joined', at: message.at, hero })
@@ -95,15 +110,35 @@ export const daemonUrl = (): string => {
   return `${scheme}://${window.location.host}/ws?token=${encodeURIComponent(token)}`
 }
 
-export const daemonSource = (url: string, chronicle: ChronicleSink, inbox: InboxSink): Source => {
+const sendTo = (socket: WebSocket | undefined, message: ClientMessage): void => {
+  if (socket?.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(message))
+  }
+}
+
+const watchMessage = (hero: string | null): ClientMessage =>
+  hero === null ? { kind: 'unwatch' } : { kind: 'watch', hero }
+
+export const daemonSource = (url: string, sinks: Sinks): Source => {
   const pending: HeroEvent[] = []
-  const state: DaemonState = { connected: false, closed: false, socket: undefined }
+  const state: DaemonState = {
+    connected: false,
+    closed: false,
+    socket: undefined,
+    watching: null,
+  }
   const seed = Promise.withResolvers<number>()
 
   const open = (): void => {
     const socket = new WebSocket(url)
     socket.addEventListener('message', (event: MessageEvent<string>) => {
       const message = decodeTrusted<ServerMessage>(event.data)
+
+      if (message.kind === 'screen') {
+        sinks.screen(message)
+
+        return
+      }
 
       if (message.kind === 'snapshot' && state.connected) {
         window.location.reload()
@@ -117,10 +152,15 @@ export const daemonSource = (url: string, chronicle: ChronicleSink, inbox: Inbox
       }
 
       receive(pending, message)
-      chronicle(message.chronicle)
+      sinks.chronicle(message.chronicle)
 
       if (message.inbox !== undefined) {
-        inbox(message.inbox)
+        sinks.inbox(message.inbox)
+      }
+    })
+    socket.addEventListener('open', () => {
+      if (state.watching !== null) {
+        sendTo(socket, watchMessage(state.watching))
       }
     })
     socket.addEventListener('close', () => {
@@ -142,6 +182,10 @@ export const daemonSource = (url: string, chronicle: ChronicleSink, inbox: Inbox
     close: () => {
       state.closed = true
       state.socket?.close()
+    },
+    watch: (hero) => {
+      state.watching = hero
+      sendTo(state.socket, watchMessage(hero))
     },
   }
 }

@@ -3,13 +3,16 @@ import { NOBODY, type Bridge } from '../../ui/bridge.ts'
 import { Portrait } from '../../ui/Portrait.tsx'
 import ravens from '@tokenfall/data/ravens.json'
 import { threadUrl } from '@tokenfall/protocol/inbox'
+import sheetText from '@tokenfall/data/sheet.json'
 import type { InboxModel } from '../ravens/model.ts'
+import type { SheetModel } from '../sheet/model.ts'
 import type { Roster } from './model.ts'
 
 type HeroCardProps = {
   readonly bridge: Bridge
   readonly roster: Roster
   readonly inbox: InboxModel
+  readonly sheet: SheetModel
 }
 
 export const HeroCard = (props: HeroCardProps) => {
@@ -56,6 +59,15 @@ export const HeroCard = (props: HeroCardProps) => {
             <Show when={hero().waiting}>
               <div class={`waiting wait-${hero().wait}`}>{hero().waiting}</div>
             </Show>
+            <button
+              type="button"
+              class="open-sheet"
+              onClick={() => {
+                props.sheet.show(hero().eid)
+              }}
+            >
+              {sheetText.open}
+            </button>
             <Show when={inboxLink(hero().ravenThread)}>
               {(href) => (
                 <a class="inbox-link" href={href()} target="_blank" rel="noopener">

@@ -1,0 +1,15 @@
+{
+  "open": "sheet",
+  "stranger": "not yet known",
+  "experience": "tokens of Experience",
+  "quest": "Quest",
+  "noQuest": "no quest yet",
+  "guild": "Guild",
+  "party": "Party",
+  "minions": "Minions",
+  "loading": "reading the terminal…",
+  "fallen": "This Hero has fallen; its terminal is gone.",
+  "noTerminal": "The terminal is only shown on live data.",
+  "minFontPx": 6,
+  "maxFontPx": 14
+}

@@ -47,6 +47,7 @@ import { loadFonts } from '../ui/fonts.ts'
 import { mountUi } from '../ui/mount.tsx'
 import { createChronicle } from '../features/chronicle/model.ts'
 import { createInbox } from '../features/ravens/model.ts'
+import { createSheet } from '../features/sheet/model.ts'
 import { createFlock, syncFlock } from '../features/ravens/flock.ts'
 import { createChests, syncChests } from '../features/loot/chests.ts'
 import {
@@ -131,11 +132,16 @@ const pickSource = (): Source => {
 
   return settings.synthetic
     ? syntheticSource(settings, started)
-    : daemonSource(daemonUrl(), chronicle.add, inbox.set)
+    : daemonSource(daemonUrl(), {
+        chronicle: chronicle.add,
+        inbox: inbox.set,
+        screen: sheet.receive,
+      })
 }
 
 const chronicle = createChronicle()
 const inbox = createInbox()
+const sheet = createSheet()
 const source = pickSource()
 const sim = bootSim(await source.ready, started, {})
 const town = createTownLayer()
@@ -214,7 +220,8 @@ const bridge = createBridge(
   },
   { glideTo: focusHero },
 )
-const ui = mountUi(bridge, source.label, chronicle, inbox, element('ui'))
+sheet.connect(sim, source.watch)
+const ui = mountUi(bridge, source.label, chronicle, inbox, sheet, element('ui'))
 
 camera.onClick = (pointerX, pointerY) => {
   const worldX = (pointerX - app.screen.width / 2) / camera.zoom + camera.x
@@ -249,6 +256,10 @@ const fitTown = (): void => {
 window.addEventListener('keydown', (event) => {
   if (KEYBINDS.fit.some((key) => key === event.key)) {
     fitTown()
+  }
+
+  if (KEYBINDS.sheet.some((key) => key === event.key) && bridge.selected() !== NOBODY) {
+    sheet.show(bridge.selected())
   }
 
   if (KEYBINDS.attention.some((key) => key === event.key)) {

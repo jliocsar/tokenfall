@@ -17,6 +17,10 @@
     "pollMs": 2000,
     "scanMs": 10000
   },
+  "terminal": {
+    "pollMs": 500,
+    "layoutMs": 2000
+  },
   "seen": {
     "pollMs": 3000,
     "debounceMs": 250

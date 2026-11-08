@@ -2,6 +2,7 @@ import type { ChronicleLine } from './chronicle.ts'
 import type { HeroEvent } from './events.ts'
 import type { HeroInfo } from './hero.ts'
 import type { InboxState } from './inbox.ts'
+import type { Screen } from './terminal.ts'
 
 export type Snapshot = {
   readonly kind: 'snapshot'
@@ -23,7 +24,7 @@ export type Delta = {
   readonly inbox?: InboxState
 }
 
-export type ServerMessage = Snapshot | Delta
+export type ServerMessage = Snapshot | Delta | Screen
 
 export type RecordingHeader = {
   readonly kind: 'recording'

@@ -35,6 +35,7 @@ export const KEYBINDS = {
   zoomOut: ['-', '_'],
   attention: ['q', 'Q'],
   fit: ['f', 'F'],
+  sheet: ['Enter'],
 } as const
 
 const clampZoom = (zoom: number): number => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))

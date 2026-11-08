@@ -4,6 +4,7 @@ import chronicleTuning from '@tokenfall/data/chronicle.json'
 import { PROTOCOL_VERSION, type Delta, type Snapshot } from '@tokenfall/protocol/wire'
 import type { Config } from './config.ts'
 import { tailChronicle } from './store/chronicle.ts'
+import type { Terminals } from './terminal.ts'
 import { snapshotHeroes, type World } from './world.ts'
 
 export type Hub = {
@@ -84,6 +85,7 @@ export const startServer = (
   world: World,
   hub: Hub,
   token: string,
+  terminals: Terminals,
 ): Server<undefined> =>
   Bun.serve({
     hostname: '127.0.0.1',
@@ -109,9 +111,12 @@ export const startServer = (
         hub.clients.add(socket)
         socket.send(JSON.stringify(snapshotOf(world, hub, Date.now())))
       },
-      message: () => undefined,
+      message: (socket, raw) => {
+        terminals.receive(socket, raw)
+      },
       close: (socket) => {
         hub.clients.delete(socket)
+        terminals.drop(socket)
       },
     },
   })
