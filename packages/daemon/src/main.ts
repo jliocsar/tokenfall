@@ -3,8 +3,10 @@ import { join } from 'node:path'
 import town from '@tokenfall/data/town.json'
 import { startHerdr } from './adapters/herdr/adapter.ts'
 import { startHooks } from './adapters/hooks/server.ts'
+import { startInbox } from './adapters/inbox/tracker.ts'
 import { startTranscripts } from './adapters/transcripts/tracker.ts'
 import { daemonTuning, readConfig } from './config.ts'
+import { syncRavens } from './ravens.ts'
 import { broadcast, startServer, type Hub } from './server.ts'
 import { openStore } from './store/db.ts'
 import { createWorld, flushDirty, flushTools } from './world.ts'
@@ -23,8 +25,10 @@ const server = startServer(config, world, hub, token)
 const herdr = startHerdr(world, daemonTuning)
 const hooks = startHooks(world, config)
 const transcripts = startTranscripts(world, config.claudeDirs, daemonTuning.transcripts)
+const inbox = startInbox(world.inbox, config.inboxDir, daemonTuning.inbox)
 const ticker = setInterval(() => {
   flushTools(world, Date.now())
+  syncRavens(world, Date.now())
   broadcast(world, hub, Date.now())
   flushDirty(world)
 }, daemonTuning.tickMs)
@@ -34,6 +38,7 @@ const stop = (): void => {
   herdr.stop()
   hooks.stop()
   transcripts.stop()
+  inbox.stop()
   flushDirty(world)
   void server.stop(true)
   db.close()

@@ -162,6 +162,9 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
       minions: random() < 0.2 ? Math.floor(random() * 8) : 0,
       lead: false,
       alive: true,
+      ravens: 0,
+      ravenThread: null,
+      ravenSince: 0,
     })
   }
 

@@ -113,6 +113,10 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   stores.hero.experience[eid] = hero.experience
   stores.hero.level[eid] = levelFor(sim.thresholds, hero.experience)
   stores.hero.minions[eid] = hero.minions
+  stores.hero.ravens[eid] = hero.ravens
+  stores.hero.ravenSince[eid] = hero.ravenSince
+  stores.hero.statusSince[eid] = event.at
+  sim.text.ravenThread[eid] = hero.ravenThread ?? ''
   stores.behavior.serial[eid] = 0
   partySpot(sim, stores.hero.party[eid]!, sim.scratch)
   jitter(sim, sim.config.town.party.radius, sim.scratch)
@@ -144,6 +148,7 @@ const HANDLERS: Handlers = {
   'hero.status': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
       sim.stores.hero.status[eid] = STATUS_CODES[event.status]
+      sim.stores.hero.statusSince[eid] = event.at
       addMember(sim.statusChanged, eid)
       sendInput(sim, eid, sim.inputs[event.status]!, now)
     }),
@@ -192,6 +197,12 @@ const HANDLERS: Handlers = {
   'hero.minions': (sim, event) =>
     withHero(sim, event.hero, (eid) => {
       sim.stores.hero.minions[eid] = event.minions
+    }),
+  'hero.ravens': (sim, event) =>
+    withHero(sim, event.hero, (eid) => {
+      sim.stores.hero.ravens[eid] = event.ravens
+      sim.stores.hero.ravenSince[eid] = event.since
+      sim.text.ravenThread[eid] = event.thread ?? ''
     }),
   'hero.linked': (sim, event) => {
     if (rekeyHero(sim.index, event.from, event.to)) {
@@ -255,6 +266,10 @@ const handle = (sim: Sim, event: HeroEvent, now: number): boolean => {
 
   if (event.kind === 'hero.tool') {
     return HANDLERS['hero.tool'](sim, event, now)
+  }
+
+  if (event.kind === 'hero.ravens') {
+    return HANDLERS['hero.ravens'](sim, event, now)
   }
 
   return HANDLERS['hero.resurrected'](sim, event, now)

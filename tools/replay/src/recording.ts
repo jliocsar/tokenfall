@@ -36,6 +36,19 @@ const upgradeV1 = (event: HeroEvent): HeroEvent => {
   return event
 }
 
+const upgradeV2 = (event: HeroEvent): HeroEvent =>
+  event.kind === 'hero.joined'
+    ? { ...event, hero: { ...event.hero, ravens: 0, ravenThread: null, ravenSince: 0 } }
+    : event
+
+const upgrade = (version: number, event: HeroEvent): HeroEvent => {
+  if (version === 1) {
+    return upgradeV2(upgradeV1(event))
+  }
+
+  return version === 2 ? upgradeV2(event) : event
+}
+
 export const parseRecording = (text: string): Recording => {
   const lines: RecordingLine[] = text
     .split('\n')
@@ -47,7 +60,7 @@ export const parseRecording = (text: string): Recording => {
     throw new Error('a recording starts with a header line')
   }
 
-  if (first.version !== RECORDING_VERSION && first.version !== 1) {
+  if (first.version > RECORDING_VERSION || first.version < 1) {
     throw new Error(`recording version ${first.version}, expected ${RECORDING_VERSION}`)
   }
 
@@ -55,7 +68,7 @@ export const parseRecording = (text: string): Recording => {
 
   for (const line of lines.slice(1)) {
     if (!isHeader(line)) {
-      events.push(first.version === 1 ? upgradeV1(line) : line)
+      events.push(upgrade(first.version, line))
     }
   }
 

@@ -4,6 +4,7 @@
   "linked": "The Stranger lowers the hood: {name}, Level {level}",
   "level": "{name} reached Level {level}",
   "resurrected": "{name} rose again",
+  "raven": "A Raven flies from {name}",
   "died": {
     "exited": "{name} laid down their arms",
     "killed": "{name} was slain",

@@ -137,6 +137,7 @@ describe('hook socket', () => {
       distDir: runtime,
       origins: [],
       claudeDirs: [],
+      inboxDir: '',
     }
     const hooks = startHooks(world, config)
     const child = Bun.spawn(['sh', SEND], {

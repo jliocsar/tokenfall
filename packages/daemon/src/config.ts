@@ -11,6 +11,7 @@ export type Config = {
   readonly distDir: string
   readonly origins: readonly string[]
   readonly claudeDirs: readonly string[]
+  readonly inboxDir: string
 }
 
 export type DaemonTuning = typeof tuning
@@ -36,5 +37,6 @@ export const readConfig = (args: readonly string[], env: NodeJS.ProcessEnv): Con
     distDir: env['TOKENFALL_DIST'] ?? join(import.meta.dirname, '..', '..', 'game', 'dist'),
     origins: dev ? [...local, ...tuning.devOrigins] : local,
     claudeDirs: [join(home, '.claude'), join(home, '.claude-work')],
+    inboxDir: env['TOKENFALL_INBOX_DIR'] ?? join(home, '.plannotator', 'inbox'),
   }
 }

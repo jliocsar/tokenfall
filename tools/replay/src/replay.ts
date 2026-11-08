@@ -45,6 +45,7 @@ const snapshot = (): Snapshot => ({
   townSeed: Number(values.seed),
   heroes: [...state.table.values()],
   chronicle: [],
+  inbox: { up: true, url: null, notices: [] },
 })
 
 setInterval(() => {

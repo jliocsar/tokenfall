@@ -1,11 +1,13 @@
 import { batch, createMemo, createSignal, type Accessor } from 'solid-js'
 import { createStore } from 'solid-js/store'
+import ravens from '@tokenfall/data/ravens.json'
 import world from '@tokenfall/data/world.json'
 import { displayName, titleOf, isStranger } from '../../core/character.ts'
 import { clearSet } from '../../core/dense-set.ts'
 import { stateId } from '../../core/fsm.ts'
 import { guildLabel } from '../../core/groups.ts'
 import type { Sim } from '../../core/sim.ts'
+import { WAIT_LOOT, WAIT_NONE, waitOf, waitSince } from '../attention/queue.ts'
 
 export type Standing = (typeof STANDINGS)[number]
 
@@ -22,6 +24,10 @@ export type HeroRow = {
   readonly quest: string
   readonly guild: number
   readonly party: number
+  readonly wait: number
+  readonly since: number
+  readonly waiting: string
+  readonly ravenThread: string
 }
 
 export type Counts = Record<Standing, number>
@@ -60,6 +66,8 @@ const STANDING_OF_STATUS = [
   'unknown',
 ] as const satisfies readonly Standing[]
 
+const BLOCKED = 3
+
 export const STANDINGS = ['raven', 'loot', 'working', 'idle', 'unknown', 'dead'] as const
 
 const emptyCounts = () =>
@@ -72,12 +80,40 @@ const standingOf = (sim: Sim, eid: number, dying: number, dead: number): Standin
     return 'dead'
   }
 
+  if (sim.stores.hero.ravens[eid]! > 0) {
+    return 'raven'
+  }
+
   return STANDING_OF_STATUS[sim.stores.hero.status[eid]!] ?? 'unknown'
+}
+
+const inboxText = (count: number): string =>
+  count === 1 ? ravens.inboxOne : ravens.inboxMany.replace('{count}', String(count))
+
+export const waitingText = (sim: Sim, eid: number): string => {
+  const { hero } = sim.stores
+  const parts: string[] = []
+
+  if (hero.status[eid] === BLOCKED) {
+    parts.push(ravens.terminal)
+  }
+
+  if (hero.ravens[eid]! > 0) {
+    parts.push(inboxText(hero.ravens[eid]!))
+  }
+
+  if (parts.length === 0 && waitOf(sim, eid) === WAIT_LOOT) {
+    parts.push(ravens.loot)
+  }
+
+  return parts.join(' · ')
 }
 
 const rowOf = (sim: Sim, eid: number, dying: number, dead: number): HeroRow => {
   const { hero } = sim.stores
   const personality = sim.config.characters.personalities[hero.personality[eid]!]!
+  const standing = standingOf(sim, eid, dying, dead)
+  const wait = standing === 'dead' ? WAIT_NONE : waitOf(sim, eid)
   const title = titleOf(sim.text.title[eid]!)
 
   return {
@@ -89,10 +125,14 @@ const rowOf = (sim: Sim, eid: number, dying: number, dead: number): HeroRow => {
     sheet: hero.sheet[eid]!,
     stranger: isStranger(sim.config.characters, hero.sheet[eid]!),
     level: hero.level[eid]!,
-    standing: standingOf(sim, eid, dying, dead),
+    standing,
     quest: sim.text.quest[eid]!,
     guild: hero.guild[eid]!,
     party: hero.party[eid]!,
+    wait,
+    since: wait === WAIT_NONE ? 0 : waitSince(sim, eid, wait),
+    waiting: waitingText(sim, eid),
+    ravenThread: sim.text.ravenThread[eid]!,
   }
 }
 
@@ -117,6 +157,13 @@ const byName = (a: string, b: string): number => {
 
 const byStanding = (rows: Rows) => (a: number, b: number) =>
   rank(rows.get(a)!) - rank(rows.get(b)!) || byName(rows.get(a)!.name, rows.get(b)!.name)
+
+const byWait = (rows: Rows) => (a: number, b: number) => {
+  const rowA = rows.get(a)!
+  const rowB = rows.get(b)!
+
+  return rowA.wait - rowB.wait || rowA.since - rowB.since || byName(rowA.name, rowB.name)
+}
 
 const group = (sim: Sim, rows: Rows): GuildGroup[] => {
   const guilds = new Map<number, GuildDraft>()
@@ -193,7 +240,7 @@ export const createRoster = (sim: Sim): Roster => {
       }
     }
 
-    return out.sort(byStanding(plain))
+    return out.sort(byWait(plain))
   })
 
   return {

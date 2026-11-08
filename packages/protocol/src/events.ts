@@ -60,6 +60,15 @@ export type HeroTool = {
   readonly tool: string
 }
 
+export type HeroRavens = {
+  readonly kind: 'hero.ravens'
+  readonly at: number
+  readonly hero: HeroId
+  readonly ravens: number
+  readonly thread: string | null
+  readonly since: number
+}
+
 export type HeroLinked = {
   readonly kind: 'hero.linked'
   readonly at: number
@@ -89,6 +98,7 @@ export type HeroEvent =
   | HeroMoved
   | HeroMinionsChanged
   | HeroTool
+  | HeroRavens
   | HeroLinked
   | HeroDied
   | HeroResurrected

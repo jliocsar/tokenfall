@@ -21,6 +21,9 @@ const hero = (id: string, experience: number): HeroInfo => ({
   minions: 0,
   lead: false,
   alive: true,
+  ravens: 0,
+  ravenThread: null,
+  ravenSince: 0,
 })
 
 const TOP = 4_500_000_000

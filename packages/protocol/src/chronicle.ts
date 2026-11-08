@@ -12,4 +12,11 @@ export type ChronicleLine = {
   readonly cause: DeathCause | null
 }
 
-export const CHRONICLE_KINDS = ['joined', 'linked', 'level', 'died', 'resurrected'] as const
+export const CHRONICLE_KINDS = [
+  'joined',
+  'linked',
+  'level',
+  'died',
+  'resurrected',
+  'raven',
+] as const

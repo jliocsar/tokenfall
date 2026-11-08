@@ -1,0 +1,8 @@
+{
+  "terminal": "waits for you in the terminal",
+  "inboxOne": "1 question in the Inbox",
+  "inboxMany": "{count} questions in the Inbox",
+  "loot": "finished, chest unopened",
+  "unavailable": "Ravens unavailable: the Inbox can't be read",
+  "openInbox": "open in Inbox"
+}

@@ -21,6 +21,9 @@ export type HeroInfo = {
   readonly minions: number
   readonly lead: boolean
   readonly alive: boolean
+  readonly ravens: number
+  readonly ravenThread: string | null
+  readonly ravenSince: number
 }
 
 export const HERO_STATUSES = ['idle', 'working', 'done', 'blocked', 'unknown'] as const

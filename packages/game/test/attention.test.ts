@@ -22,6 +22,9 @@ const hero = (id: string, status: HeroStatus): HeroInfo => ({
   minions: 0,
   lead: false,
   alive: true,
+  ravens: 0,
+  ravenThread: null,
+  ravenSince: 0,
 })
 
 const STATUSES: readonly (readonly [string, HeroStatus])[] = [
@@ -49,5 +52,43 @@ describe('attention queue', () => {
 
     expect([first, second, third]).toEqual([eid('blocked-1'), eid('blocked-2'), eid('done-1')])
     expect(nextInQueue(queue, sim, third)).toBe(first)
+  })
+
+  test('orders permission Ravens, then Inbox Ravens, then chests, oldest first', () => {
+    const sim = bootSim(1, 0, {})
+    const joins: readonly HeroInfo[] = [
+      { ...hero('loot-old', 'done') },
+      { ...hero('inbox-new', 'working'), ravens: 1, ravenSince: 50 },
+      { ...hero('inbox-old', 'idle'), ravens: 2, ravenSince: 10 },
+      { ...hero('blocked-new', 'blocked') },
+      { ...hero('blocked-old', 'blocked') },
+    ]
+
+    joins.forEach((info, i) => {
+      push(sim.inbound, { kind: 'hero.joined', at: 100 - i, hero: info })
+    })
+    push(sim.inbound, {
+      kind: 'hero.ravens',
+      at: 200,
+      hero: 'loot-old',
+      ravens: 0,
+      thread: null,
+      since: 0,
+    })
+    runSystems(SIM_SYSTEMS, createProfile(SIM_SYSTEMS), sim, 0, 16)
+    const queue = createAttentionQueue(sim)
+    const order: number[] = []
+    let current = NONE
+
+    for (let i = 0; i < joins.length; i++) {
+      current = nextInQueue(queue, sim, current)
+      order.push(current)
+    }
+
+    const eid = (id: string): number => entityOfHero(sim.index, id)
+
+    expect(order).toEqual(
+      ['blocked-old', 'blocked-new', 'inbox-old', 'inbox-new', 'loot-old'].map(eid),
+    )
   })
 })

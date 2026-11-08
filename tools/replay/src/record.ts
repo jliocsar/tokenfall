@@ -92,6 +92,9 @@ const join = async (agent: HerdrAgent): Promise<void> => {
     minions: 0,
     lead: false,
     alive: true,
+    ravens: 0,
+    ravenThread: null,
+    ravenSince: 0,
   }
   heroOfPane.set(agent.pane_id, id)
   statusOfPane.set(agent.pane_id, agent.agent_status)

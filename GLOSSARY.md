@@ -133,8 +133,12 @@ _Avoid_: Sidebar, list
 The ordered set of Heroes who need the person right now, which the jump key cycles through.
 
 **Raven**:
-The sign that an Agent is waiting on the person to answer something: a permission prompt in its terminal, or a question in the Plannotator Inbox.
+The sign that an Agent is waiting on the person: a prompt in its terminal (a permission, a question or a plan to approve), or an open question or action item it sent to the Plannotator Inbox.
 _Avoid_: Notification, alert
+
+**Notice Board**:
+The board by the Town gate holding open Inbox questions and action items whose Agent has no living Hero.
+_Avoid_: Town board, bulletin
 
 **Loot Chest**:
 The sign that a Hero finished its work. It opens once the person has looked at the Agent in Herdr.

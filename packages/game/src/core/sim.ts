@@ -75,6 +75,7 @@ export type HeroText = {
   readonly title: string[]
   readonly quest: string[]
   readonly tool: string[]
+  readonly ravenThread: string[]
 }
 
 export type Counters = {
@@ -139,6 +140,9 @@ const createStores = (arena: Arena, entities: number) => ({
       party: 'u16',
       experience: 'f64',
       minions: 'u16',
+      ravens: 'u16',
+      statusSince: 'f64',
+      ravenSince: 'f64',
     },
     entities,
   ),
@@ -195,6 +199,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
       title: Array.from({ length: budgets.entities }, () => ''),
       quest: Array.from({ length: budgets.entities }, () => ''),
       tool: Array.from({ length: budgets.entities }, () => ''),
+      ravenThread: Array.from({ length: budgets.entities }, () => ''),
     },
     town: buildTown(config.seed, config.town, budgets.guilds),
     effects: [],

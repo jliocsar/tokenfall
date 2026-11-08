@@ -15,7 +15,9 @@ import {
   type PaneId,
   type WorkspaceId,
 } from '@tokenfall/protocol/hero'
+import { INBOX_DOWN, type InboxState } from '@tokenfall/protocol/inbox'
 import { levelFor, levelThresholds } from '@tokenfall/protocol/level'
+import { createInboxFeed, type InboxFeed } from './adapters/inbox/tracker.ts'
 import { appendChronicle } from './store/chronicle.ts'
 import { readMeta, writeMeta } from './store/db.ts'
 import {
@@ -55,10 +57,16 @@ export type World = {
   readonly tools: Map<HeroId, string>
   readonly chronicle: ChronicleLine[]
   readonly arriving: Map<HeroId, ChronicleKind>
+  readonly inbox: InboxFeed
+  inboxState: InboxState
+  inboxChanged: boolean
+  inboxSeq: number | null
 }
 
 const SEED_KEY = 'townSeed'
 const THRESHOLDS = levelThresholds(curve)
+
+export const INBOX_SEQ_KEY = 'inboxSeq'
 
 const loadSeed = (db: Database): number => {
   const saved = readMeta(db, SEED_KEY)
@@ -71,6 +79,12 @@ const loadSeed = (db: Database): number => {
   writeMeta(db, SEED_KEY, String(seed))
 
   return seed
+}
+
+const savedSeq = (db: Database): number | null => {
+  const saved = readMeta(db, INBOX_SEQ_KEY)
+
+  return saved === undefined ? null : Number(saved)
 }
 
 export const heroIdOf = (pane: PaneId, session: string | null): HeroId =>
@@ -91,6 +105,9 @@ export const heroInfo = (record: HeroRecord): HeroInfo => ({
   minions: record.minions,
   lead: record.lead,
   alive: record.alive,
+  ravens: record.ravens,
+  ravenThread: record.ravenThread,
+  ravenSince: record.ravenSince,
 })
 
 export const createWorld = (db: Database, plotCount: number): World => {
@@ -112,6 +129,10 @@ export const createWorld = (db: Database, plotCount: number): World => {
     tools: new Map(),
     chronicle: [],
     arriving: new Map(),
+    inbox: createInboxFeed(),
+    inboxState: INBOX_DOWN,
+    inboxChanged: false,
+    inboxSeq: savedSeq(db),
   }
 
   for (const record of loadAliveHeroes(db, plots)) {
@@ -213,9 +234,12 @@ const freshRecord = (id: HeroId, session: string | null, now: number): HeroRecor
   seenAt: now,
   diedAt: null,
   deathCause: null,
+  ravens: 0,
+  ravenThread: null,
+  ravenSince: 0,
 })
 
-const chronicle = (
+export const chronicle = (
   world: World,
   kind: ChronicleKind,
   record: HeroRecord,

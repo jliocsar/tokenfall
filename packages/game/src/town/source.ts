@@ -1,5 +1,6 @@
 import type { ChronicleLine } from '@tokenfall/protocol/chronicle'
 import type { HeroEvent } from '@tokenfall/protocol/events'
+import type { InboxState } from '@tokenfall/protocol/inbox'
 import { decodeTrusted } from '@tokenfall/protocol/json'
 import type { ServerMessage } from '@tokenfall/protocol/wire'
 import { createSynthetic } from '@tokenfall/replay/synthetic'
@@ -18,6 +19,8 @@ type DaemonState = {
 }
 
 export type ChronicleSink = (lines: readonly ChronicleLine[]) => void
+
+export type InboxSink = (state: InboxState) => void
 
 export type SyntheticSettings = {
   readonly heroes: number
@@ -92,7 +95,7 @@ export const daemonUrl = (): string => {
   return `${scheme}://${window.location.host}/ws?token=${encodeURIComponent(token)}`
 }
 
-export const daemonSource = (url: string, chronicle: ChronicleSink): Source => {
+export const daemonSource = (url: string, chronicle: ChronicleSink, inbox: InboxSink): Source => {
   const pending: HeroEvent[] = []
   const state: DaemonState = { connected: false, closed: false, socket: undefined }
   const seed = Promise.withResolvers<number>()
@@ -115,6 +118,10 @@ export const daemonSource = (url: string, chronicle: ChronicleSink): Source => {
 
       receive(pending, message)
       chronicle(message.chronicle)
+
+      if (message.inbox !== undefined) {
+        inbox(message.inbox)
+      }
     })
     socket.addEventListener('close', () => {
       if (!state.closed) {

@@ -254,6 +254,26 @@
 .hero-card .badge {
   align-self: flex-start;
 }
+
+.hero-card .waiting {
+  color: var(--raven);
+  font: var(--text-small);
+}
+
+.hero-card .inbox-link {
+  color: var(--ink-gold);
+  font: var(--text-pixel);
+}
+
+.banner {
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  color: var(--raven);
+  font: var(--text-pixel);
+  pointer-events: none;
+}
 .hud {
   top: 8px;
   left: 8px;

@@ -27,6 +27,9 @@ export type HeroRecord = {
   seenAt: number
   diedAt: number | null
   deathCause: DeathCause | null
+  ravens: number
+  ravenThread: string | null
+  ravenSince: number
 }
 
 type HeroRow = {
@@ -96,6 +99,9 @@ const fromRow = (row: HeroRow, plots: ReadonlyMap<GuildKey, number>): HeroRecord
   seenAt: row.seen_at,
   diedAt: row.died_at,
   deathCause: causeOf(row.death_cause),
+  ravens: 0,
+  ravenThread: null,
+  ravenSince: 0,
 })
 
 export const loadAliveHeroes = (db: Database, plots: ReadonlyMap<GuildKey, number>): HeroRecord[] =>

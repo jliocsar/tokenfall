@@ -16,5 +16,9 @@
   "transcripts": {
     "pollMs": 2000,
     "scanMs": 10000
+  },
+  "inbox": {
+    "pollMs": 2000,
+    "scanMs": 10000
   }
 }
