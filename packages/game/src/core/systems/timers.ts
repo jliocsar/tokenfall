@@ -1,5 +1,5 @@
 import { entityExists } from 'bitecs'
-import { scheduleWander, moveTo, sendInput } from '../behavior.ts'
+import { scheduleWander, moveTo, sendInput, settleStatus } from '../behavior.ts'
 import { hasMember } from '../dense-set.ts'
 import { jitter } from '../layout.ts'
 import { TIMER_EFFECT_END, TIMER_STATE, TIMER_WANDER, type Sim } from '../sim.ts'
@@ -40,6 +40,7 @@ const fire = (sim: Sim, eid: number, serial: number, kind: number, now: number):
 
   if (kind === TIMER_STATE) {
     sendInput(sim, eid, sim.inputs['timer']!, now)
+    settleStatus(sim, eid, now)
   } else if (kind === TIMER_WANDER) {
     wander(sim, eid, now)
   }

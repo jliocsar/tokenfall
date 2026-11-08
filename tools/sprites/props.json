@@ -10,7 +10,7 @@
   "heroHeight": 1.9,
   "presets": {
     "hall": 3.6,
-    "house": 3.0,
+    "house": 3,
     "entrance": 2.8,
     "crypt": 2.6,
     "well": 1.6,
@@ -22,11 +22,14 @@
     "grave": 0.7,
     "marker": 0.8,
     "tree": 4.5,
-    "grove": 5.0,
+    "grove": 5,
     "snag": 3.8,
     "rock": 0.8,
     "clutter": 0.6,
-    "rack": 1.0
+    "rack": 1,
+    "chest": 0.55,
+    "board": 1.5,
+    "raven": 0.4
   },
   "tiles": [
     {
@@ -159,6 +162,35 @@
       "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/fence.gltf",
       "preset": "fence",
       "rot": 90
+    },
+    {
+      "name": "chest",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/chest.glb",
+      "preset": "chest",
+      "rot": 20
+    },
+    {
+      "name": "chest_open",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/chest.glb",
+      "preset": "chest",
+      "rot": 20,
+      "pose": {
+        "chest_lid": [-110, 0, 0]
+      }
+    },
+    {
+      "name": "notice_board",
+      "glb": "tmp/asset-research/kenney-survival-kit/extracted/Models/GLB format/signpost-single.glb",
+      "preset": "board",
+      "rot": -30
+    },
+    {
+      "name": "raven",
+      "glb": "tmp/asset-research/raven/raven.glb",
+      "preset": "raven",
+      "rots": [-45, 0, 45, 90, 135, 180, 225, 270],
+      "frames": [0, 6, 12, 17, 23, 29],
+      "color": [0.09, 0.09, 0.13]
     }
   ]
 }

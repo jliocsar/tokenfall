@@ -2,7 +2,7 @@ import { addComponent, addEntity } from 'bitecs'
 import type { HeroEvent, HeroJoined } from '@tokenfall/protocol/events'
 import type { HeroInfo } from '@tokenfall/protocol/hero'
 import { forceState, reenterState, sendInput, teleport } from '../behavior.ts'
-import { addMember } from '../dense-set.ts'
+import { addMember, removeMember } from '../dense-set.ts'
 import { stateId } from '../fsm.ts'
 import { bindHero, entityOfHero, NONE, rekeyHero } from '../hero-index.ts'
 import { nameOf, personalityOf, STRANGER_NAME } from '../character.ts'
@@ -61,6 +61,18 @@ const rollCharacter = (sim: Sim, eid: number, id: string, stranger: boolean): vo
   sim.text.name[eid] = hidden ? STRANGER_NAME : nameOf(characters, id)
 }
 
+const BLOCKED = STATUS_CODES.blocked
+
+const trackWaiting = (sim: Sim, eid: number, alive = true): void => {
+  const { hero } = sim.stores
+
+  if (alive && (hero.status[eid] === BLOCKED || hero.ravens[eid]! > 0)) {
+    addMember(sim.waiting, eid)
+  } else {
+    removeMember(sim.waiting, eid)
+  }
+}
+
 const withHero = (sim: Sim, id: string, apply: (eid: number) => void, quiet = false): boolean => {
   const eid = entityOfHero(sim.index, id)
 
@@ -117,6 +129,7 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   stores.hero.ravenSince[eid] = hero.ravenSince
   stores.hero.statusSince[eid] = event.at
   sim.text.ravenThread[eid] = hero.ravenThread ?? ''
+  trackWaiting(sim, eid, hero.alive)
   stores.behavior.serial[eid] = 0
   partySpot(sim, stores.hero.party[eid]!, sim.scratch)
   jitter(sim, sim.config.town.party.radius, sim.scratch)
@@ -149,6 +162,7 @@ const HANDLERS: Handlers = {
     withHero(sim, event.hero, (eid) => {
       sim.stores.hero.status[eid] = STATUS_CODES[event.status]
       sim.stores.hero.statusSince[eid] = event.at
+      trackWaiting(sim, eid)
       addMember(sim.statusChanged, eid)
       sendInput(sim, eid, sim.inputs[event.status]!, now)
     }),
@@ -203,6 +217,7 @@ const HANDLERS: Handlers = {
       sim.stores.hero.ravens[eid] = event.ravens
       sim.stores.hero.ravenSince[eid] = event.since
       sim.text.ravenThread[eid] = event.thread ?? ''
+      trackWaiting(sim, eid)
     }),
   'hero.linked': (sim, event) => {
     if (rekeyHero(sim.index, event.from, event.to)) {
@@ -216,6 +231,7 @@ const HANDLERS: Handlers = {
   'hero.died': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
       addMember(sim.auraCheck, eid)
+      trackWaiting(sim, eid, false)
 
       if (sendInput(sim, eid, sim.inputs['died']!, now)) {
         sim.counters.died += 1
@@ -224,6 +240,7 @@ const HANDLERS: Handlers = {
   'hero.resurrected': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
       addMember(sim.auraCheck, eid)
+      trackWaiting(sim, eid)
 
       if (sendInput(sim, eid, sim.inputs['resurrected']!, now)) {
         sim.counters.resurrected += 1

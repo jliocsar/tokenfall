@@ -19,8 +19,21 @@ atlas = Image.open(base + '.png').convert('RGBA')
 heroes_height = meta.get('heroesHeight', atlas.height)
 atlas = atlas.crop((0, 0, atlas.width, heroes_height))
 
+def expand(items):
+    """A tile with `rots` or `frames` becomes one tile per direction and frame, named name_d_f."""
+    out = []
+    for item in items:
+        rots, frames = item.get('rots'), item.get('frames')
+        if rots is None and frames is None:
+            out.append(item)
+            continue
+        for d, rot in enumerate(rots or [item.get('rot', 0)]):
+            for f, frame in enumerate(frames or [item.get('frame', 0)]):
+                out.append({**item, 'name': f"{item['name']}_{d}_{f}", 'rot': rot, 'frame': frame})
+    return out
+
 pieces = []
-for item in cfg['tiles']:
+for item in expand(cfg['tiles']):
     im = Image.open(os.path.join(raw, item['name'] + '.png')).convert('RGBA').resize((CELL, CELL), Image.BOX)
     alpha = im.getchannel('A').point(lambda v: 255 if v >= 110 else 0)
     rgb = im.convert('RGB').quantize(colors=COLORS, method=Image.Quantize.MAXCOVERAGE, dither=Image.Dither.NONE).convert('RGB')

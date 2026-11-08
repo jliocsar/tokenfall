@@ -260,6 +260,10 @@
   font: var(--text-small);
 }
 
+.hero-card .waiting.wait-2 {
+  color: var(--loot);
+}
+
 .hero-card .inbox-link {
   color: var(--ink-gold);
   font: var(--text-pixel);

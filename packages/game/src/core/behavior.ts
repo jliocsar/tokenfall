@@ -1,3 +1,4 @@
+import { HERO_STATUSES } from '@tokenfall/protocol/hero'
 import { enterState, NO_TRANSITION, nextState } from './fsm.ts'
 import { addMember, removeMember } from './dense-set.ts'
 import { dungeonSpot, entranceSpot, jitter, partySpot } from './layout.ts'
@@ -119,6 +120,14 @@ export const sendInput = (sim: Sim, eid: number, input: number, now: number): bo
   forceState(sim, eid, to, now)
 
   return true
+}
+
+export const settleStatus = (sim: Sim, eid: number, now: number): void => {
+  const status = HERO_STATUSES[sim.stores.hero.status[eid]!]
+
+  if (status !== undefined) {
+    sendInput(sim, eid, sim.inputs[status]!, now)
+  }
 }
 
 export const reenterState = (sim: Sim, eid: number, now: number): void => {

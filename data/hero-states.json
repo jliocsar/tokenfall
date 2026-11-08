@@ -9,7 +9,8 @@
     "looting",
     "dying",
     "dead",
-    "rising"
+    "rising",
+    "opening"
   ],
   "inputs": [
     "idle",
@@ -77,12 +78,27 @@
     {
       "from": "looting",
       "on": "idle",
-      "to": "camp"
+      "to": "opening"
     },
     {
       "from": "looting",
       "on": "working",
       "to": "to-dungeon"
+    },
+    {
+      "from": "opening",
+      "on": "timer",
+      "to": "camp"
+    },
+    {
+      "from": "opening",
+      "on": "working",
+      "to": "to-dungeon"
+    },
+    {
+      "from": "opening",
+      "on": "done",
+      "to": "looting"
     },
     {
       "from": "*",
@@ -125,7 +141,8 @@
     "warping-out": 600,
     "warping-out-with-loot": 600,
     "dying": 2500,
-    "rising": 1500
+    "rising": 1500,
+    "opening": 600
   },
   "onEnter": {
     "camp": "settle-at-camp",

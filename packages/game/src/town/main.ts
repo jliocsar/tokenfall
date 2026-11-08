@@ -47,6 +47,8 @@ import { loadFonts } from '../ui/fonts.ts'
 import { mountUi } from '../ui/mount.tsx'
 import { createChronicle } from '../features/chronicle/model.ts'
 import { createInbox } from '../features/ravens/model.ts'
+import { createFlock, syncFlock } from '../features/ravens/flock.ts'
+import { createChests, syncChests } from '../features/loot/chests.ts'
 import {
   createTownMeasure,
   type MeasurePlan,
@@ -140,9 +142,23 @@ const town = createTownLayer()
 const heroes = createHeroLayer(sim, atlas, texture, ['delving'])
 const effects = createEffectLayer(sim, EFFECT_DEFINITIONS)
 const world = new Container({ label: 'world', isRenderGroup: true })
-world.addChild(town.container, heroes.container, town.labels)
+const chests = createChests(sim, heroes)
+const flock = createFlock(sim, heroes)
+world.addChild(town.container, heroes.container)
+
+if (chests !== undefined) {
+  world.addChild(chests.container)
+}
+
+world.addChild(town.labels)
+
 const glow = new Container({ label: 'glow', isRenderGroup: true })
 glow.addChild(effects.container)
+
+if (flock !== undefined) {
+  glow.addChild(flock.container)
+}
+
 const light = createLightLayer(sim, app.screen.width, app.screen.height)
 const heroLight = lightSystem(light, heroes)
 const bubbles = createBubbles(sim)
@@ -308,6 +324,16 @@ const flushRoster = (): void => {
   }
 }
 
+const syncAttention = (now: number): void => {
+  if (chests !== undefined) {
+    syncChests(chests, sim, now)
+  }
+
+  if (flock !== undefined) {
+    syncFlock(flock, sim, heroes, now)
+  }
+}
+
 const frame = (now: number): void => {
   const frameStart = performance.now()
   const interval = now - loop.last
@@ -347,6 +373,8 @@ const frame = (now: number): void => {
   glow.scale.copyFrom(world.scale)
   syncHeroes(heroes, sim, atlas, view, now)
   syncSelectionMarker(marker, sim, bridge.selected())
+  syncAttention(now)
+
   syncEffects(effects, sim, now)
   screen.width = app.screen.width
   screen.height = app.screen.height

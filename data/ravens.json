@@ -4,5 +4,21 @@
   "inboxMany": "{count} questions in the Inbox",
   "loot": "finished, chest unopened",
   "unavailable": "Ravens unavailable: the Inbox can't be read",
-  "openInbox": "open in Inbox"
+  "openInbox": "open in Inbox",
+  "flock": {
+    "radius": 30,
+    "height": 120,
+    "entranceLift": 190,
+    "speed": 1.4,
+    "flapFps": 12,
+    "scale": 2.2,
+    "frames": 6,
+    "directions": 8
+  },
+  "chests": {
+    "offsetX": 20,
+    "offsetY": 6,
+    "scale": 1.2,
+    "openMs": 600
+  }
 }

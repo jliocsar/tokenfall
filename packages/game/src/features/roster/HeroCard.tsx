@@ -54,7 +54,7 @@ export const HeroCard = (props: HeroCardProps) => {
             <div class={`badge standing-${hero().standing}`}>{hero().standing}</div>
             <div class="quest">{hero().quest || 'no quest yet'}</div>
             <Show when={hero().waiting}>
-              <div class="waiting">{hero().waiting}</div>
+              <div class={`waiting wait-${hero().wait}`}>{hero().waiting}</div>
             </Show>
             <Show when={inboxLink(hero().ravenThread)}>
               {(href) => (

@@ -23,6 +23,8 @@ export type Budgets = {
   readonly levelUpBurstsPerFrame: number
   readonly guilds: number
   readonly parties: number
+  readonly ravens: number
+  readonly chests: number
 }
 
 export type WorldTuning = {
@@ -109,6 +111,7 @@ export type Sim = {
   readonly changed: DenseSet
   readonly statusChanged: DenseSet
   readonly toolChanged: DenseSet
+  readonly waiting: DenseSet
   readonly wanders: Uint8Array
   readonly thresholds: Float64Array
   readonly groups: Groups
@@ -191,6 +194,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
     changed: createDenseSet(budgets.entities),
     statusChanged: createDenseSet(budgets.entities),
     toolChanged: createDenseSet(budgets.entities),
+    waiting: createDenseSet(budgets.entities),
     wanders: stateFlags(machine, config.tuning.wanderStates),
     thresholds: levelThresholds(config.curve),
     groups: createGroups(budgets.guilds, budgets.parties),

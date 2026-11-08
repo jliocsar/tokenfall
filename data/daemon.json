@@ -17,6 +17,10 @@
     "pollMs": 2000,
     "scanMs": 10000
   },
+  "seen": {
+    "pollMs": 3000,
+    "debounceMs": 250
+  },
   "inbox": {
     "pollMs": 2000,
     "scanMs": 10000

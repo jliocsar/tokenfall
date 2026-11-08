@@ -4,10 +4,12 @@ import { assertAllowed, request } from '../src/adapters/herdr/client.ts'
 import { migrate, openDatabase, schemaVersion } from '../src/store/db.ts'
 import { MIGRATIONS } from '../src/store/migrations/index.ts'
 import {
+  anyDone,
   createWorld,
   flushDirty,
   observe,
   paneGone,
+  setStatus,
   sweepMissing,
   type Observed,
   type World,
@@ -154,5 +156,26 @@ describe('herdr allowlist', () => {
     expect(() => {
       assertAllowed('agent.list')
     }).not.toThrow()
+  })
+})
+
+describe('seen state', () => {
+  test('a finished Hero turns idle when a re-read says it was seen', () => {
+    const world = freshWorld()
+    observe(world, seen('w1:p1', 's1', { status: 'done' }), 1)
+    drain(world)
+
+    expect(anyDone(world)).toBe(true)
+
+    setStatus(world, 'w1:p1', 'done', 2)
+
+    expect(drain(world)).toEqual([])
+
+    setStatus(world, 'w1:p1', 'idle', 3)
+
+    expect(drain(world)).toEqual([
+      { kind: 'hero.status', at: 3, hero: 'local/session/s1', status: 'idle' },
+    ])
+    expect(anyDone(world)).toBe(false)
   })
 })

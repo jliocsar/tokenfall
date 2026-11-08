@@ -1,6 +1,7 @@
 import type { DeathCause } from '@tokenfall/protocol/hero'
 import type { DaemonTuning } from '../../config.ts'
 import {
+  anyDone,
   observe,
   paneGone,
   paneMoved,
@@ -23,6 +24,7 @@ import { repoOf } from './repo.ts'
 export type HerdrAdapter = {
   readonly stop: () => void
   readonly reconcile: () => Promise<void>
+  readonly refreshStatus: () => Promise<void>
 }
 
 type State = {
@@ -33,6 +35,8 @@ type State = {
   backoff: number
   reconciling: boolean
   again: boolean
+  refreshing: boolean
+  seenTimer: ReturnType<typeof setTimeout> | undefined
   readonly statusSubs: Set<Subscription>
   readonly subscribed: Set<string>
   readonly pending: Set<string>
@@ -54,7 +58,12 @@ const LIFECYCLE = [
   'pane.agent_detected',
   'pane.updated',
   'pane.moved',
+  'workspace.focused',
+  'tab.focused',
+  'pane.focused',
 ]
+
+const FOCUS = ['workspace.focused', 'tab.focused', 'pane.focused']
 
 const observedOf = async (pane: HerdrPane, title: string | null): Promise<Observed> => ({
   pane: pane.pane_id,
@@ -131,7 +140,43 @@ const reconcile = async (context: Context): Promise<void> => {
   }
 }
 
+const refreshStatus = async (context: Context): Promise<void> => {
+  const { world, state } = context
+
+  if (state.refreshing || !state.connected) {
+    return
+  }
+
+  state.refreshing = true
+
+  try {
+    const listed = await request('agent.list', {})
+
+    for (const agent of listed.result?.agents ?? []) {
+      if (agent.agent === CLAUDE) {
+        setStatus(world, agent.pane_id, agent.agent_status, Date.now())
+      }
+    }
+  } catch {
+    state.refreshing = false
+
+    return
+  }
+
+  state.refreshing = false
+}
+
+const scheduleSeen: Handler = (context) => {
+  const { state, tuning } = context
+  clearTimeout(state.seenTimer)
+  state.seenTimer = setTimeout(() => {
+    state.seenTimer = undefined
+    void refreshStatus(context)
+  }, tuning.seen.debounceMs)
+}
+
 const HANDLERS: ReadonlyMap<string, Handler> = new Map<string, Handler>([
+  ...FOCUS.map((name): [string, Handler] => [name, scheduleSeen]),
   [
     'pane.agent_status_changed',
     (context, data) => {
@@ -283,6 +328,8 @@ export const startHerdr = (world: World, tuning: DaemonTuning): HerdrAdapter => 
     backoff: tuning.reconnect.minMs,
     reconciling: false,
     again: false,
+    refreshing: false,
+    seenTimer: undefined,
     statusSubs: new Set(),
     subscribed: new Set(),
     pending: new Set(),
@@ -294,13 +341,20 @@ export const startHerdr = (world: World, tuning: DaemonTuning): HerdrAdapter => 
     setInterval(() => {
       flushPending(context)
     }, tuning.statusBatchMs),
+    setInterval(() => {
+      if (anyDone(world)) {
+        void refreshStatus(context)
+      }
+    }, tuning.seen.pollMs),
   ]
 
   return {
     reconcile: () => reconcile(context),
+    refreshStatus: () => refreshStatus(context),
     stop: () => {
       state.stopped = true
       clearTimeout(state.retry)
+      clearTimeout(state.seenTimer)
 
       for (const timer of timers) {
         clearInterval(timer)

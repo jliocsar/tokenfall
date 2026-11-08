@@ -74,6 +74,9 @@ const ALIASES = new Map([
   ['pane_moved', 'pane.moved'],
   ['pane_agent_detected', 'pane.agent_detected'],
   ['pane_agent_status_changed', 'pane.agent_status_changed'],
+  ['workspace_focused', 'workspace.focused'],
+  ['tab_focused', 'tab.focused'],
+  ['pane_focused', 'pane.focused'],
 ])
 
 const REQUEST_TIMEOUT_MS = 5000

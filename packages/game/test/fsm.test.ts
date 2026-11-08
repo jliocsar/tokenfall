@@ -27,7 +27,9 @@ describe('hero state machine', () => {
   test('finishing warps out with loot, and being seen settles at camp', () => {
     expect(go('delving', 'done')).toBe('warping-out-with-loot')
     expect(go('warping-out-with-loot', 'timer')).toBe('looting')
-    expect(go('looting', 'idle')).toBe('camp')
+    expect(go('looting', 'idle')).toBe('opening')
+    expect(go('opening', 'timer')).toBe('camp')
+    expect(go('opening', 'working')).toBe('to-dungeon')
   })
 
   test('any state can die, and only the dead can rise', () => {

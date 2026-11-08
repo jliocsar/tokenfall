@@ -470,6 +470,16 @@ export const observe = (world: World, reported: Observed, now: number): void => 
   }
 }
 
+export const anyDone = (world: World): boolean => {
+  for (const record of world.live.values()) {
+    if (record.status === 'done') {
+      return true
+    }
+  }
+
+  return false
+}
+
 export const setStatus = (world: World, pane: PaneId, status: HeroStatus, now: number): void => {
   const id = world.paneHero.get(pane)
   const record = id === undefined ? undefined : world.live.get(id)

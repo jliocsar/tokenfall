@@ -70,6 +70,21 @@ def matte(o):
                     n.inputs['Specular IOR Level'].default_value = 0.15
 
 
+def paint(o, rgb):
+    """Replaces the base colour with a flat one, for models whose texture is a placeholder."""
+    for i, m in enumerate(o.data.materials):
+        if not m or not m.node_tree:
+            continue
+        m = m.copy()
+        o.data.materials[i] = m
+        bsdf = next((n for n in m.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'), None)
+        if bsdf is None:
+            continue
+        for link in list(bsdf.inputs['Base Color'].links):
+            m.node_tree.links.remove(link)
+        bsdf.inputs['Base Color'].default_value = (*rgb, 1)
+
+
 def tint(o, hue, sat, val):
     """Per-object hue shift: copies the material so other objects keep their colors."""
     for i, m in enumerate(o.data.materials):
@@ -152,10 +167,23 @@ def hero():
     print(f'RENDER {cfg["name"]} frames={n} seconds={time.time() - t0:.1f}')
 
 
+def expand(items):
+    """A tile with `rots` or `frames` becomes one tile per direction and frame, named name_d_f."""
+    out = []
+    for item in items:
+        rots, frames = item.get('rots'), item.get('frames')
+        if rots is None and frames is None:
+            out.append(item)
+            continue
+        for d, rot in enumerate(rots or [item.get('rot', 0)]):
+            for f, frame in enumerate(frames or [item.get('frame', 0)]):
+                out.append({**item, 'name': f"{item['name']}_{d}_{f}", 'rot': rot, 'frame': frame})
+    return out
+
 def tiles():
     os.makedirs(cfg['out'], exist_ok=True)
     t0 = time.time()
-    for item in cfg['tiles']:
+    for item in expand(cfg['tiles']):
         s = reset_scene()
         before = set(bpy.data.objects)
         bpy.ops.import_scene.gltf(filepath=item['glb'])
@@ -171,6 +199,17 @@ def tiles():
                     w = o.matrix_world @ Vector(c)
                     for k in range(3):
                         lo[k], hi[k] = min(lo[k], w[k]), max(hi[k], w[k])
+        if 'frame' in item:
+            s.frame_set(int(item['frame']))
+        for o in new:
+            if o.type == 'MESH' and 'color' in item:
+                paint(o, item['color'])
+            if o.type == 'MESH' and 'tint' in item:
+                tint(o, item['tint'].get('hue', 0.5), item['tint'].get('sat', 1.0), item['tint'].get('val', 1.0))
+            for key, rot in item.get('pose', {}).items():
+                if key in o.name:
+                    o.rotation_mode = 'XYZ'
+                    o.rotation_euler = tuple(o.rotation_euler[k] + math.radians(rot[k]) for k in range(3))
         scale = item.get('scale', 1)
         if 'preset' in item:
             # presets are heights in Hero heights, so every pack lands on the Heroes' scale
@@ -184,7 +223,7 @@ def tiles():
             r.scale = (scale,) * 3
         bpy.context.view_layer.update()
         render_to(os.path.join(cfg['out'], item['name'] + '.png'))
-    print(f'RENDER tiles n={len(cfg["tiles"])} seconds={time.time() - t0:.1f}')
+    print(f'RENDER tiles n={len(expand(cfg["tiles"]))} seconds={time.time() - t0:.1f}')
 
 
 (hero if cfg['mode'] == 'hero' else tiles)()

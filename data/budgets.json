@@ -10,5 +10,7 @@
   "guilds": 256,
   "parties": 1024,
   "heroLights": 512,
-  "bubbles": 12
+  "bubbles": 12,
+  "ravens": 64,
+  "chests": 256
 }

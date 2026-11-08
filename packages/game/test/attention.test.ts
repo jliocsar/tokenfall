@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { LOCAL_MACHINE, NO_PLOT, type HeroInfo, type HeroStatus } from '@tokenfall/protocol/hero'
 import { bootSim } from '../src/core/boot.ts'
+import { stateId } from '../src/core/fsm.ts'
 import { entityOfHero, NONE } from '../src/core/hero-index.ts'
 import { push } from '../src/core/queue.ts'
 import { runSystems, createProfile } from '../src/core/system.ts'
@@ -90,5 +91,20 @@ describe('attention queue', () => {
     expect(order).toEqual(
       ['blocked-old', 'blocked-new', 'inbox-old', 'inbox-new', 'loot-old'].map(eid),
     )
+  })
+
+  test('a chest seen during the warp out still opens once the warp ends', () => {
+    const sim = bootSim(1, 0, {})
+    const profile = createProfile(SIM_SYSTEMS)
+    push(sim.inbound, { kind: 'hero.joined', at: 0, hero: hero('h', 'working') })
+    runSystems(SIM_SYSTEMS, profile, sim, 0, 16)
+    push(sim.inbound, { kind: 'hero.status', at: 10, hero: 'h', status: 'done' })
+    runSystems(SIM_SYSTEMS, profile, sim, 10, 16)
+    push(sim.inbound, { kind: 'hero.status', at: 100, hero: 'h', status: 'idle' })
+    runSystems(SIM_SYSTEMS, profile, sim, 100, 16)
+    runSystems(SIM_SYSTEMS, profile, sim, 700, 16)
+    const state = sim.stores.behavior.state[entityOfHero(sim.index, 'h')]
+
+    expect(state).toBe(stateId(sim.machine, 'opening'))
   })
 })
