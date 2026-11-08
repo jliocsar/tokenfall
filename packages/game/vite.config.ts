@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
@@ -7,6 +7,8 @@ import { traceAll } from './trace-all.ts'
 
 const TMP = join(import.meta.dirname, '..', '..', 'tmp')
 const TRACE_ALL = process.env['TOKENFALL_TRACE'] === 'all'
+const DEV_DAEMON = 'ws://127.0.0.1:47310'
+const DEV_TOKEN = join(process.env['XDG_RUNTIME_DIR'] ?? '/tmp', 'tokenfall', 'dev.token')
 
 const save = async (folder: string, file: string, body: Buffer): Promise<void> => {
   await mkdir(folder, { recursive: true })
@@ -37,11 +39,25 @@ const receiver = (route: string, folder: string, prefix: string): Plugin => ({
   },
 })
 
+const devToken = (): Plugin => ({
+  name: 'tokenfall-dev-token',
+  apply: 'serve',
+  transformIndexHtml: async (html) => {
+    const token = await readFile(DEV_TOKEN, 'utf8').catch(() => '')
+
+    return html.replace(
+      '</head>',
+      `<meta name="tokenfall-token" content="${token.trim()}" /></head>`,
+    )
+  },
+})
+
 export default defineConfig({
   publicDir: '../../assets',
   define: { 'import.meta.env.TOKENFALL_TRACE_ALL': JSON.stringify(TRACE_ALL) },
   server: {
     host: '127.0.0.1',
+    proxy: { '/ws': { target: DEV_DAEMON, ws: true } },
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
@@ -59,6 +75,7 @@ export default defineConfig({
   },
   plugins: [
     solid(),
+    devToken(),
     receiver('/__bench', 'bench', 'bench'),
     receiver('/__trace', 'traces', 'trace'),
     ...(TRACE_ALL ? [traceAll()] : []),

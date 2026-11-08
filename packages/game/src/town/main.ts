@@ -54,13 +54,14 @@ import {
   readMeasurePlan,
   type TownMeasure,
 } from './measure.ts'
-import { replaySource, syntheticSource, type Source } from './source.ts'
+import { daemonSource, daemonUrl, replaySource, syntheticSource, type Source } from './source.ts'
 
 type Settings = {
   readonly heroes: number
   readonly seed: number
   readonly tempo: number
   readonly replay: string | undefined
+  readonly synthetic: boolean
   readonly measure: MeasurePlan | undefined
 }
 
@@ -81,6 +82,7 @@ const readSettings = (): Settings => {
     seed: Number(params.get('seed') ?? 7),
     tempo: Number(params.get('tempo') ?? 4),
     replay: replay === null ? undefined : replay || DEFAULT_REPLAY,
+    synthetic: plan !== undefined || params.has('heroes'),
     measure: plan,
   }
 }
@@ -117,9 +119,17 @@ await loadFonts()
 
 const { atlas, source: texture } = await loadAtlas('/sprites/heroes-atlas')
 const started = performance.now()
-const sim = bootSim(settings.seed, started, {})
-const source: Source =
-  settings.replay === undefined ? syntheticSource(settings, started) : replaySource(settings.replay)
+
+const pickSource = (): Source => {
+  if (settings.replay !== undefined) {
+    return replaySource(settings.replay)
+  }
+
+  return settings.synthetic ? syntheticSource(settings, started) : daemonSource(daemonUrl())
+}
+
+const source = pickSource()
+const sim = bootSim(await source.ready, started, {})
 const town = createTownLayer()
 const heroes = createHeroLayer(sim, atlas, texture, ['delving'])
 const effects = createEffectLayer(sim, EFFECT_DEFINITIONS)

@@ -1,7 +1,7 @@
 import { batch, createMemo, createSignal, type Accessor } from 'solid-js'
 import { createStore } from 'solid-js/store'
 import world from '@tokenfall/data/world.json'
-import { displayName, titleOf } from '../../core/character.ts'
+import { displayName, titleOf, isStranger } from '../../core/character.ts'
 import { clearSet } from '../../core/dense-set.ts'
 import { stateId } from '../../core/fsm.ts'
 import { guildLabel } from '../../core/groups.ts'
@@ -16,6 +16,7 @@ export type HeroRow = {
   readonly className: string
   readonly personality: string
   readonly sheet: number
+  readonly stranger: boolean
   readonly level: number
   readonly standing: Standing
   readonly quest: string
@@ -86,6 +87,7 @@ const rowOf = (sim: Sim, eid: number, dying: number, dead: number): HeroRow => {
     className: personality.class,
     personality: personality.name,
     sheet: hero.sheet[eid]!,
+    stranger: isStranger(sim.config.characters, hero.sheet[eid]!),
     level: hero.level[eid]!,
     standing: standingOf(sim, eid, dying, dead),
     quest: sim.text.quest[eid]!,

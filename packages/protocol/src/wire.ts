@@ -6,6 +6,7 @@ export type Snapshot = {
   readonly version: number
   readonly seq: number
   readonly at: number
+  readonly townSeed: number
   readonly heroes: readonly HeroInfo[]
 }
 
@@ -28,5 +29,5 @@ export type RecordingHeader = {
 
 export type RecordingLine = RecordingHeader | HeroEvent
 
-export const PROTOCOL_VERSION = 1
-export const RECORDING_VERSION = 1
+export const PROTOCOL_VERSION = 2
+export const RECORDING_VERSION = 2

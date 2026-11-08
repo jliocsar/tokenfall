@@ -9,7 +9,9 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "bun run --cwd packages/game dev",
+    "dev": "bun packages/daemon/src/dev.ts",
+    "dev:game": "bun run --cwd packages/game dev",
+    "daemon": "bun packages/daemon/src/main.ts",
     "bench": "bun run --cwd packages/game dev",
     "preview": "bun run --cwd packages/game preview",
     "trace": "bun run --cwd packages/game dev:trace",

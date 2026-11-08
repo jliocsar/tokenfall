@@ -26,6 +26,7 @@ export type Budgets = {
 }
 
 export type WorldTuning = {
+  readonly deathFadeMs: number
   readonly walkSpeed: number
   readonly wanderEveryMs: readonly number[]
   readonly wanderRadius: number

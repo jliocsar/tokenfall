@@ -34,7 +34,9 @@ export const HeroCard = (props: HeroCardProps) => {
           <div class="facts">
             <div class="name">{hero().fullName}</div>
             <div class="meta">
-              Lv {hero().level} {hero().className} · {hero().personality}
+              {hero().stranger
+                ? 'not yet known'
+                : `Lv ${hero().level} ${hero().className} · ${hero().personality}`}
             </div>
             <div class={`badge standing-${hero().standing}`}>{hero().standing}</div>
             <div class="quest">{hero().quest || 'no quest yet'}</div>

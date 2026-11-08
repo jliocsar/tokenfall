@@ -125,7 +125,7 @@ export const HeroLine = (props: {
             <span class="name">{hero().fullName}</span>
             <span class="quest">{hero().quest || hero().className}</span>
           </span>
-          <span class="level">Lv {hero().level}</span>
+          <span class="level">{hero().stranger ? '' : `Lv ${hero().level}`}</span>
           <span class="badge">{hero().standing}</span>
         </button>
       )}

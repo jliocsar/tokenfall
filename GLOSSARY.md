@@ -28,6 +28,10 @@ The computer an Agent runs on. Only the local one for now.
 The in-game character standing for one Agent, with a name, a portrait, a Personality and a Class. It lives as long as its Agent's session.
 _Avoid_: Villager, character, unit
 
+**Stranger**:
+A hooded figure standing for an Agent whose session isn't known yet. It has no name, Personality or Level, and becomes a Hero once the session is known.
+_Avoid_: Unknown hero, placeholder
+
 **Personality**:
 A Hero's randomly rolled temperament, which decides its Class and the voice of its Narration.
 _Avoid_: Mood, trait
@@ -96,7 +100,7 @@ What a Hero is currently working on, taken from its Agent's terminal title.
 _Avoid_: Task, job
 
 **Experience**:
-All the tokens a Hero's Agent and its Subagents have used, cache reads included, accumulated over the Hero's whole life.
+All the tokens a Hero's Agent and its Subagents have used, cache reads included, accumulated over the Hero's whole life. Each billed token counts once, so a fork starts with only what it spends itself.
 _Avoid_: XP in prose, points, score
 
 **Level**:

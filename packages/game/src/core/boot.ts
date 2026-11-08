@@ -11,7 +11,15 @@ import { createCharacters } from './character.ts'
 import { createSim, type Budgets, type Sim } from './sim.ts'
 import { registerEffectKind } from '../effects/emitters.ts'
 
-export const HERO_SHEETS = ['barbarian', 'knight', 'knight_teal', 'mage', 'rogue'] as const
+export const HERO_SHEETS = [
+  'barbarian',
+  'knight',
+  'knight_teal',
+  'mage',
+  'rogue',
+  'stranger',
+] as const
+
 export const EFFECT_DEFINITIONS = [angelRing] as const
 
 export const bootSim = (seed: number, epoch: number, overrides: Partial<Budgets>): Sim => {

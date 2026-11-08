@@ -14,10 +14,14 @@ export type NameTable = {
 export type Characters = {
   readonly personalities: readonly Personality[]
   readonly sheetOfPersonality: Uint8Array
+  readonly strangerSheet: number
   readonly names: NameTable
 }
 
 const NAME_SALT = 0x9e_37_79_b9
+const STRANGER_SHEET = 'stranger'
+
+export const STRANGER_NAME = 'a Stranger'
 
 export const createCharacters = (
   personalities: readonly Personality[],
@@ -38,8 +42,12 @@ export const createCharacters = (
       return sheet
     }),
   ),
+  strangerSheet: sheets.indexOf(STRANGER_SHEET),
   names,
 })
+
+export const isStranger = (characters: Characters, sheet: number): boolean =>
+  sheet === characters.strangerSheet
 
 export const personalityOf = (characters: Characters, id: string): number =>
   hashString(id) % characters.personalities.length

@@ -1,0 +1,10 @@
+{
+  "tickMs": 100,
+  "reconcileMs": 30000,
+  "statusBatchMs": 250,
+  "missingAfterReconciles": 2,
+  "requestTimeoutMs": 5000,
+  "reconnect": { "minMs": 1000, "maxMs": 30000 },
+  "ports": { "service": 47300, "dev": 47310 },
+  "devOrigins": ["http://127.0.0.1:47320", "http://localhost:47320", "http://127.0.0.1:47321"]
+}

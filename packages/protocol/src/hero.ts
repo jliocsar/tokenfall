@@ -8,10 +8,12 @@ export type DeathCause = (typeof DEATH_CAUSES)[number]
 
 export type HeroInfo = {
   readonly id: HeroId
+  readonly session: string | null
   readonly machine: MachineId
   readonly pane: PaneId
   readonly workspace: WorkspaceId
   readonly guild: GuildKey
+  readonly plot: number
   readonly title: string
   readonly quest: string
   readonly status: HeroStatus
@@ -24,6 +26,7 @@ export type HeroInfo = {
 export const HERO_STATUSES = ['idle', 'working', 'done', 'blocked', 'unknown'] as const
 export const DEATH_CAUSES = ['exited', 'killed', 'cleared', 'released', 'missing'] as const
 export const LOCAL_MACHINE = 'local'
+export const NO_PLOT = -1
 
 export const paneHeroId = (machine: MachineId, pane: PaneId): HeroId => `${machine}/pane/${pane}`
 

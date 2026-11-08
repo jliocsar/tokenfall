@@ -1,3 +1,4 @@
+import { isStranger } from '../../core/character.ts'
 import { BitmapText, Container, Graphics } from 'pixi.js'
 import budgets from '@tokenfall/data/budgets.json'
 import lines from '@tokenfall/data/narration-placeholder.json'
@@ -171,7 +172,7 @@ const speak = (
 
   const free = bubbles.pool.find((bubble) => bubble.eid === NOBODY)
 
-  if (free === undefined) {
+  if (free === undefined || isStranger(sim.config.characters, sim.stores.hero.sheet[eid]!)) {
     return
   }
 

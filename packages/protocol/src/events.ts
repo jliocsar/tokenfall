@@ -42,6 +42,7 @@ export type HeroMoved = {
   readonly pane: PaneId
   readonly workspace: WorkspaceId
   readonly guild: GuildKey
+  readonly plot: number
 }
 
 export type HeroMinionsChanged = {
@@ -56,6 +57,7 @@ export type HeroLinked = {
   readonly at: number
   readonly from: HeroId
   readonly to: HeroId
+  readonly session: string
 }
 
 export type HeroDied = {

@@ -60,7 +60,8 @@ const IDLE_FPS = 6
 const WALK_FPS = 10
 const CULL_MARGIN = 160
 const UNKNOWN_STATUS = 4
-const DEAD_COLOR = 0x33_33_66 + (((0.55 * 255) | 0) << 24)
+const DEAD_TINT = 0x33_33_66
+const DEAD_ALPHA = 0.55
 const UNKNOWN_COLOR = 0x88_88_88 + (255 << 24)
 const LIVE_COLOR = 0xff_ff_ff + (255 << 24)
 const WARPING_COLOR = 0xff_ff_ff + (((0.5 * 255) | 0) << 24)
@@ -229,8 +230,11 @@ const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now:
     layer.textures[textureIndex(sim.stores.hero.sheet[eid]!, walking, direction, frame)]!
   const state = sim.stores.behavior.state[eid]!
 
-  if (state === layer.states.dying || state === layer.states.dead) {
-    particle.color = DEAD_COLOR
+  if (state === layer.states.dead) {
+    particle.color = DEAD_TINT
+  } else if (state === layer.states.dying) {
+    const left = 1 - (now - sim.stores.behavior.since[eid]!) / sim.config.tuning.deathFadeMs
+    particle.color = DEAD_TINT + (((Math.max(0, left) * DEAD_ALPHA * 255) | 0) << 24)
   } else if (sim.stores.hero.status[eid] === UNKNOWN_STATUS) {
     particle.color = UNKNOWN_COLOR
   } else {

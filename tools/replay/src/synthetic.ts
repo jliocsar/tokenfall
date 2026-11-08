@@ -1,6 +1,7 @@
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import {
   LOCAL_MACHINE,
+  NO_PLOT,
   sessionHeroId,
   type HeroInfo,
   type HeroStatus,
@@ -135,7 +136,8 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
   for (let i = 0; i < count; i++) {
     const guild = Math.floor(random() * options.guilds)
     const workspace = Math.floor(random() * options.workspacesPerGuild)
-    const id = sessionHeroId(LOCAL_MACHINE, `synthetic-${options.seed}-${i}`)
+    const session = `synthetic-${options.seed}-${i}`
+    const id = sessionHeroId(LOCAL_MACHINE, session)
     ids.push(id)
     status[i] = pickStatus(random())
     experience[i] = Math.min(
@@ -147,10 +149,12 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
     nextExperience[i] = options.startAt + random() * EXPERIENCE_EVERY_MS
     heroes.push({
       id,
+      session,
       machine: LOCAL_MACHINE,
       pane: `w${guild}:p${i}`,
       workspace: `w${guild}-${workspace}`,
       guild: repoPath(guild),
+      plot: NO_PLOT,
       title: random() < TITLE_CHANCE ? pick(random, TITLES) : '',
       quest: pick(random, QUESTS),
       status: STATUS_CODES[status[i]!]!,

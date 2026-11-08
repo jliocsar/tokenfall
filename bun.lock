@@ -17,6 +17,14 @@
       "name": "@tokenfall/data",
       "version": "0.0.0",
     },
+    "packages/daemon": {
+      "name": "@tokenfall/daemon",
+      "version": "0.0.0",
+      "dependencies": {
+        "@tokenfall/data": "workspace:*",
+        "@tokenfall/protocol": "workspace:*",
+      },
+    },
     "packages/game": {
       "name": "@tokenfall/game",
       "version": "0.0.0",
@@ -47,6 +55,7 @@
       "name": "@tokenfall/replay",
       "version": "0.0.0",
       "dependencies": {
+        "@tokenfall/daemon": "workspace:*",
         "@tokenfall/protocol": "workspace:*",
       },
     },
@@ -225,6 +234,8 @@
     "@rolldown/binding-win32-x64-msvc": ["@rolldown/binding-win32-x64-msvc@1.2.16", "", { "os": "win32", "cpu": "x64" }, "sha512-1lv1KvX0Z871zfk7vw+dnXMMnHNyDwMzWG8Kv3HxDXMOhzCX4SHc7HK319fInP0i+0p9D8brkfzL7pJOaGl+tw=="],
 
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.0.1", "", {}, "sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw=="],
+
+    "@tokenfall/daemon": ["@tokenfall/daemon@workspace:packages/daemon"],
 
     "@tokenfall/data": ["@tokenfall/data@workspace:data"],
 

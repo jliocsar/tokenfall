@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { LOCAL_MACHINE, type HeroInfo, type HeroStatus } from '@tokenfall/protocol/hero'
+import { LOCAL_MACHINE, NO_PLOT, type HeroInfo, type HeroStatus } from '@tokenfall/protocol/hero'
 import { bootSim } from '../src/core/boot.ts'
 import { entityOfHero, NONE } from '../src/core/hero-index.ts'
 import { push } from '../src/core/queue.ts'
@@ -9,10 +9,12 @@ import { createAttentionQueue, nextInQueue } from '../src/features/attention/que
 
 const hero = (id: string, status: HeroStatus): HeroInfo => ({
   id,
+  session: id,
   machine: LOCAL_MACHINE,
   pane: id,
   workspace: 'w1',
   guild: '/repo',
+  plot: NO_PLOT,
   title: '',
   quest: '',
   status,

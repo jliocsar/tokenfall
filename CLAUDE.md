@@ -12,8 +12,11 @@ An isometric idle RPG that shows the Claude Agents running in Herdr as Heroes. R
 
 ```sh
 bun install
-bun run dev          # game dev server: the Town at http://127.0.0.1:47320/?heroes=100
-                     # (?replay reads a running replayer), benchmark at /bench.html
+bun run dev          # dev daemon on :47310 (state in ~/.local/state/tokenfall-dev) plus the game
+                     # at http://127.0.0.1:47320/, showing your live Agents. ?heroes=100 is
+                     # synthetic, ?replay reads a running replayer, benchmark at /bench.html
+bun run dev:game     # only the game dev server
+bun run daemon       # the daemon alone (--dev for the dev instance)
                      # /?measure measures the full Town into tmp/bench/
 bun run preview      # production build served at http://127.0.0.1:47321 (measure the shipped build here)
 bun run trace        # same, but every function in packages/game and tools/replay is wrapped in a trace span
@@ -32,6 +35,8 @@ bun run references   # refresh references/repos from references/repos.json
 
 ```
 packages/protocol/   wire types: HeroInfo, HeroEvent, Snapshot, Delta, recordings. No runtime deps.
+packages/daemon/     the truth: Herdr adapter (read-only allowlist), identity (world.ts), SQLite save
+                     with migrations (store/), WebSocket and static server with a per-launch token
 packages/game/       core/ (sim, stores, systems), effects/ (emitters + GPU), render/, bench/,
                      town/ (the Town page), features/ (one folder per feature)
 tools/replay/        Herdr recorder, replayer, synthetic load generator
@@ -42,7 +47,7 @@ data/                every tuning number: budgets, level curve, hero states, eff
 assets/              committed art. sprites/heroes-atlas.* is what the game loads
 ```
 
-The daemon, the plugin and `features/` arrive in M1 and M2.
+The hooks plugin arrives later in M2.
 
 ## References: read the source, don't guess
 
@@ -74,7 +79,7 @@ Things learned from that source that the docs don't say:
 
 ## Save migrations
 
-Saved state lands in M2, under `~/.local/state/tokenfall/` (`tokenfall-dev/` for the dev daemon). Each format change gets a migration written by Claude through the `.claude/skills/migrate-save-files` skill, which is created alongside the first saved format. Never edit a save by hand.
+The daemon saves to `~/.local/state/tokenfall/tokenfall.sqlite` (`tokenfall-dev/` for the dev daemon). Every format change gets a migration, written through the `.claude/skills/migrate-save-files` skill. Never edit a save by hand.
 
 ## Don't
 

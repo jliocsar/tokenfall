@@ -150,6 +150,28 @@ export const claimPlot = (town: Town, guild: number): number => {
   return guild % town.guildOfPlot.length
 }
 
+export const assignPlot = (town: Town, guild: number, plot: number): void => {
+  if (plot < 0 || plot >= town.guildOfPlot.length || town.plotOfGuild[guild] === plot) {
+    return
+  }
+
+  const holder = town.guildOfPlot[plot]!
+
+  if (holder !== NO_PLOT) {
+    town.plotOfGuild[holder] = NO_PLOT
+  }
+
+  const held = town.plotOfGuild[guild]!
+
+  if (held !== NO_PLOT) {
+    town.guildOfPlot[held] = NO_PLOT
+  }
+
+  town.guildOfPlot[plot] = guild
+  town.plotOfGuild[guild] = plot
+  town.revision += 1
+}
+
 export const releasePlot = (town: Town, guild: number): void => {
   const plot = town.plotOfGuild[guild]!
 

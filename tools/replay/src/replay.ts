@@ -15,6 +15,7 @@ const { values } = parseArgs({
     port: { type: 'string', default: '47330' },
     speed: { type: 'string', default: '1' },
     loop: { type: 'boolean', default: false },
+    seed: { type: 'string', default: '7' },
   },
 })
 
@@ -41,6 +42,7 @@ const snapshot = (): Snapshot => ({
   version: PROTOCOL_VERSION,
   seq: state.seq,
   at: state.clock,
+  townSeed: Number(values.seed),
   heroes: [...state.table.values()],
 })
 

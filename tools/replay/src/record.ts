@@ -1,9 +1,21 @@
-import { $ } from 'bun'
 import { parseArgs } from 'node:util'
 import type { HeroEvent } from '@tokenfall/protocol/events'
-import { LOCAL_MACHINE, paneHeroId, sessionHeroId, type HeroInfo } from '@tokenfall/protocol/hero'
+import {
+  LOCAL_MACHINE,
+  NO_PLOT,
+  paneHeroId,
+  sessionHeroId,
+  type HeroInfo,
+} from '@tokenfall/protocol/hero'
 import { RECORDING_VERSION } from '@tokenfall/protocol/wire'
-import { eventName, request, subscribe, type HerdrAgent, type HerdrMessage } from './herdr.ts'
+import {
+  eventName,
+  request,
+  subscribe,
+  type HerdrAgent,
+  type HerdrMessage,
+} from '@tokenfall/daemon/adapters/herdr/client'
+import { repoOf } from '@tokenfall/daemon/adapters/herdr/repo'
 import { eventLine, headerLine } from './recording.ts'
 
 const RECONCILE_MS = 30_000
@@ -24,34 +36,11 @@ const rawWriter = values.raw
 const heroOfPane = new Map<string, string>()
 const statusOfPane = new Map<string, string>()
 const subscribed = new Set<string>()
-const repoOfCwd = new Map<string, string>()
 const totals = { written: 0 }
 
 const emit = (event: HeroEvent): void => {
   void writer.write(eventLine(event))
   totals.written += 1
-}
-
-const repoOf = async (cwd: string): Promise<string> => {
-  const known = repoOfCwd.get(cwd)
-
-  if (known !== undefined) {
-    return known
-  }
-
-  const common = await $`git -C ${cwd} rev-parse --path-format=absolute --git-common-dir`
-    .quiet()
-    .nothrow()
-  const repo =
-    common.exitCode === 0
-      ? common.stdout
-          .toString()
-          .trim()
-          .replace(/\/\.git$/u, '')
-      : ''
-  repoOfCwd.set(cwd, repo)
-
-  return repo
 }
 
 const heroIdOf = (agent: HerdrAgent): string =>
@@ -90,10 +79,12 @@ const join = async (agent: HerdrAgent): Promise<void> => {
   const id = heroIdOf(agent)
   const hero: HeroInfo = {
     id,
+    session: agent.agent_session?.value ?? null,
     machine: LOCAL_MACHINE,
     pane: agent.pane_id,
     workspace: agent.workspace_id,
-    guild: agent.cwd === null || agent.cwd === undefined ? '' : await repoOf(agent.cwd),
+    guild: await repoOf(agent.cwd),
+    plot: NO_PLOT,
     title: agent.name ?? '',
     quest: agent.terminal_title_stripped ?? '',
     status: agent.agent_status,
@@ -108,7 +99,7 @@ const join = async (agent: HerdrAgent): Promise<void> => {
 
   if (!subscribed.has(agent.pane_id)) {
     subscribed.add(agent.pane_id)
-    await subscribe([{ type: 'pane.agent_status_changed', pane_id: agent.pane_id }], onLine)
+    await subscribe([{ type: 'pane.agent_status_changed', pane_id: agent.pane_id }], onLine).ready
   }
 }
 
@@ -146,7 +137,7 @@ await subscribe(
       void reconcile()
     }
   },
-)
+).ready
 await reconcile()
 setInterval(() => void reconcile(), RECONCILE_MS)
 console.log(`recording ${heroOfPane.size} heroes from herdr into ${values.out}, ctrl+c to stop`)

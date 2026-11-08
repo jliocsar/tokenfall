@@ -1,4 +1,5 @@
 import type { HeroEvent } from '@tokenfall/protocol/events'
+import { NO_PLOT } from '@tokenfall/protocol/hero'
 import { decodeTrusted } from '@tokenfall/protocol/json'
 import {
   RECORDING_VERSION,
@@ -13,6 +14,28 @@ export type Recording = {
 
 const isHeader = (line: RecordingLine): line is RecordingHeader => line.kind === 'recording'
 
+const sessionOf = (id: string): string | null => {
+  const at = id.indexOf('/session/')
+
+  return at === -1 ? null : id.slice(at + '/session/'.length)
+}
+
+const upgradeV1 = (event: HeroEvent): HeroEvent => {
+  if (event.kind === 'hero.joined') {
+    return { ...event, hero: { ...event.hero, session: sessionOf(event.hero.id), plot: NO_PLOT } }
+  }
+
+  if (event.kind === 'hero.moved') {
+    return { ...event, plot: NO_PLOT }
+  }
+
+  if (event.kind === 'hero.linked') {
+    return { ...event, session: sessionOf(event.to) ?? '' }
+  }
+
+  return event
+}
+
 export const parseRecording = (text: string): Recording => {
   const lines: RecordingLine[] = text
     .split('\n')
@@ -24,7 +47,7 @@ export const parseRecording = (text: string): Recording => {
     throw new Error('a recording starts with a header line')
   }
 
-  if (first.version !== RECORDING_VERSION) {
+  if (first.version !== RECORDING_VERSION && first.version !== 1) {
     throw new Error(`recording version ${first.version}, expected ${RECORDING_VERSION}`)
   }
 
@@ -32,7 +55,7 @@ export const parseRecording = (text: string): Recording => {
 
   for (const line of lines.slice(1)) {
     if (!isHeader(line)) {
-      events.push(line)
+      events.push(first.version === 1 ? upgradeV1(line) : line)
     }
   }
 
