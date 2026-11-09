@@ -655,3 +655,14 @@
 .tier-strip .leave {
   margin-left: 6px;
 }
+
+.crown {
+  display: inline-block;
+  width: 14px;
+  height: 11px;
+  margin-right: 4px;
+  vertical-align: -1px;
+  fill: #f2c14e;
+  stroke: #5a3d10;
+  stroke-width: 1;
+}

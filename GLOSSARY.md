@@ -89,6 +89,10 @@ The seeded underground place belonging to a Guild, where its Heroes go while wor
 One of the Dungeon's four themed levels: Prison, Caves, Catacombs and Hell. A Hero's Level decides its Depth Tier.
 _Avoid_: Floor, stage
 
+**Stairs**:
+The way down from one Depth Tier to the next. A Hero whose Level crosses into the next tier walks to them and goes down.
+_Avoid_: Ladder, exit
+
 **Warp Portal**:
 The blue portal a Hero uses to appear in or leave a place.
 _Avoid_: Teleporter, gate

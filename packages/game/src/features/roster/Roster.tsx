@@ -5,6 +5,7 @@ import { Portrait } from '../../ui/Portrait.tsx'
 import { WAIT_INBOX, WAIT_LOOT } from '../attention/queue.ts'
 import type { NoticeBoard } from '../notices/model.ts'
 import type { Counts, GuildGroup, PartyGroup, Roster } from './model.ts'
+import { Crown } from '../crown/Crown.tsx'
 
 type Line =
   | { readonly kind: 'heading'; readonly text: string }
@@ -179,7 +180,12 @@ export const HeroLine = (props: {
             status={hero().standing}
           />
           <span class="who">
-            <span class="name">{hero().fullName}</span>
+            <span class="name">
+              <Show when={hero().lead}>
+                <Crown />
+              </Show>
+              {hero().fullName}
+            </span>
             <span class="quest">{hero().quest || hero().className}</span>
           </span>
           <span class="level">{hero().stranger ? '' : `Lv ${hero().level}`}</span>

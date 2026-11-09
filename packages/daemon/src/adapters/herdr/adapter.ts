@@ -5,6 +5,7 @@ import {
   observe,
   paneGone,
   paneMoved,
+  setLeads,
   setStatus,
   sweepMissing,
   type Observed,
@@ -14,6 +15,7 @@ import {
   eventName,
   request,
   subscribe,
+  type HerdrAgent,
   type HerdrData,
   type HerdrMessage,
   type HerdrPane,
@@ -51,6 +53,8 @@ type Context = {
 type Handler = (context: Context, data: HerdrData) => void
 
 const CLAUDE = 'claude'
+const LEAD_TAB = 'lead'
+const TAB_NUMBER = /^\d+ · /u
 
 const LIFECYCLE = [
   'pane.closed',
@@ -64,6 +68,25 @@ const LIFECYCLE = [
 ]
 
 const FOCUS = ['workspace.focused', 'tab.focused', 'pane.focused']
+
+export const isLeadTab = (label: string): boolean => label.replace(TAB_NUMBER, '') === LEAD_TAB
+
+const markLeads = async (world: World, agents: readonly HerdrAgent[]): Promise<void> => {
+  const listed = await request('tab.list', {})
+  const tabs = listed.result?.tabs
+
+  if (tabs === undefined) {
+    return
+  }
+
+  const leadTabs = new Set(tabs.filter((tab) => isLeadTab(tab.label)).map((tab) => tab.tab_id))
+  const leadPanes = new Set(
+    agents
+      .filter((agent) => agent.tab_id !== undefined && leadTabs.has(agent.tab_id))
+      .map((agent) => agent.pane_id),
+  )
+  setLeads(world, leadPanes, Date.now())
+}
 
 const observedOf = async (pane: HerdrPane, title: string | null): Promise<Observed> => ({
   pane: pane.pane_id,
@@ -115,6 +138,7 @@ const runReconcile = async (context: Context): Promise<void> => {
     tuning.missingAfterReconciles,
     Date.now(),
   )
+  await markLeads(world, agents)
 }
 
 const reconcile = async (context: Context): Promise<void> => {

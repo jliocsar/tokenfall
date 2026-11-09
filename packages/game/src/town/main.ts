@@ -78,6 +78,7 @@ import {
 } from '../features/dungeon/view.ts'
 import { setAmbient, TOWN_AMBIENT } from '../features/light/light.ts'
 import { groundX, groundY } from '../core/iso.ts'
+import { createCrowns, syncCrowns } from '../features/crown/crowns.ts'
 import {
   createTownMeasure,
   type MeasurePlan,
@@ -207,6 +208,8 @@ world.addChild(town.labels)
 
 const glow = new Container({ label: 'glow', isRenderGroup: true })
 glow.addChild(effects.container)
+const crowns = createCrowns()
+glow.addChild(crowns.container)
 
 if (flock !== undefined) {
   glow.addChild(flock.container)
@@ -299,8 +302,16 @@ const busiestGuild = (): number => {
 }
 
 const openRequestedDungeon = (): void => {
-  if (settings.dungeon !== undefined && sim.groups.guildKeys.length > 0) {
-    openDungeon(busiestGuild(), settings.dungeon)
+  if (sim.groups.guildKeys.length === 0) {
+    return
+  }
+
+  const guild = busiestGuild()
+
+  if (settings.dungeon !== undefined) {
+    openDungeon(guild, settings.dungeon)
+  } else if (settings.measure?.dungeon === true) {
+    openDungeon(guild, deepestTier(guild))
   }
 }
 
@@ -759,6 +770,7 @@ const frame = (now: number): void => {
   syncAttention(now)
 
   syncEffects(effects, sim, now)
+  syncCrowns(crowns, sim)
   screen.width = app.screen.width
   screen.height = app.screen.height
   screen.x = camera.x

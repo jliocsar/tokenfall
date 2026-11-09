@@ -78,6 +78,7 @@ const QUESTS = [
 ] as const
 
 const TITLE_CHANCE = 0.25
+const LEAD_EVERY = 2
 
 const createRandom = (seed: number): (() => number) => {
   let state = seed >>> 0
@@ -132,11 +133,19 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
   const ids: string[] = []
   const heroes: HeroInfo[] = []
   const tempo = options.tempo
+  const led = new Set<string>()
 
   for (let i = 0; i < count; i++) {
     const guild = Math.floor(random() * options.guilds)
     const workspace = Math.floor(random() * options.workspacesPerGuild)
     const session = `synthetic-${options.seed}-${i}`
+    const party = `w${guild}-${workspace}`
+    const lead = !led.has(party) && i % LEAD_EVERY === 0
+
+    if (lead) {
+      led.add(party)
+    }
+
     const id = sessionHeroId(LOCAL_MACHINE, session)
     ids.push(id)
     status[i] = pickStatus(random())
@@ -160,7 +169,7 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
       status: STATUS_CODES[status[i]!]!,
       experience: Math.round(experience[i]!),
       minions: random() < 0.2 ? Math.floor(random() * 8) : 0,
-      lead: false,
+      lead,
       alive: true,
       ravens: 0,
       ravenThread: null,

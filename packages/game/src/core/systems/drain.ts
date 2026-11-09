@@ -73,6 +73,16 @@ const trackWaiting = (sim: Sim, eid: number, alive = true): void => {
   }
 }
 
+const crown = (sim: Sim, eid: number, lead: boolean): void => {
+  sim.stores.hero.lead[eid] = lead ? 1 : 0
+
+  if (lead) {
+    addMember(sim.crowned, eid)
+  } else {
+    removeMember(sim.crowned, eid)
+  }
+}
+
 const withHero = (sim: Sim, id: string, apply: (eid: number) => void, quiet = false): boolean => {
   const eid = entityOfHero(sim.index, id)
 
@@ -125,6 +135,8 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   stores.hero.experience[eid] = hero.experience
   stores.hero.level[eid] = levelFor(sim.thresholds, hero.experience)
   stores.hero.minions[eid] = hero.minions
+  crown(sim, eid, hero.lead)
+  addMember(sim.minionCheck, eid)
   stores.hero.ravens[eid] = hero.ravens
   stores.hero.ravenSince[eid] = hero.ravenSince
   stores.hero.statusSince[eid] = event.at
@@ -215,6 +227,11 @@ const HANDLERS: Handlers = {
   'hero.minions': (sim, event) =>
     withHero(sim, event.hero, (eid) => {
       sim.stores.hero.minions[eid] = event.minions
+      addMember(sim.minionCheck, eid)
+    }),
+  'hero.lead': (sim, event) =>
+    withHero(sim, event.hero, (eid) => {
+      crown(sim, eid, event.lead)
     }),
   'hero.ravens': (sim, event) =>
     withHero(sim, event.hero, (eid) => {
@@ -235,6 +252,7 @@ const HANDLERS: Handlers = {
   'hero.died': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
       addMember(sim.auraCheck, eid)
+      addMember(sim.minionCheck, eid)
       trackWaiting(sim, eid, false)
 
       if (sendInput(sim, eid, sim.inputs['died']!, now)) {
@@ -244,6 +262,7 @@ const HANDLERS: Handlers = {
   'hero.resurrected': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
       addMember(sim.auraCheck, eid)
+      addMember(sim.minionCheck, eid)
       trackWaiting(sim, eid)
 
       if (sendInput(sim, eid, sim.inputs['resurrected']!, now)) {
@@ -275,6 +294,10 @@ const handle = (sim: Sim, event: HeroEvent, now: number): boolean => {
 
   if (event.kind === 'hero.minions') {
     return HANDLERS['hero.minions'](sim, event, now)
+  }
+
+  if (event.kind === 'hero.lead') {
+    return HANDLERS['hero.lead'](sim, event, now)
   }
 
   if (event.kind === 'hero.linked') {

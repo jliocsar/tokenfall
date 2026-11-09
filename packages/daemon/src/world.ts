@@ -470,6 +470,18 @@ export const observe = (world: World, reported: Observed, now: number): void => 
   }
 }
 
+export const setLeads = (world: World, leadPanes: ReadonlySet<PaneId>, now: number): void => {
+  for (const record of world.live.values()) {
+    const lead = leadPanes.has(record.pane)
+
+    if (lead !== record.lead) {
+      record.lead = lead
+      world.dirty.add(record)
+      world.outbox.push({ kind: 'hero.lead', at: now, hero: record.id, lead })
+    }
+  }
+}
+
 export const anyDone = (world: World): boolean => {
   for (const record of world.live.values()) {
     if (record.status === 'done') {

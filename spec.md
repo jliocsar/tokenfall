@@ -161,6 +161,16 @@ Narration lines live in data files keyed by Personality and tool name. They're w
 
 The scene is multiplied by a light map of ambient light plus additive lights. A Hero turns its light on below 0.30 brightness and off above 0.42, so it doesn't flicker at the edge. Both values need tuning.
 
+### Dungeons
+
+- **One per Guild:** the layout comes from the saved Town seed and the Repo path, so the same Repo always gets the same Dungeon and nothing new is saved. A tier is generated the first time someone looks at it.
+- **Generators:** Prison uses rot.js Digger, Caves use Cellular, Catacombs use Uniform, and Hell uses Cellular with lava pools. Each tier has about 15 rooms. Its shape, look and light live in `data/dungeon.json`.
+- **Inside:** a Hero warps in at the arrival portal and walks to its Party's room, and a Party shares one room. On each tool use it may roam to a nearby room. When its Level crosses into the next tier, it walks to the stairs and goes down.
+- **Unseen tiers:** a Hero on a tier nobody has opened waits off the map, and is placed in its Party's room when the tier is first shown.
+- **The view:** like Diablo, one Dungeon tier is shown at a time, instead of the Town. Clicking a Guild's entrance opens its deepest tier with anyone inside. The Town keeps running underneath.
+- **Minions:** up to five wisps orbit a Hero, one per Subagent, with "+N" above it for the rest.
+- **The Lead:** a crown on the Hero and in its Roster row, for the Agent whose Herdr tab is labelled `lead`, as the `/team` skill names it.
+
 ## 4. Town and roster prototype
 
 Built first, on recorded and synthetic data. It needs to answer:
@@ -294,10 +304,11 @@ No frame missed a vsync. The CPU bar holds. GPU p99 at 1000 Heroes drifts betwee
 - **Gaps:** after subscribing, re-read with `agent.list`, and reconcile every 30 seconds so missed changes don't stick.
 - **Event names:** you subscribe to `pane.closed` and receive `pane_closed`, while `pane.agent_status_changed` keeps its dot. Accept both. The focus events arrive as `workspace_focused`, `tab_focused` and `pane_focused`.
 - **Repos:** Herdr only fills `worktree` for workspaces it created as worktrees, so the daemon resolves the Repo itself from each Agent's working folder through git.
-- **Labels:** the `tokens` fields aren't token usage, they're sidebar labels. The `/team` lead marker is one of them.
+- **Labels:** the `tokens` fields aren't token usage, they're sidebar labels.
+- **The Lead:** the `/team` skill moves its lead into a tab labelled `lead`. The daemon reads `tab.list` on each reconcile, and the Hero whose pane sits in that tab wears the crown. The live server prefixes the tab number, as in `1 · lead`, so the number is stripped before comparing.
 - **Session ids:** `agent.list` carries the Claude session id in `agent_session.value` when Herdr's own Claude integration reported it, seen live on some panes and null on others. When it's there, a Hero is keyed on it from the first sight, without waiting for a hook.
 - **Remote machines:** they only answer one-off requests, with no event stream. A future multi-machine view would poll `api snapshot`.
-- **Allowed methods in v1:** `events.subscribe`, `agent.list`, `pane.read`, `pane.layout` and snapshot reads, enforced with an allowlist.
+- **Allowed methods in v1:** `events.subscribe`, `agent.list`, `pane.read`, `pane.get`, `pane.list`, `pane.layout` and `tab.list`, enforced with an allowlist.
 
 ### Claude hooks
 
@@ -345,6 +356,13 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 - **Browser setup:** `SharedArrayBuffer` needs cross-origin isolation, so the daemon serves the game with COOP and COEP headers.
 - **Licensing:** MPL-2.0 only covers changes to bitECS's own files, so using it in a private repo is fine.
 
+### rot.js
+
+- **Package:** 2.2.1, BSD-3-Clause, imported by deep path from `rot-js/lib/map/*` and `rot-js/lib/rng.js`.
+- **One global RNG:** every generator reads `RNG`, so `RNG.setSeed(seed)` runs right before each synchronous `create()`, and nothing else may call rot.js between them.
+- **Time limits:** Digger and Uniform give up after `timeLimit` ms and return fewer rooms. We set it to 10 minutes so a slow frame can never change a layout.
+- **Cellular:** has no rooms. We pick cave halls by farthest-point sampling, then assign each floor cell to its nearest hall.
+
 ### wterm
 
 0.5.x, Apache-2.0, a Vercel Labs experiment. Isolated in one feature folder so it's easy to replace.
@@ -381,7 +399,7 @@ Each one ends with something you can run.
 
 **M3: Ravens, chests and the terminal. Done.** Inbox adapter, the Notice Board, permission Ravens, Loot Chests cleared by seen state, the Character Sheet and the terminal view. Done when a real question raises a Raven that clears once answered, and looking at a finished Agent in Herdr opens its chest.
 
-**M4: Dungeons.** Seeded generator using rot.js, with a seed stored per Guild, four Depth Tiers, Warp Portals, Minions and the lead's crown. Like Diablo, only one Dungeon is open at a time, showing one tier. It opens on the tier of the Hero you clicked, and stairs or keys switch tiers. Done when you can watch a Guild at any tier.
+**M4: Dungeons.** Seeded generator using rot.js, with a seed derived from the Town seed and the Repo, four Depth Tiers, Warp Portals, Minions and the lead's crown. Like Diablo, only one Dungeon is open at a time, showing one tier. It opens on the deepest tier with anyone inside, or on the tier of the Hero you clicked, and the tier strip, stairs or PgUp/PgDn switch tiers. Done when you can watch a Guild at any tier.
 
 **M5: Death and Resurrection.** Death Scene, Horde, Graveyard, 24-hour Graves and Resurrection. Done when killing, clearing and resuming a test session all play out correctly.
 
@@ -420,7 +438,14 @@ Each one ends with something you can run.
 - The first live hook event, from a real Claude session.
 - Your live test: a Raven cleared once its question was answered, a chest opened after you looked at its tab in Herdr, the Sheet showed the terminal, and Ravens and chests read fine on your GPU.
 
-**Not yet seen live:** the Aura and level-up ring on a real GPU.
+**Built and tested in M4:**
+
+- All four tiers over 200 seeds each: every room, the arrival point and the stairs are reachable, with 5 to 25 rooms. Generating a tier takes at most 7 ms.
+- Heroes walking from the portal to their Party's room, and taking the stairs down on a level-up, in the sim tests.
+- `tab.list` against live Herdr: labels arrive as `<number> · <label>`.
+- Warp Portals, wisps and the crown in headless Chrome, which has no GPU, so they still need your eyes.
+
+**Not yet seen live:** the Aura and level-up ring on a real GPU, a real `/team` lead's crown, and the Dungeon numbers from `/?measure`.
 
 **Read in Herdr's and Claude's source, docs or local data, but not tested live:**
 
@@ -433,7 +458,6 @@ Each one ends with something you can run.
 - How heavy hooks are with hundreds of Agents.
 - Serving with COOP and COEP headers alongside the inbox click-through and fonts.
 - How the town pack and UI frames fit.
-- Whether the Depth Tiers read at game zoom.
 
 ## 12. Security and privacy
 

@@ -118,6 +118,10 @@ export type Sim = {
   readonly levelUps: DenseSet
   readonly auraCheck: DenseSet
   readonly auraOf: Int32Array
+  readonly minionCheck: DenseSet
+  readonly wispsOf: Int32Array
+  readonly swarmed: DenseSet
+  readonly crowned: DenseSet
   readonly changed: DenseSet
   readonly statusChanged: DenseSet
   readonly toolChanged: DenseSet
@@ -156,6 +160,7 @@ const createStores = (arena: Arena, entities: number) => ({
       party: 'u16',
       experience: 'f64',
       minions: 'u16',
+      lead: 'u8',
       ravens: 'u16',
       statusSince: 'f64',
       ravenSince: 'f64',
@@ -210,6 +215,10 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
     levelUps: createDenseSet(budgets.entities),
     auraCheck: createDenseSet(budgets.entities),
     auraOf: new Int32Array(budgets.entities).fill(NO_AURA),
+    minionCheck: createDenseSet(budgets.entities),
+    wispsOf: new Int32Array(budgets.entities).fill(NO_AURA),
+    swarmed: createDenseSet(budgets.entities),
+    crowned: createDenseSet(budgets.entities),
     changed: createDenseSet(budgets.entities),
     statusChanged: createDenseSet(budgets.entities),
     toolChanged: createDenseSet(budgets.entities),

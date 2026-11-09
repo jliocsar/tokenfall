@@ -9,6 +9,7 @@ export type HerdrAgent = {
   readonly pane_id: string
   readonly workspace_id: string
   readonly agent?: string | null
+  readonly tab_id?: string
   readonly agent_status: HerdrStatus
   readonly agent_session?: HerdrSession | null
   readonly name?: string | null
@@ -18,6 +19,8 @@ export type HerdrAgent = {
 }
 
 export type HerdrPane = Omit<HerdrAgent, 'name'>
+
+export type HerdrTab = { readonly tab_id: string; readonly label: string }
 
 export type HerdrData = {
   readonly pane_id?: string
@@ -35,6 +38,7 @@ export type HerdrMessage = {
   readonly data?: HerdrData
   readonly result?: {
     readonly agents?: readonly HerdrAgent[]
+    readonly tabs?: readonly HerdrTab[]
     readonly read?: { readonly text?: string }
     readonly layout?: { readonly panes?: readonly HerdrLayoutPane[] }
   }
@@ -74,6 +78,7 @@ export const ALLOWED_METHODS: ReadonlySet<string> = new Set([
   'pane.get',
   'pane.list',
   'pane.layout',
+  'tab.list',
 ])
 
 const ALIASES = new Map([

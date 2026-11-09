@@ -19,6 +19,7 @@ export type HeroRow = {
   readonly personality: string
   readonly sheet: number
   readonly stranger: boolean
+  readonly lead: boolean
   readonly level: number
   readonly standing: Standing
   readonly quest: string
@@ -124,6 +125,7 @@ const rowOf = (sim: Sim, eid: number, dying: number, dead: number): HeroRow => {
     personality: personality.name,
     sheet: hero.sheet[eid]!,
     stranger: isStranger(sim.config.characters, hero.sheet[eid]!),
+    lead: hero.lead[eid] === 1,
     level: hero.level[eid]!,
     standing,
     quest: sim.text.quest[eid]!,

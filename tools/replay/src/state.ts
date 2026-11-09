@@ -24,6 +24,8 @@ export const applyEvent = (table: HeroTable, event: HeroEvent): void => {
     update(table, event.hero, { pane: event.pane, workspace: event.workspace, guild: event.guild })
   } else if (event.kind === 'hero.minions') {
     update(table, event.hero, { minions: event.minions })
+  } else if (event.kind === 'hero.lead') {
+    update(table, event.hero, { lead: event.lead })
   } else if (event.kind === 'hero.died') {
     update(table, event.hero, { alive: false })
   } else if (event.kind === 'hero.resurrected') {

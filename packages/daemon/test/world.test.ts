@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { HeroEvent } from '@tokenfall/protocol/events'
+import { isLeadTab } from '../src/adapters/herdr/adapter.ts'
 import { assertAllowed, request } from '../src/adapters/herdr/client.ts'
 import { migrate, openDatabase, schemaVersion } from '../src/store/db.ts'
 import { MIGRATIONS } from '../src/store/migrations/index.ts'
@@ -9,6 +10,7 @@ import {
   flushDirty,
   observe,
   paneGone,
+  setLeads,
   setStatus,
   sweepMissing,
   type Observed,
@@ -156,6 +158,46 @@ describe('herdr allowlist', () => {
     expect(() => {
       assertAllowed('agent.list')
     }).not.toThrow()
+    expect(() => {
+      assertAllowed('tab.list')
+    }).not.toThrow()
+  })
+
+  test('tab writes stay refused', () => {
+    for (const method of ['tab.create', 'tab.rename', 'tab.focus', 'tab.close']) {
+      expect(() => {
+        assertAllowed(method)
+      }).toThrow('read-only allowlist')
+    }
+  })
+})
+
+describe('the lead', () => {
+  test('a tab labelled lead marks its pane, with or without the tab number', () => {
+    expect(isLeadTab('lead')).toBe(true)
+    expect(isLeadTab('1 · lead')).toBe(true)
+    expect(isLeadTab('leader')).toBe(false)
+    expect(isLeadTab('2 · node_modules › lead the way')).toBe(false)
+  })
+
+  test('setLeads sends hero.lead only when it changes', () => {
+    const world = freshWorld()
+    observe(world, seen('w1:p1', 's1'), 1)
+    observe(world, seen('w1:p2', 's2'), 1)
+    drain(world)
+    setLeads(world, new Set(['w1:p1']), 2)
+    const events = drain(world)
+
+    expect(kinds(events)).toEqual(['hero.lead'])
+    expect(events[0]).toMatchObject({ at: 2, lead: true })
+
+    setLeads(world, new Set(['w1:p1']), 3)
+
+    expect(drain(world)).toEqual([])
+
+    setLeads(world, new Set(), 4)
+
+    expect(kinds(drain(world))).toEqual(['hero.lead'])
   })
 })
 

@@ -1,13 +1,16 @@
-import { removeMember } from '../core/dense-set.ts'
+import wisps from '@tokenfall/data/effects/minion-wisps.json'
+import { addMember, removeMember } from '../core/dense-set.ts'
 import { stateId } from '../core/fsm.ts'
 import { NO_AURA } from '../core/sim.ts'
 import type { System } from '../core/system.ts'
-import { endEffect, followTargets, spawnEffect } from './emitters.ts'
+import { EMITTER_STRIDE, endEffect, followTargets, spawnEffect } from './emitters.ts'
 
 export const LEVEL_UP_KIND = 0
 export const AURA_KIND = 1
 export const WARP_PORTAL_KIND = 2
 export const WARP_FLARE_KIND = 3
+export const MINION_KIND = 4
+export const MAX_WISPS = wisps.particles / wisps.params.trail
 
 export const levelUpBurstSystem: System = {
   name: 'level-up-bursts',
@@ -50,6 +53,48 @@ export const auraSystem: System = {
       } else if (!wants && current !== NO_AURA) {
         endEffect(sim, current)
         auraOf[eid] = NO_AURA
+      }
+    }
+  },
+}
+
+export const minionSystem: System = {
+  name: 'minion-wisps',
+  complexity: 'O(heroes whose minions or life changed this frame)',
+  run: (sim, now) => {
+    const { minionCheck, wispsOf, swarmed } = sim
+    const dying = stateId(sim.machine, 'dying')
+    const dead = stateId(sim.machine, 'dead')
+
+    while (minionCheck.size > 0) {
+      const eid = minionCheck.dense[minionCheck.size - 1]!
+      removeMember(minionCheck, eid)
+      const state = sim.stores.behavior.state[eid]!
+      const minions = state === dying || state === dead ? 0 : sim.stores.hero.minions[eid]!
+      const current = wispsOf[eid]!
+
+      if (minions > MAX_WISPS) {
+        addMember(swarmed, eid)
+      } else {
+        removeMember(swarmed, eid)
+      }
+
+      if (minions === 0) {
+        if (current !== NO_AURA) {
+          endEffect(sim, current)
+          wispsOf[eid] = NO_AURA
+        }
+
+        continue
+      }
+
+      const effect = current === NO_AURA ? spawnEffect(sim, MINION_KIND, eid, now) : current
+      wispsOf[eid] = effect
+
+      if (effect !== NO_AURA) {
+        const kind = sim.effects[MINION_KIND]!
+        kind.data[sim.stores.emitter.slot[effect]! * EMITTER_STRIDE + 4] = minions
+        kind.dirty = true
       }
     }
   },
