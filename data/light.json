@@ -16,6 +16,11 @@
     "flicker": 0.06,
     "flickerHz": 7
   },
+  "torch": {
+    "radius": 2.6,
+    "color": "#ffb468",
+    "alpha": 0.9
+  },
   "lantern": {
     "radius": 4,
     "color": "#ffcf8a",

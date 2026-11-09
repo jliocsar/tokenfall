@@ -17,7 +17,7 @@ import type { HeroLayer, View } from '../../render/heroes.ts'
 export type StaticLight = {
   readonly x: number
   readonly y: number
-  readonly kind: 'fire' | 'lantern'
+  readonly kind: 'fire' | 'lantern' | 'torch'
 }
 
 export type LightLayer = {
@@ -100,16 +100,16 @@ export const createLightLayer = (sim: Sim, width: number, height: number): Light
   }
 }
 
-const settingsOf = (kind: StaticLight['kind']) => (kind === 'fire' ? light.fire : light.lantern)
+const settingsOf = (kind: StaticLight['kind']) => light[kind]
 
 const bake = (layer: LightLayer, lights: readonly StaticLight[]): void => {
   const reach = light.fire.radius
-  const xs = lights.map((source) => source.x)
-  const ys = lights.map((source) => source.y)
-  layer.gridX = Math.floor(Math.min(0, ...xs) - reach)
-  layer.gridY = Math.floor(Math.min(0, ...ys) - reach)
-  layer.gridWidth = Math.ceil(Math.max(0, ...xs) + reach) - layer.gridX
-  layer.gridHeight = Math.ceil(Math.max(0, ...ys) + reach) - layer.gridY
+  const xs = lights.length === 0 ? [0] : lights.map((source) => source.x)
+  const ys = lights.length === 0 ? [0] : lights.map((source) => source.y)
+  layer.gridX = Math.floor(Math.min(...xs) - reach)
+  layer.gridY = Math.floor(Math.min(...ys) - reach)
+  layer.gridWidth = Math.ceil(Math.max(...xs) + reach) - layer.gridX
+  layer.gridHeight = Math.ceil(Math.max(...ys) + reach) - layer.gridY
   layer.grid = new Float32Array(layer.gridWidth * layer.gridHeight).fill(layer.ambientLuminance)
 
   for (const source of lights) {

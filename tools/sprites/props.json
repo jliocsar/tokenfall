@@ -29,7 +29,9 @@
     "rack": 1,
     "chest": 0.55,
     "board": 1.5,
-    "raven": 0.4
+    "raven": 0.4,
+    "cliff": 1.5,
+    "boulder": 0.5
   },
   "tiles": [
     {
@@ -191,6 +193,175 @@
       "rots": [-45, 0, 45, 90, 135, 180, 225, 270],
       "frames": [0, 6, 12, 17, 23, 29],
       "color": [0.09, 0.09, 0.13]
+    },
+    {
+      "name": "d_floor",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/floor_tile_large.gltf.glb",
+      "scale": 0.68289
+    },
+    {
+      "name": "d_floor_cracked",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/floor_tile_small_broken_A.gltf.glb",
+      "scale": 1.36578
+    },
+    {
+      "name": "d_floor_rocks",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/floor_tile_large_rocks.gltf.glb",
+      "scale": 0.68289
+    },
+    {
+      "name": "d_dirt",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/floor_dirt_large.gltf.glb",
+      "scale": 0.68289
+    },
+    {
+      "name": "d_dirt_rocky",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/floor_dirt_large_rocky.gltf.glb",
+      "scale": 0.68289
+    },
+    {
+      "name": "d_wall",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/wall.gltf.glb",
+      "scale": 0.663,
+      "rots": [0, 90]
+    },
+    {
+      "name": "d_wall_cracked",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/wall_cracked.gltf.glb",
+      "scale": 0.663,
+      "rots": [0, 90]
+    },
+    {
+      "name": "d_wall_arched",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/wall_arched.gltf.glb",
+      "scale": 0.663,
+      "rots": [0, 90]
+    },
+    {
+      "name": "d_wall_low",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/wall.gltf.glb",
+      "scale": 0.663,
+      "rots": [0, 90],
+      "squash": 0.3
+    },
+    {
+      "name": "d_post",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/pillar.gltf.glb",
+      "scale": 0.43758,
+      "squash": 1.5
+    },
+    {
+      "name": "d_post_low",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/pillar.gltf.glb",
+      "scale": 0.43758,
+      "squash": 0.45
+    },
+    {
+      "name": "d_stairs",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/stairs.gltf.glb",
+      "scale": 0.53
+    },
+    {
+      "name": "d_torch",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/torch_mounted.gltf.glb",
+      "scale": 0.663,
+      "rots": [0, 90, 180, 270],
+      "loc": [0, 0, 1.25]
+    },
+    {
+      "name": "d_barrel",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/barrel_large.gltf.glb",
+      "scale": 0.663
+    },
+    {
+      "name": "d_crates",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/crates_stacked.gltf.glb",
+      "scale": 0.663
+    },
+    {
+      "name": "d_rubble",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/rubble_half.gltf.glb",
+      "scale": 0.663
+    },
+    {
+      "name": "d_bed",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/bed_floor.gltf.glb",
+      "scale": 0.663
+    },
+    {
+      "name": "d_table",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/table_small_decorated_A.gltf.glb",
+      "scale": 0.663
+    },
+    {
+      "name": "d_box",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/box_small.gltf.glb",
+      "scale": 0.663
+    },
+    {
+      "name": "d_column",
+      "glb": "tmp/asset-research/kaykit-dungeon-remastered/extracted/KayKit-Dungeon-Remastered-1.0-main/addons/kaykit_dungeon_remastered/Assets/gltf/column.gltf.glb",
+      "scale": 0.663
+    },
+    {
+      "name": "d_grave",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/grave_A.gltf",
+      "scale": 0.663
+    },
+    {
+      "name": "d_gravestone",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/gravestone.gltf",
+      "scale": 0.663
+    },
+    {
+      "name": "d_coffin",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/coffin.gltf",
+      "scale": 0.663
+    },
+    {
+      "name": "d_bones",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/bone_A.gltf",
+      "scale": 0.663
+    },
+    {
+      "name": "d_skull_candle",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/skull_candle.gltf",
+      "scale": 0.663
+    },
+    {
+      "name": "d_candles",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/candle_triple.gltf",
+      "scale": 0.663
+    },
+    {
+      "name": "d_ribcage",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/ribcage.gltf",
+      "scale": 0.663
+    },
+    {
+      "name": "d_skull",
+      "glb": "tmp/asset-research/kaykit-halloween-bits/extracted/KayKit-Halloween-Bits-1.0-main/addons/kaykit_halloween_bits/Assets/gltf/skull.gltf",
+      "scale": 0.663
+    },
+    {
+      "name": "d_cliff_a",
+      "glb": "tmp/asset-research/kenney-survival-kit/extracted/Models/GLB format/rock-a.glb",
+      "preset": "cliff"
+    },
+    {
+      "name": "d_cliff_b",
+      "glb": "tmp/asset-research/kenney-survival-kit/extracted/Models/GLB format/rock-b.glb",
+      "preset": "cliff"
+    },
+    {
+      "name": "d_boulder",
+      "glb": "tmp/asset-research/kenney-survival-kit/extracted/Models/GLB format/rock-c.glb",
+      "preset": "boulder"
+    },
+    {
+      "name": "d_fire",
+      "glb": "tmp/asset-research/kenney-survival-kit/extracted/Models/GLB format/campfire-pit.glb",
+      "preset": "fire"
     }
   ]
 }

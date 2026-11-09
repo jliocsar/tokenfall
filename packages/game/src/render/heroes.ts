@@ -25,7 +25,12 @@ export type Atlas = {
   readonly props?: Readonly<Record<string, readonly number[]>>
 }
 
-export type PropPlacement = { readonly name: string; readonly x: number; readonly y: number }
+export type PropPlacement = {
+  readonly name: string
+  readonly x: number
+  readonly y: number
+  readonly tint?: number
+}
 
 export type PropSlots = {
   readonly particles: Particle[]
@@ -55,6 +60,7 @@ export type HeroLayer = {
 }
 
 const MAX_FRAMES = 8
+const WHITE = 0xff_ff_ff
 const DIRECTIONS = 8
 const IDLE_FPS = 6
 const WALK_FPS = 10
@@ -128,6 +134,7 @@ export const setProps = (layer: HeroLayer, placements: readonly PropPlacement[])
         anchorY: texture.defaultAnchor?.y ?? 1,
         x: screenX(placement.x, placement.y),
         y: screenY(placement.x, placement.y),
+        tint: placement.tint ?? WHITE,
       })
     }),
     depth: sorted.map((placement) => placement.x + placement.y),

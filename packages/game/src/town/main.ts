@@ -181,7 +181,7 @@ const source = pickSource()
 const sim = bootSim(await source.ready, started, {})
 const town = createTownLayer()
 const heroes = createHeroLayer(sim, atlas, texture, [])
-const dungeonView = createDungeonView()
+const dungeonView = createDungeonView(heroes.textures[0]!, heroes.propTextures)
 const inside = stateFlags(sim.machine, ['warping-in', 'delving'])
 const scene = {
   townX: 0,
@@ -342,7 +342,9 @@ const openDungeon = (guild: number, tier: number): void => {
 
   const tuning = dungeonTuning.tiers[tier]!
   setAmbient(light, tuning.ambient, tuning.ambientLuminance)
-  showTier(dungeonView, sim, guild, tier)
+  const dressing = showTier(dungeonView, sim, guild, tier)
+  setProps(heroes, off.has('props') ? [] : dressing.props)
+  setStaticLights(light, dressing.lights)
   dungeonModel.show(guildLabel(sim.groups.guildKeys[guild] ?? ''), tier)
   countTiers(guild)
   dungeonModel.setCounts(scene.counts)
