@@ -612,3 +612,46 @@
   color: var(--ink-gold);
   font: var(--text-pixel);
 }
+
+.tier-strip {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  z-index: 5;
+}
+
+.tier-strip .guild {
+  color: var(--ink-gold);
+  font: var(--text-small);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.tier-strip button {
+  background: none;
+  border: 1px solid var(--edge);
+  color: var(--ink);
+  font: var(--text-pixel);
+  cursor: pointer;
+  padding: 2px 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.tier-strip .tier.current {
+  border-color: var(--ink-gold);
+  color: var(--ink-gold);
+}
+
+.tier-strip .tier.empty .count {
+  color: var(--ink-dim);
+}
+
+.tier-strip .leave {
+  margin-left: 6px;
+}

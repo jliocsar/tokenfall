@@ -208,10 +208,6 @@ export const entranceSpot = (sim: Sim, guild: number, out: Float64Array): void =
   out[1] = sim.town.entranceY[plot]!
 }
 
-export const dungeonSpot = (sim: Sim, guild: number, out: Float64Array): void => {
-  entranceSpot(sim, guild, out)
-}
-
 export const jitter = (sim: Sim, radius: number, out: Float64Array): void => {
   const angle = sim.random() * Math.PI * 2
   const distance = Math.sqrt(sim.random()) * radius

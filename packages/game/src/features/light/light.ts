@@ -35,10 +35,14 @@ export type LightLayer = {
   gridWidth: number
   gridHeight: number
   fires: Particle[]
+  ambient: string
+  ambientLuminance: number
 }
 
 const TILE_PIXELS = 128
 const LIGHT_ANCHOR = 0.5
+
+export const TOWN_AMBIENT = { color: light.ambient, luminance: light.ambientLuminance } as const
 
 const radialTexture = (size: number): Texture => {
   const canvas = document.createElement('canvas')
@@ -91,6 +95,8 @@ export const createLightLayer = (sim: Sim, width: number, height: number): Light
     gridWidth: 0,
     gridHeight: 0,
     fires: [],
+    ambient: light.ambient,
+    ambientLuminance: light.ambientLuminance,
   }
 }
 
@@ -104,7 +110,7 @@ const bake = (layer: LightLayer, lights: readonly StaticLight[]): void => {
   layer.gridY = Math.floor(Math.min(0, ...ys) - reach)
   layer.gridWidth = Math.ceil(Math.max(0, ...xs) + reach) - layer.gridX
   layer.gridHeight = Math.ceil(Math.max(0, ...ys) + reach) - layer.gridY
-  layer.grid = new Float32Array(layer.gridWidth * layer.gridHeight).fill(light.ambientLuminance)
+  layer.grid = new Float32Array(layer.gridWidth * layer.gridHeight).fill(layer.ambientLuminance)
 
   for (const source of lights) {
     const { radius, alpha } = settingsOf(source.kind)
@@ -150,12 +156,18 @@ export const setStaticLights = (layer: LightLayer, lights: readonly StaticLight[
   bake(layer, lights)
 }
 
+export const setAmbient = (layer: LightLayer, color: string, luminance: number): void => {
+  layer.ambient = color
+  layer.ambientLuminance = luminance
+  layer.lit.fill(0)
+}
+
 const brightness = (layer: LightLayer, x: number, y: number): number => {
   const gx = Math.floor(x) - layer.gridX
   const gy = Math.floor(y) - layer.gridY
 
   if (gx < 0 || gy < 0 || gx >= layer.gridWidth || gy >= layer.gridHeight) {
-    return light.ambientLuminance
+    return layer.ambientLuminance
   }
 
   return layer.grid[gy * layer.gridWidth + gx]!
@@ -257,7 +269,7 @@ export const renderLight = (
     container: layer.scene,
     target: layer.target,
     clear: true,
-    clearColor: light.ambient,
+    clearColor: layer.ambient,
   })
 
   return count

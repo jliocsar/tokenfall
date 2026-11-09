@@ -60,6 +60,22 @@ import { createNoticeBoard } from '../features/notices/model.ts'
 import { boardAt, createBoardBadge, ravenReach, syncBoardBadge } from '../features/notices/badge.ts'
 import { threadUrl, type InboxState } from '@tokenfall/protocol/inbox'
 import { createChests, syncChests } from '../features/loot/chests.ts'
+import dungeonTuning from '@tokenfall/data/dungeon.json'
+import { tierInside } from '../core/dungeon.ts'
+import { stateFlags } from '../core/fsm.ts'
+import { guildLabel } from '../core/groups.ts'
+import { NONE } from '../core/hero-index.ts'
+import { entranceSpot, NO_PLOT } from '../core/layout.ts'
+import { createDungeonModel } from '../features/dungeon/model.ts'
+import {
+  createDungeonView,
+  hideDungeon,
+  showTier,
+  stairsUnder,
+  tierCorners,
+} from '../features/dungeon/view.ts'
+import { setAmbient, TOWN_AMBIENT } from '../features/light/light.ts'
+import { groundX, groundY } from '../core/iso.ts'
 import {
   createTownMeasure,
   type MeasurePlan,
@@ -78,6 +94,7 @@ type Settings = {
   readonly replay: string | undefined
   readonly synthetic: boolean
   readonly measure: MeasurePlan | undefined
+  readonly dungeon: number | undefined
 }
 
 const HUD_EVERY_MS = 250
@@ -87,6 +104,8 @@ const SOUTH = 'S'
 const FIT_AFTER_MS = 1500
 const DEFAULT_REPLAY = 'ws://127.0.0.1:47330'
 const LANTERN_LIT: ReadonlySet<string> = new Set(['lantern', 'notice_board'])
+const ENTRANCE_REACH = 1.6
+const TIER_KEYS = { up: 'PageUp', down: 'PageDown', leave: 'Escape' } as const
 
 const readSettings = (): Settings => {
   const params = new URLSearchParams(window.location.search)
@@ -100,6 +119,7 @@ const readSettings = (): Settings => {
     replay: replay === null ? undefined : replay || DEFAULT_REPLAY,
     synthetic: plan !== undefined || params.has('heroes'),
     measure: plan,
+    dungeon: params.has('dungeon') ? Number(params.get('dungeon') ?? 0) : undefined,
   }
 }
 
@@ -160,7 +180,15 @@ const sheet = createSheet()
 const source = pickSource()
 const sim = bootSim(await source.ready, started, {})
 const town = createTownLayer()
-const heroes = createHeroLayer(sim, atlas, texture, ['delving'])
+const heroes = createHeroLayer(sim, atlas, texture, [])
+const dungeonView = createDungeonView()
+const inside = stateFlags(sim.machine, ['warping-in', 'delving'])
+const scene = {
+  townX: 0,
+  townY: 0,
+  townZoom: 0.35,
+  counts: new Uint16Array(dungeonTuning.tiers.length),
+}
 const effects = createEffectLayer(sim, EFFECT_DEFINITIONS)
 const world = new Container({ label: 'world', isRenderGroup: true })
 const chests = createChests(sim, heroes)
@@ -219,11 +247,180 @@ const measure: TownMeasure | undefined =
 const marker = createSelectionMarker()
 const queue = createAttentionQueue(sim)
 world.addChildAt(marker.ring, 1)
+world.addChildAt(dungeonView.container, 0)
 attachCamera(app.canvas, camera)
+
+const countTiers = (guild: number): void => {
+  const { index } = sim
+  const { hero, behavior } = sim.stores
+  scene.counts.fill(0)
+
+  for (let slot = 0; slot < index.nextSlot; slot++) {
+    const eid = index.entityOf[slot]!
+
+    if (eid !== NONE && inside[behavior.state[eid]!] === 1 && hero.guild[eid] === guild) {
+      const tier = tierInside(sim, eid)
+      scene.counts[tier] = scene.counts[tier]! + 1
+    }
+  }
+}
+
+const deepestTier = (guild: number): number => {
+  countTiers(guild)
+
+  for (let tier = scene.counts.length - 1; tier > 0; tier--) {
+    if (scene.counts[tier]! > 0) {
+      return tier
+    }
+  }
+
+  return 0
+}
+
+const busiestGuild = (): number => {
+  let best = 0
+  let most = -1
+
+  for (let guild = 0; guild < sim.groups.guildKeys.length; guild++) {
+    countTiers(guild)
+    const total = scene.counts.reduce((sum, count) => sum + count, 0)
+
+    if (total > most) {
+      most = total
+      best = guild
+    }
+  }
+
+  return best
+}
+
+const openRequestedDungeon = (): void => {
+  if (settings.dungeon !== undefined && sim.groups.guildKeys.length > 0) {
+    openDungeon(busiestGuild(), settings.dungeon)
+  }
+}
+
+const refreshTierStrip = (): void => {
+  if (dungeonView.open !== undefined) {
+    countTiers(dungeonView.open.guild)
+    dungeonModel.setCounts(scene.counts)
+  }
+}
+
+const fitDungeon = (): void => {
+  const { open } = dungeonView
+
+  if (open === undefined) {
+    return
+  }
+
+  fitCamera(
+    camera,
+    tierCorners(sim, open.guild, open.tier),
+    app.screen.width - ROSTER_SPACE,
+    app.screen.height,
+  )
+  camera.x += ROSTER_SPACE / 2 / camera.zoom
+}
+
+const hideTown = (): void => {
+  scene.townX = camera.x
+  scene.townY = camera.y
+  scene.townZoom = camera.zoom
+  town.container.visible = false
+  town.labels.visible = false
+  badges.container.visible = false
+  boardBadge.container.visible = false
+  setProps(heroes, [])
+  setStaticLights(light, [])
+}
+
+const openDungeon = (guild: number, tier: number): void => {
+  if (dungeonView.open === undefined) {
+    hideTown()
+  }
+
+  const tuning = dungeonTuning.tiers[tier]!
+  setAmbient(light, tuning.ambient, tuning.ambientLuminance)
+  showTier(dungeonView, sim, guild, tier)
+  dungeonModel.show(guildLabel(sim.groups.guildKeys[guild] ?? ''), tier)
+  countTiers(guild)
+  dungeonModel.setCounts(scene.counts)
+  fitDungeon()
+}
+
+const leaveDungeonView = (): void => {
+  if (dungeonView.open === undefined) {
+    return
+  }
+
+  hideDungeon(dungeonView)
+  dungeonModel.hide()
+  town.container.visible = true
+  town.labels.visible = true
+  badges.container.visible = true
+  boardBadge.container.visible = true
+  setAmbient(light, TOWN_AMBIENT.color, TOWN_AMBIENT.luminance)
+  furnishTown()
+  camera.x = scene.townX
+  camera.y = scene.townY
+  camera.zoom = scene.townZoom
+  camera.targetX = undefined
+  camera.targetY = undefined
+}
+
+const stepTier = (delta: number): void => {
+  const { open } = dungeonView
+
+  if (open === undefined) {
+    return
+  }
+
+  const tier = Math.min(dungeonTuning.tiers.length - 1, Math.max(0, open.tier + delta))
+
+  if (tier !== open.tier) {
+    openDungeon(open.guild, tier)
+  }
+}
 
 const focusHero = (eid: number): void => {
   const { x, y } = sim.stores.position
+
+  if (inside[sim.stores.behavior.state[eid]!] === 1) {
+    const guild = sim.stores.hero.guild[eid]!
+    const tier = tierInside(sim, eid)
+    const { open } = dungeonView
+
+    if (open?.guild !== guild || open.tier !== tier) {
+      openDungeon(guild, tier)
+    }
+
+    if (sim.stores.delve.placed[eid] === 1) {
+      glideTo(camera, screenX(x[eid]!, y[eid]!), screenY(x[eid]!, y[eid]!) - 40)
+    }
+
+    return
+  }
+
+  leaveDungeonView()
   glideTo(camera, screenX(x[eid]!, y[eid]!), screenY(x[eid]!, y[eid]!) - 40)
+}
+
+const entranceAt = (pixelX: number, pixelY: number): number => {
+  const wx = groundX(pixelX, pixelY)
+  const wy = groundY(pixelX, pixelY)
+
+  for (let guild = 0; guild < sim.groups.guildKeys.length; guild++) {
+    if (sim.town.plotOfGuild[guild] !== NO_PLOT) {
+      entranceSpot(sim, guild, sim.scratch)
+
+      if (Math.hypot(sim.scratch[0]! - wx, sim.scratch[1]! - wy) <= ENTRANCE_REACH) {
+        return guild
+      }
+    }
+  }
+
+  return -1
 }
 
 const south = atlas.directions.indexOf(SOUTH)
@@ -250,11 +447,21 @@ const focusBoard = (): void => {
   noticeBoard.show()
 }
 
+const dungeonModel = createDungeonModel({
+  pick: (tier) => {
+    const { open } = dungeonView
+
+    if (open !== undefined) {
+      openDungeon(open.guild, tier)
+    }
+  },
+  leave: leaveDungeonView,
+})
 sheet.connect(sim, source.watch)
 const ui = mountUi(
   bridge,
   source.label,
-  { chronicle, inbox, sheet, board: noticeBoard, onBoard: focusBoard },
+  { chronicle, inbox, sheet, board: noticeBoard, onBoard: focusBoard, dungeon: dungeonModel },
   element('ui'),
 )
 
@@ -274,6 +481,20 @@ const answerRaven = (eid: number): void => {
 camera.onClick = (pointerX, pointerY) => {
   const worldX = (pointerX - app.screen.width / 2) / camera.zoom + camera.x
   const worldY = (pointerY - app.screen.height / 2) / camera.zoom + camera.y
+  const reach = PICK_REACH / Math.min(1, camera.zoom)
+
+  if (dungeonView.open !== undefined) {
+    const stairs = stairsUnder(dungeonView, sim, worldX, worldY)
+
+    if (stairs === 0) {
+      bridge.select(pickHero(sim, heroes, worldX, worldY, reach))
+    } else {
+      stepTier(stairs)
+    }
+
+    return
+  }
+
   const raven =
     flock === undefined ? NOBODY : ravenAt(flock, worldX, worldY, ravenReach(camera.zoom))
 
@@ -289,7 +510,17 @@ camera.onClick = (pointerX, pointerY) => {
     return
   }
 
-  bridge.select(pickHero(sim, heroes, worldX, worldY, PICK_REACH / Math.min(1, camera.zoom)))
+  const picked = pickHero(sim, heroes, worldX, worldY, reach)
+  const badge = badgeAt(badges, pointerX, pointerY)
+  const guild = badge >= 0 ? badge : entranceAt(worldX, worldY)
+
+  if (picked === NOBODY && guild >= 0) {
+    openDungeon(guild, deepestTier(guild))
+
+    return
+  }
+
+  bridge.select(picked)
 }
 
 const fitTown = (): void => {
@@ -318,7 +549,20 @@ const fitTown = (): void => {
 
 window.addEventListener('keydown', (event) => {
   if (KEYBINDS.fit.some((key) => key === event.key)) {
-    fitTown()
+    if (dungeonView.open === undefined) {
+      fitTown()
+    } else {
+      fitDungeon()
+    }
+  }
+
+  if (event.key === TIER_KEYS.leave) {
+    leaveDungeonView()
+  }
+
+  if (event.key === TIER_KEYS.up || event.key === TIER_KEYS.down) {
+    event.preventDefault()
+    stepTier(event.key === TIER_KEYS.up ? -1 : 1)
   }
 
   if (KEYBINDS.sheet.some((key) => key === event.key) && bridge.selected() !== NOBODY) {
@@ -356,6 +600,10 @@ app.canvas.addEventListener('pointermove', (event) => {
 })
 
 const furnishTown = (): void => {
+  if (dungeonView.open !== undefined) {
+    return
+  }
+
   const placements = townProps(sim, townBounds(sim))
   const board = placements.find((placement) => placement.name === 'notice_board')
   noticeBoard.spot.placed = board !== undefined
@@ -381,7 +629,7 @@ const paintHud = (now: number): void => {
     `${loop.fps.toFixed(0)} fps`,
     `${heroCount(sim.index)} heroes · ${sim.groups.guildKeys.length} guilds · ${sim.groups.partyWorkspace.length} parties`,
     `town seed ${sim.town.seed} · ${source.label}`,
-    `[q] next who needs you  [f] fit  wasd/drag pan  wheel zoom`,
+    `[q] next who needs you  [f] fit  wasd/drag pan  wheel zoom  click an entrance to go in`,
     ...(measure === undefined ? [] : [measureLabel(measure), loop.report]),
   ].join('\n')
   loop.nextHud = now + HUD_EVERY_MS
@@ -448,6 +696,7 @@ const frame = (now: number): void => {
   if (!loop.fitted && now - started > FIT_AFTER_MS) {
     loop.fitted = true
     fitTown()
+    openRequestedDungeon()
   }
 
   updateCamera(camera, world, app.screen.width, app.screen.height, dt, view)
@@ -486,6 +735,7 @@ const frame = (now: number): void => {
 
   if (now >= loop.nextHud) {
     paintHud(now)
+    refreshTierStrip()
   }
 
   if (now >= loop.nextRoster && !loop.rosterPending) {

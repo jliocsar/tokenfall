@@ -21,8 +21,7 @@
     "everyMs": 250,
     "offsetY": 150,
     "pip": 7,
-    "tiers": 4,
-    "tierLevels": 25
+    "tiers": 4
   },
   "fonts": {
     "pixel": "Pixel Operator",

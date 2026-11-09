@@ -2,6 +2,7 @@ import budgets from '@tokenfall/data/budgets.json'
 import angelRing from '@tokenfall/data/effects/angel-ring.json'
 import aura from '@tokenfall/data/effects/aura.json'
 import machine from '@tokenfall/data/hero-states.json'
+import dungeon from '@tokenfall/data/dungeon.json'
 import curve from '@tokenfall/data/level-curve.json'
 import names from '@tokenfall/data/names.json'
 import personalities from '@tokenfall/data/personalities.json'
@@ -35,6 +36,8 @@ export const bootSim = (seed: number, epoch: number, overrides: Partial<Budgets>
       sheets: HERO_SHEETS.length,
       town,
       characters: createCharacters(personalities.personalities, names, HERO_SHEETS),
+      dungeon,
+      depthTiers: curve.depthTiers,
     },
     epoch,
   )

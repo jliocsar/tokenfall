@@ -13,6 +13,8 @@ import { createRoster, type Roster } from '../features/roster/model.ts'
 import { RosterTree } from '../features/roster/Roster.tsx'
 import type { Bridge } from './bridge.ts'
 import { DevPanel } from './DevPanel.tsx'
+import type { DungeonModel } from '../features/dungeon/model.ts'
+import { TierStrip } from '../features/dungeon/TierStrip.tsx'
 import './skins/dusk.css'
 import './ui.css'
 
@@ -24,6 +26,7 @@ export type UiModels = {
   readonly sheet: SheetModel
   readonly board: NoticeBoard
   readonly onBoard: () => void
+  readonly dungeon: DungeonModel
 }
 
 export const mountUi = (
@@ -32,13 +35,14 @@ export const mountUi = (
   models: UiModels,
   root: HTMLElement,
 ): Ui => {
-  const { chronicle, inbox, sheet, board, onBoard } = models
+  const { chronicle, inbox, sheet, board, onBoard, dungeon } = models
   const roster = createRoot(() => createRoster(bridge.sim))
   render(
     () => (
       <>
         <DevPanel bridge={bridge} source={source} />
         <Banner inbox={inbox} />
+        <TierStrip model={dungeon} />
         <NoticeList board={board} inbox={inbox} />
         <Sheet bridge={bridge} roster={roster} inbox={inbox} sheet={sheet} />
         <aside class="roster panel">

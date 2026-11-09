@@ -1,7 +1,8 @@
 import { HERO_STATUSES } from '@tokenfall/protocol/hero'
 import { enterState, NO_TRANSITION, nextState } from './fsm.ts'
 import { addMember, removeMember } from './dense-set.ts'
-import { dungeonSpot, entranceSpot, jitter, partySpot } from './layout.ts'
+import { enterDungeonAt, leaveDungeon } from './dungeon.ts'
+import { entranceSpot, jitter, partySpot } from './layout.ts'
 import { TIMER_STATE, TIMER_WANDER, type Sim } from './sim.ts'
 import { schedule } from './timers.ts'
 
@@ -29,6 +30,7 @@ const setAnchor = (sim: Sim, eid: number): void => {
 }
 
 const settleAtCamp: Action = (sim, eid) => {
+  leaveDungeon(sim, eid)
   partySpot(sim, sim.stores.hero.party[eid]!, sim.scratch)
   jitter(sim, sim.config.town.party.radius, sim.scratch)
   setAnchor(sim, eid)
@@ -50,14 +52,13 @@ const walkToEntrance: Action = (sim, eid) => {
 }
 
 const exitDungeon: Action = (sim, eid) => {
+  leaveDungeon(sim, eid)
   entranceSpot(sim, sim.stores.hero.guild[eid]!, sim.scratch)
   teleport(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
 }
 
 const enterDungeon: Action = (sim, eid) => {
-  dungeonSpot(sim, sim.stores.hero.guild[eid]!, sim.scratch)
-  setAnchor(sim, eid)
-  teleport(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
+  enterDungeonAt(sim, eid)
 }
 
 const stop: Action = (sim, eid) => {

@@ -10,6 +10,7 @@ import {
 import world from '@tokenfall/data/world.json'
 import { displayName, titleOf } from '../../core/character.ts'
 import { stateFlags } from '../../core/fsm.ts'
+import { tierInside } from '../../core/dungeon.ts'
 import { NONE } from '../../core/hero-index.ts'
 import { NO_PLOT } from '../../core/layout.ts'
 import type { Sim } from '../../core/sim.ts'
@@ -100,9 +101,6 @@ export const createBadges = (sim: Sim): Badges => {
   }
 }
 
-const tierOf = (level: number): number =>
-  Math.min(tuning.tiers - 1, Math.floor((level - 1) / tuning.tierLevels))
-
 const count = (badges: Badges, sim: Sim): void => {
   const { index } = sim
   const { hero, behavior } = sim.stores
@@ -112,7 +110,7 @@ const count = (badges: Badges, sim: Sim): void => {
     const eid = index.entityOf[slot]!
 
     if (eid !== NONE && badges.inside[behavior.state[eid]!] === 1) {
-      const cell = hero.guild[eid]! * tuning.tiers + tierOf(hero.level[eid]!)
+      const cell = hero.guild[eid]! * tuning.tiers + tierInside(sim, eid)
       badges.counts[cell] = badges.counts[cell]! + 1
     }
   }

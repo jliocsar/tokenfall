@@ -131,6 +131,8 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   sim.text.ravenThread[eid] = hero.ravenThread ?? ''
   trackWaiting(sim, eid, hero.alive)
   stores.behavior.serial[eid] = 0
+  stores.delve.inside[eid] = 0
+  stores.delve.placed[eid] = 0
   partySpot(sim, stores.hero.party[eid]!, sim.scratch)
   jitter(sim, sim.config.town.party.radius, sim.scratch)
   teleport(sim, eid, sim.scratch[0]!, sim.scratch[1]!)

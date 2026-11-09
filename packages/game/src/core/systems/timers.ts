@@ -1,6 +1,7 @@
 import { entityExists } from 'bitecs'
 import { scheduleWander, moveTo, sendInput, settleStatus } from '../behavior.ts'
 import { hasMember } from '../dense-set.ts'
+import { dungeonWanderSpot } from '../dungeon.ts'
 import { jitter } from '../layout.ts'
 import { TIMER_EFFECT_END, TIMER_STATE, TIMER_WANDER, type Sim } from '../sim.ts'
 import type { System } from '../system.ts'
@@ -11,6 +12,16 @@ const wander = (sim: Sim, eid: number, now: number): void => {
   const { behavior, anchor } = sim.stores
 
   if (sim.wanders[behavior.state[eid]!] !== 1 || hasMember(sim.moving, eid)) {
+    return
+  }
+
+  if (sim.stores.delve.placed[eid] === 1) {
+    if (dungeonWanderSpot(sim, eid, sim.scratch)) {
+      moveTo(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
+    }
+
+    scheduleWander(sim, eid, now)
+
     return
   }
 

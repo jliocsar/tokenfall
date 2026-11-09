@@ -4,6 +4,7 @@ import { createGroups, type Groups } from './groups.ts'
 import { buildTown, type Town, type TownTuning } from './layout.ts'
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import { createDenseSet, type DenseSet } from './dense-set.ts'
+import { createDungeons, type DepthTier, type Dungeons, type DungeonTuning } from './dungeon.ts'
 import { compileMachine, inputId, stateFlags, type Machine, type MachineDefinition } from './fsm.ts'
 import { createHeroIndex, type HeroIndex } from './hero-index.ts'
 import { levelThresholds, type LevelCurve } from '@tokenfall/protocol/level'
@@ -44,6 +45,8 @@ export type SimConfig = {
   readonly sheets: number
   readonly town: TownTuning
   readonly characters: Characters
+  readonly dungeon: DungeonTuning
+  readonly depthTiers: readonly DepthTier[]
 }
 
 export type Stores = ReturnType<typeof createStores>
@@ -117,6 +120,7 @@ export type Sim = {
   readonly groups: Groups
   readonly text: HeroText
   readonly town: Town
+  readonly dungeons: Dungeons
   readonly effects: EffectKindState[]
   readonly scratch: Float64Array
   readonly random: Random
@@ -153,6 +157,12 @@ const createStores = (arena: Arena, entities: number) => ({
   position: createStore(arena, 'Position', { x: 'f32', y: 'f32' }, entities),
   anchor: createStore(arena, 'Anchor', { x: 'f32', y: 'f32' }, entities),
   motion: createStore(arena, 'Motion', { tx: 'f32', ty: 'f32', speed: 'f32', dir: 'u8' }, entities),
+  delve: createStore(
+    arena,
+    'Delve',
+    { inside: 'u8', placed: 'u8', tier: 'u8', room: 'u16' },
+    entities,
+  ),
   emitter: createStore(
     arena,
     'Emitter',
@@ -206,6 +216,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
       ravenThread: Array.from({ length: budgets.entities }, () => ''),
     },
     town: buildTown(config.seed, config.town, budgets.guilds),
+    dungeons: createDungeons(budgets.guilds, config.dungeon.tiers.length),
     effects: [],
     scratch: new Float64Array(4),
     random: mulberry32(config.seed),
