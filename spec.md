@@ -399,7 +399,7 @@ Each one ends with something you can run.
 
 **M3: Ravens, chests and the terminal. Done.** Inbox adapter, the Notice Board, permission Ravens, Loot Chests cleared by seen state, the Character Sheet and the terminal view. Done when a real question raises a Raven that clears once answered, and looking at a finished Agent in Herdr opens its chest.
 
-**M4: Dungeons.** Seeded generator using rot.js, with a seed derived from the Town seed and the Repo, four Depth Tiers, Warp Portals, Minions and the lead's crown. Like Diablo, only one Dungeon is open at a time, showing one tier. It opens on the deepest tier with anyone inside, or on the tier of the Hero you clicked, and the tier strip, stairs or PgUp/PgDn switch tiers. Done when you can watch a Guild at any tier.
+**M4: Dungeons. Done.** Seeded generator using rot.js, with a seed derived from the Town seed and the Repo, four Depth Tiers, Warp Portals, Minions and the lead's crown. Like Diablo, only one Dungeon is open at a time, showing one tier. It opens on the deepest tier with anyone inside, or on the tier of the Hero you clicked, and the tier strip, stairs or PgUp/PgDn switch tiers. Done when you can watch a Guild at any tier.
 
 **M5: Death and Resurrection.** Death Scene, Horde, Graveyard, 24-hour Graves and Resurrection. Done when killing, clearing and resuming a test session all play out correctly.
 
