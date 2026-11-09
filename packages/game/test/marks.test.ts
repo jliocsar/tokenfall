@@ -25,6 +25,8 @@ const hero = (id: string, minions: number, lead: boolean): HeroInfo => ({
   minions,
   lead,
   alive: true,
+  diedAt: 0,
+  cause: null,
   ravens: 0,
   ravenThread: null,
   ravenSince: 0,

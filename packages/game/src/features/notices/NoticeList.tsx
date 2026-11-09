@@ -1,6 +1,7 @@
 import tuning from '@tokenfall/data/ravens.json'
 import { threadUrl, type Notice } from '@tokenfall/protocol/inbox'
 import { createSignal, For, onCleanup, Show } from 'solid-js'
+import { ageText } from '../../ui/age.ts'
 import type { InboxModel } from '../ravens/model.ts'
 import type { NoticeBoard } from './model.ts'
 
@@ -9,27 +10,7 @@ type NoticeListProps = {
   readonly inbox: InboxModel
 }
 
-const { board: text, age } = tuning
-
-const MINUTE = 60_000
-const HOUR = 60 * MINUTE
-const DAY = 24 * HOUR
-
-const ageText = (now: number, since: number): string => {
-  const elapsed = Math.max(0, now - since)
-
-  if (elapsed < MINUTE) {
-    return age.now
-  }
-
-  if (elapsed < HOUR) {
-    return age.minutes.replace('{n}', String(Math.floor(elapsed / MINUTE)))
-  }
-
-  return elapsed < DAY
-    ? age.hours.replace('{n}', String(Math.floor(elapsed / HOUR)))
-    : age.days.replace('{n}', String(Math.floor(elapsed / DAY)))
-}
+const { board: text } = tuning
 
 const countText = (count: number): string =>
   count === 1 ? text.noticeOne : text.noticeMany.replace('{count}', String(count))

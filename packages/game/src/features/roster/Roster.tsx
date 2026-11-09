@@ -1,3 +1,4 @@
+import death from '@tokenfall/data/death.json'
 import tuning from '@tokenfall/data/ravens.json'
 import { createMemo, createSignal, Index, Show, type JSX } from 'solid-js'
 import type { Bridge } from '../../ui/bridge.ts'
@@ -18,6 +19,7 @@ type Line =
     }
   | { readonly kind: 'hero'; readonly eid: number; readonly depth: number }
   | { readonly kind: 'board' }
+  | { readonly kind: 'fallen'; readonly count: number; readonly open: boolean }
 
 type RosterProps = {
   readonly bridge: Bridge
@@ -36,6 +38,7 @@ const ROW_HEIGHT = 40
 const OVERSCAN = 6
 const OPEN_ALL_UNDER = 60
 const BOARD_LINE: Line = { kind: 'board' }
+const FALLEN_KEY = 'fallen'
 
 const SUMMARY: readonly (readonly [keyof Counts, string])[] = [
   ['raven', 'raven'],
@@ -84,6 +87,22 @@ const groupLine = (line: Line, actions: GroupActions): JSX.Element => {
       <button type="button" class="line board standing-raven" onClick={actions.onBoard}>
         <span class="name">{tuning.board.row.replace('{count}', String(actions.total))}</span>
         <span class="badge">raven</span>
+      </button>
+    )
+  }
+
+  if (line.kind === 'fallen') {
+    return (
+      <button
+        type="button"
+        class="line guild fallen"
+        onClick={() => {
+          toggle(FALLEN_KEY)
+        }}
+      >
+        <span class="caret">{line.open ? '▾' : '▸'}</span>
+        <span class="name">{death.text.fallen}</span>
+        <span class="counts">{line.count}</span>
       </button>
     )
   }
@@ -242,6 +261,19 @@ export const RosterTree = (props: RosterProps) => {
           for (const eid of party.heroes) {
             out.push(heroLine(heroLines, eid, 2))
           }
+        }
+      }
+    }
+
+    const fallen = props.roster.fallen()
+
+    if (fallen.length > 0) {
+      const open = toggled().has(FALLEN_KEY)
+      out.push({ kind: 'fallen', count: fallen.length, open })
+
+      if (open) {
+        for (const eid of fallen) {
+          out.push(heroLine(heroLines, eid, 1))
         }
       }
     }

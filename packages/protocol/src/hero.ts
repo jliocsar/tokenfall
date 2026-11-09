@@ -21,6 +21,8 @@ export type HeroInfo = {
   readonly minions: number
   readonly lead: boolean
   readonly alive: boolean
+  readonly diedAt: number
+  readonly cause: DeathCause | null
   readonly ravens: number
   readonly ravenThread: string | null
   readonly ravenSince: number

@@ -95,6 +95,7 @@ export type HeroResurrected = {
   readonly kind: 'hero.resurrected'
   readonly at: number
   readonly hero: HeroId
+  readonly info?: HeroInfo
 }
 
 export type HeroEvent =

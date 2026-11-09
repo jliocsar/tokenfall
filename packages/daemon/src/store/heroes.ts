@@ -110,6 +110,19 @@ export const loadAliveHeroes = (db: Database, plots: ReadonlyMap<GuildKey, numbe
     .all()
     .map((row) => fromRow(row, plots))
 
+export const loadFallenHeroes = (
+  db: Database,
+  plots: ReadonlyMap<GuildKey, number>,
+  since: number,
+  cap: number,
+): HeroRecord[] =>
+  db
+    .query<HeroRow, [number, number]>(
+      `${SELECT} WHERE alive = 0 AND died_at >= ? ORDER BY died_at DESC LIMIT ?`,
+    )
+    .all(since, cap)
+    .map((row) => fromRow(row, plots))
+
 export const loadHero = (
   db: Database,
   id: HeroId,

@@ -3,6 +3,8 @@
   "reconcileMs": 30000,
   "statusBatchMs": 250,
   "missingAfterReconciles": 2,
+  "graveHours": 24,
+  "graveCap": 30,
   "requestTimeoutMs": 5000,
   "reconnect": {
     "minMs": 1000,

@@ -9,6 +9,7 @@ import type { System } from '../system.ts'
 import { delveSystem } from './delve.ts'
 import { drainSystem } from './drain.ts'
 import { movementSystem } from './movement.ts'
+import { graveSystem, releaseSystem } from './release.ts'
 import { timerSystem } from './timers.ts'
 
 const commitSystem: System = {
@@ -28,5 +29,7 @@ export const SIM_SYSTEMS: readonly System[] = [
   levelUpBurstSystem,
   auraSystem,
   minionSystem,
+  graveSystem,
+  releaseSystem,
   effectFollowSystem,
 ]

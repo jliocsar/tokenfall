@@ -71,10 +71,6 @@
         "angle": 70
       }
     ],
-    "graveyard": {
-      "rows": 2,
-      "columns": 4
-    },
     "tents": 3,
     "tentRadius": 4.4,
     "treeArea": 18,

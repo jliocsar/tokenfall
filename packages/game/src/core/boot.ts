@@ -9,6 +9,7 @@ import dungeon from '@tokenfall/data/dungeon.json'
 import curve from '@tokenfall/data/level-curve.json'
 import names from '@tokenfall/data/names.json'
 import personalities from '@tokenfall/data/personalities.json'
+import death from '@tokenfall/data/death.json'
 import town from '@tokenfall/data/town.json'
 import world from '@tokenfall/data/world.json'
 import { validateActions } from './behavior.ts'
@@ -41,6 +42,7 @@ export const bootSim = (seed: number, epoch: number, overrides: Partial<Budgets>
       characters: createCharacters(personalities.personalities, names, HERO_SHEETS),
       dungeon,
       depthTiers: curve.depthTiers,
+      death,
     },
     epoch,
   )

@@ -13,6 +13,7 @@ import {
   type Machine,
   type MachineDefinition,
 } from './fsm.ts'
+import { createGraves, type Graves, type GraveTuning } from './graves.ts'
 import { createHeroIndex, type HeroIndex } from './hero-index.ts'
 import { levelThresholds, type LevelCurve } from '@tokenfall/protocol/level'
 import { createQueue, type Queue } from './queue.ts'
@@ -54,6 +55,7 @@ export type SimConfig = {
   readonly characters: Characters
   readonly dungeon: DungeonTuning
   readonly depthTiers: readonly DepthTier[]
+  readonly death: { readonly graves: GraveTuning }
 }
 
 export type Stores = ReturnType<typeof createStores>
@@ -128,7 +130,11 @@ export type Sim = {
   readonly toolSteps: DenseSet
   readonly tierCheck: DenseSet
   readonly waiting: DenseSet
+  readonly releasing: DenseSet
+  readonly forgotten: DenseSet
+  readonly graves: Graves
   readonly wanders: Uint8Array
+  readonly lifeless: Uint8Array
   readonly thresholds: Float64Array
   readonly groups: Groups
   readonly text: HeroText
@@ -139,6 +145,7 @@ export type Sim = {
   readonly random: Random
   readonly counters: Counters
   readonly epoch: number
+  clockOffset: number
   spawnsThisFrame: number
 }
 
@@ -161,6 +168,10 @@ const createStores = (arena: Arena, entities: number) => ({
       experience: 'f64',
       minions: 'u16',
       lead: 'u8',
+      stranger: 'u8',
+      grouped: 'u8',
+      cause: 'u8',
+      diedAt: 'f64',
       ravens: 'u16',
       statusSince: 'f64',
       ravenSince: 'f64',
@@ -225,7 +236,11 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
     toolSteps: createDenseSet(budgets.entities),
     tierCheck: createDenseSet(budgets.entities),
     waiting: createDenseSet(budgets.entities),
+    releasing: createDenseSet(budgets.entities),
+    forgotten: createDenseSet(budgets.entities),
+    graves: createGraves(config.death.graves, budgets.entities),
     wanders: stateFlags(machine, config.tuning.wanderStates),
+    lifeless: stateFlags(machine, ['dying', 'dead']),
     thresholds: levelThresholds(config.curve),
     groups: createGroups(budgets.guilds, budgets.parties),
     text: {
@@ -254,6 +269,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
       unknownHeroEvents: 0,
     },
     epoch,
+    clockOffset: 0,
     spawnsThisFrame: 0,
   }
 }

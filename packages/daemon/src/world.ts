@@ -1,4 +1,5 @@
 import type { Database } from 'bun:sqlite'
+import tuning from '@tokenfall/data/daemon.json'
 import curve from '@tokenfall/data/level-curve.json'
 import type { ChronicleKind, ChronicleLine } from '@tokenfall/protocol/chronicle'
 import type { HeroEvent } from '@tokenfall/protocol/events'
@@ -23,6 +24,7 @@ import { readMeta, writeMeta } from './store/db.ts'
 import {
   deletePlot,
   loadAliveHeroes,
+  loadFallenHeroes,
   loadHero,
   loadPlots,
   saveHeroes,
@@ -46,7 +48,6 @@ export type World = {
   readonly townSeed: number
   readonly live: Map<HeroId, HeroRecord>
   readonly paneHero: Map<PaneId, HeroId>
-  readonly known: Set<HeroId>
   readonly plots: Map<GuildKey, number>
   readonly missing: Map<HeroId, number>
   readonly dirty: Set<HeroRecord>
@@ -65,6 +66,8 @@ export type World = {
 
 const SEED_KEY = 'townSeed'
 const THRESHOLDS = levelThresholds(curve)
+const HOUR_MS = 3_600_000
+const GRAVE_MS = tuning.graveHours * HOUR_MS
 
 export const INBOX_SEQ_KEY = 'inboxSeq'
 
@@ -105,6 +108,8 @@ export const heroInfo = (record: HeroRecord): HeroInfo => ({
   minions: record.minions,
   lead: record.lead,
   alive: record.alive,
+  diedAt: record.diedAt ?? 0,
+  cause: record.deathCause,
   ravens: record.ravens,
   ravenThread: record.ravenThread,
   ravenSince: record.ravenSince,
@@ -118,7 +123,6 @@ export const createWorld = (db: Database, plotCount: number): World => {
     townSeed: loadSeed(db),
     live: new Map(),
     paneHero: new Map(),
-    known: new Set(),
     plots,
     missing: new Map(),
     dirty: new Set(),
@@ -143,12 +147,18 @@ export const createWorld = (db: Database, plotCount: number): World => {
   return world
 }
 
-export const snapshotHeroes = (world: World): HeroInfo[] => {
+export const snapshotHeroes = (world: World, now: number): HeroInfo[] => {
+  flushDirty(world)
   const heroes: HeroInfo[] = []
 
   for (const record of world.live.values()) {
-    world.known.add(record.id)
     heroes.push(heroInfo(record))
+  }
+
+  for (const record of loadFallenHeroes(world.db, world.plots, now - GRAVE_MS, tuning.graveCap)) {
+    if (!world.live.has(record.id)) {
+      heroes.push(heroInfo(record))
+    }
   }
 
   return heroes
@@ -291,25 +301,24 @@ const spawn = (world: World, id: HeroId, seen: Observed, now: number): void => {
   const saved = seen.session === null ? undefined : loadHero(world.db, id, world.plots)
   const record = saved ?? freshRecord(id, seen.session, now)
   const returning = saved !== undefined && !saved.alive
-  const rising = returning && world.known.has(id)
   place(world, record, seen, now)
-  world.outbox.push({ kind: 'hero.joined', at: now, hero: heroInfo(record) })
 
-  if (rising) {
+  if (returning) {
     world.outbox.push(
-      { kind: 'hero.resurrected', at: now, hero: id },
+      { kind: 'hero.resurrected', at: now, hero: id, info: heroInfo(record) },
       { kind: 'hero.status', at: now, hero: id, status: record.status },
       { kind: 'hero.quest', at: now, hero: id, quest: record.quest },
     )
+    chronicle(world, 'resurrected', record, now)
+
+    return
   }
 
-  if (returning) {
-    chronicle(world, 'resurrected', record, now)
-  } else if (saved === undefined && seen.session !== null) {
+  world.outbox.push({ kind: 'hero.joined', at: now, hero: heroInfo(record) })
+
+  if (saved === undefined && seen.session !== null) {
     world.arriving.set(id, 'joined')
   }
-
-  world.known.add(id)
 }
 
 export const killHero = (
@@ -318,6 +327,10 @@ export const killHero = (
   cause: DeathCause,
   now: number,
 ): void => {
+  if (!record.alive) {
+    return
+  }
+
   world.live.delete(record.id)
   world.missing.delete(record.id)
 
@@ -386,7 +399,7 @@ const link = (
 ): boolean => {
   const id = sessionHeroId(LOCAL_MACHINE, session)
 
-  if (world.live.has(id) || world.known.has(id)) {
+  if (world.live.has(id)) {
     killHero(world, stranger, 'missing', now)
 
     return false
@@ -395,6 +408,7 @@ const link = (
   flushDirty(world)
   const saved = loadHero(world.db, id, world.plots)
   const record = saved ?? freshRecord(id, session, now)
+  const returning = saved !== undefined && !saved.alive
   world.live.delete(stranger.id)
   world.paneHero.delete(stranger.pane)
   record.pane = stranger.pane
@@ -403,15 +417,18 @@ const link = (
   record.status = stranger.status
   record.quest = stranger.quest
   place(world, record, { ...seen, status: stranger.status, quest: stranger.quest }, now)
-  world.known.add(id)
 
   if (saved === undefined) {
     world.arriving.set(id, 'linked')
-  } else {
+  } else if (returning) {
     chronicle(world, 'resurrected', record, now)
   }
 
   world.outbox.push({ kind: 'hero.linked', at: now, from: stranger.id, to: id, session })
+
+  if (returning) {
+    world.outbox.push({ kind: 'hero.resurrected', at: now, hero: id, info: heroInfo(record) })
+  }
 
   if (record.experience > 0) {
     world.outbox.push({

@@ -37,6 +37,7 @@ export type SyntheticSettings = {
   readonly heroes: number
   readonly seed: number
   readonly tempo: number
+  readonly deaths: boolean
 }
 
 const FEED_EVERY_MS = 100
@@ -52,6 +53,7 @@ export const syntheticSource = (settings: SyntheticSettings, now: number): Sourc
     guilds: Math.max(1, Math.round(settings.heroes / HEROES_PER_GUILD)),
     workspacesPerGuild: WORKSPACES_PER_GUILD,
     tempo: settings.tempo,
+    deaths: settings.deaths,
     startAt: now,
   })
   const state = { joined: false, nextFeed: now }

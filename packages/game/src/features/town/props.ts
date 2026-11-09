@@ -7,7 +7,6 @@ import type { PropPlacement } from '../../render/heroes.ts'
 export type Placement = PropPlacement
 
 const FLAGS = ['flag_red', 'flag_blue', 'flag_green', 'flag_yellow'] as const
-const GRAVES = ['grave_a', 'gravestone', 'gravemarker'] as const
 const CLUTTER = ['barrel', 'crates', 'sack', 'weaponrack'] as const
 const TREES = ['tree', 'trees', 'dead_tree', 'tree', 'rock'] as const
 
@@ -34,21 +33,8 @@ const placeSquare = (shape: Town, out: Placement[]): void => {
   }
 }
 
-const placeGraveyard = (shape: Town, random: Random, out: Placement[]): void => {
+const placeGraveyard = (shape: Town, out: Placement[]): void => {
   const [x, y, halfX, halfY] = shape.graveyard
-  const { rows, columns } = layout.graveyard
-
-  for (let row = 0; row < rows; row++) {
-    for (let column = 0; column < columns; column++) {
-      near(
-        random,
-        out,
-        pick(random, GRAVES),
-        x! - halfX! + ((column + 0.5) * halfX! * 2) / columns,
-        y! - halfY! + 1.5 + ((row + 0.5) * (halfY! * 2 - 1.5)) / rows,
-      )
-    }
-  }
 
   out.push({ name: 'crypt', x: x! - halfX! + 1.5, y: y! - halfY! + 0.8 })
   out.push({ name: 'dead_tree', x: x! + halfX! - 0.5, y: y! - halfY! + 0.5 })
@@ -161,7 +147,7 @@ export const townProps = (
   const shape = sim.town
   const out: Placement[] = []
   placeSquare(shape, out)
-  placeGraveyard(shape, mulberry32(shape.seed), out)
+  placeGraveyard(shape, out)
 
   for (let plot = 0; plot < shape.guildOfPlot.length; plot++) {
     const guild = shape.guildOfPlot[plot]!

@@ -50,6 +50,9 @@ import {
 } from '../render/camera.ts'
 import { createHeroLayer, loadAtlas, setProps, syncHeroes, type View } from '../render/heroes.ts'
 import { createBridge, NOBODY } from '../ui/bridge.ts'
+import { DEATH_CAUSES } from '@tokenfall/protocol/hero'
+import { graveAt } from '../features/death/pick.ts'
+import { deathText } from '../features/death/text.ts'
 import { loadFonts } from '../ui/fonts.ts'
 import { mountUi } from '../ui/mount.tsx'
 import { createChronicle } from '../features/chronicle/model.ts'
@@ -98,6 +101,7 @@ type Settings = {
   readonly synthetic: boolean
   readonly measure: MeasurePlan | undefined
   readonly dungeon: number | undefined
+  readonly deaths: boolean
 }
 
 const HUD_EVERY_MS = 250
@@ -123,6 +127,7 @@ const readSettings = (): Settings => {
     synthetic: plan !== undefined || params.has('heroes'),
     measure: plan,
     dungeon: params.has('dungeon') ? Number(params.get('dungeon') ?? 0) : undefined,
+    deaths: params.has('deaths'),
   }
 }
 
@@ -182,6 +187,7 @@ const noticeBoard = createNoticeBoard()
 const sheet = createSheet()
 const source = pickSource()
 const sim = bootSim(await source.ready, started, {})
+sim.clockOffset = settings.synthetic ? 0 : performance.timeOrigin
 const town = createTownLayer()
 const heroes = createHeroLayer(sim, atlas, texture, [])
 const dungeonView = createDungeonView(heroes.textures[0]!, heroes.propTextures)
@@ -226,7 +232,7 @@ overlay.addChild(badges.container, boardBadge.container, bubbles.container)
 app.stage.addChild(world, light.overlay, glow, overlay)
 const screen: Screen = { width: 0, height: 0, x: 0, y: 0, zoom: 1 }
 const tip = element('tip')
-const hover = { guild: -1 }
+const hover = { guild: -1, grave: NOBODY }
 window.addEventListener('resize', () => {
   resizeLight(light, app.screen.width, app.screen.height)
 })
@@ -572,6 +578,15 @@ camera.onClick = (pointerX, pointerY) => {
     return
   }
 
+  const grave = graveAt(sim, worldX, worldY, reach)
+
+  if (grave !== NOBODY) {
+    bridge.select(grave)
+    sheet.show(grave)
+
+    return
+  }
+
   const picked = pickHero(sim, heroes, worldX, worldY, reach)
   const badge = badgeAt(badges, pointerX, pointerY)
   const guild = badge >= 0 ? badge : entranceAt(worldX, worldY)
@@ -644,18 +659,42 @@ window.addEventListener('keydown', (event) => {
   }
 })
 
+const graveTip = (eid: number): string => {
+  const { hero } = sim.stores
+  const died = deathText(
+    DEATH_CAUSES[hero.cause[eid]!] ?? null,
+    hero.diedAt[eid]!,
+    performance.now() + sim.clockOffset,
+  )
+
+  return `${sim.text.name[eid]!} · Lv ${hero.level[eid]!}\n${died}`
+}
+
+const graveUnder = (pointerX: number, pointerY: number): number => {
+  if (dungeonView.open !== undefined) {
+    return NOBODY
+  }
+
+  const worldX = (pointerX - app.screen.width / 2) / camera.zoom + camera.x
+  const worldY = (pointerY - app.screen.height / 2) / camera.zoom + camera.y
+
+  return graveAt(sim, worldX, worldY, PICK_REACH / Math.min(1, camera.zoom))
+}
+
 app.canvas.addEventListener('pointermove', (event) => {
   const guild = badgeAt(badges, event.clientX, event.clientY)
+  const grave = guild >= 0 ? NOBODY : graveUnder(event.clientX, event.clientY)
 
-  if (guild === hover.guild) {
+  if (guild === hover.guild && grave === hover.grave) {
     return
   }
 
   hover.guild = guild
-  tip.hidden = guild < 0
+  hover.grave = grave
+  tip.hidden = guild < 0 && grave === NOBODY
 
-  if (guild >= 0) {
-    tip.textContent = namesInside(badges, sim, guild).join('\n')
+  if (!tip.hidden) {
+    tip.textContent = guild >= 0 ? namesInside(badges, sim, guild).join('\n') : graveTip(grave)
     tip.style.left = `${event.clientX + 14}px`
     tip.style.top = `${event.clientY + 14}px`
   }

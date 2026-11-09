@@ -1,0 +1,27 @@
+{
+  "graves": {
+    "rows": 5,
+    "columns": 6,
+    "hours": 24,
+    "props": ["grave_a", "gravestone", "gravemarker"],
+    "bigProp": "crypt",
+    "bigLevel": 65,
+    "bigScale": 0.42,
+    "topMargin": 1.5
+  },
+  "text": {
+    "fallen": "Fallen",
+    "causes": {
+      "exited": "exited",
+      "killed": "killed",
+      "cleared": "cleared",
+      "released": "quit Claude",
+      "missing": "vanished"
+    },
+    "died": "{cause} {ago}",
+    "copy": "Copy resume command",
+    "copied": "Copied",
+    "noSession": "No session to resume",
+    "terminal": "This Hero has fallen. Resume its session to bring it back:"
+  }
+}

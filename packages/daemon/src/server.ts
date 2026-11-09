@@ -31,7 +31,7 @@ export const snapshotOf = (world: World, hub: Hub, now: number): Snapshot => ({
   seq: hub.seq,
   at: now,
   townSeed: world.townSeed,
-  heroes: snapshotHeroes(world),
+  heroes: snapshotHeroes(world, now),
   chronicle: tailChronicle(world.db, chronicleTuning.tail),
   inbox: world.inboxState,
 })

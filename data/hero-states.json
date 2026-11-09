@@ -21,6 +21,7 @@
     "arrived",
     "timer",
     "died",
+    "vanished",
     "resurrected"
   ],
   "initial": "camp",
@@ -106,6 +107,16 @@
       "to": "dying"
     },
     {
+      "from": "*",
+      "on": "vanished",
+      "to": "dead"
+    },
+    {
+      "from": "dead",
+      "on": "vanished",
+      "to": "dead"
+    },
+    {
       "from": "dying",
       "on": "died",
       "to": "dying"
@@ -153,6 +164,7 @@
     "dying": "stop",
     "rising": "settle-at-camp",
     "warping-out": "exit-dungeon",
-    "warping-out-with-loot": "exit-dungeon"
+    "warping-out-with-loot": "exit-dungeon",
+    "dead": "bury"
   }
 }

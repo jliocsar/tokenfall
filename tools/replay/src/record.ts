@@ -92,6 +92,8 @@ const join = async (agent: HerdrAgent): Promise<void> => {
     minions: 0,
     lead: false,
     alive: true,
+    diedAt: 0,
+    cause: null,
     ravens: 0,
     ravenThread: null,
     ravenSince: 0,

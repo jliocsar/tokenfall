@@ -1,12 +1,14 @@
+import death from '@tokenfall/data/death.json'
 import ravens from '@tokenfall/data/ravens.json'
 import sheetText from '@tokenfall/data/sheet.json'
 import { threadUrl } from '@tokenfall/protocol/inbox'
-import { createEffect, onCleanup, Show } from 'solid-js'
+import { createEffect, createSignal, onCleanup, Show } from 'solid-js'
 import { guildLabel } from '../../core/groups.ts'
 import { NOBODY, type Bridge } from '../../ui/bridge.ts'
 import { Portrait } from '../../ui/Portrait.tsx'
 import type { InboxModel } from '../ravens/model.ts'
-import type { Roster } from '../roster/model.ts'
+import { deathText, resumeCommand } from '../death/text.ts'
+import type { HeroRow, Roster } from '../roster/model.ts'
 import type { SheetModel } from './model.ts'
 import { mountTerminal, type TerminalView } from './terminal.ts'
 
@@ -104,6 +106,33 @@ const Terminal = (props: TerminalProps) => {
   )
 }
 
+const Fallen = (props: { readonly hero: HeroRow }) => {
+  const [copied, setCopied] = createSignal(false)
+
+  const copy = async (): Promise<void> => {
+    await navigator.clipboard.writeText(resumeCommand(props.hero.session))
+    setCopied(true)
+  }
+
+  return (
+    <div class="terminal-frame fallen-frame">
+      <Show when={props.hero.session} fallback={<p>{death.text.noSession}</p>}>
+        <p>{death.text.terminal}</p>
+        <code class="resume">{resumeCommand(props.hero.session)}</code>
+        <button
+          type="button"
+          class="copy-resume"
+          onClick={() => {
+            void copy()
+          }}
+        >
+          {copied() ? death.text.copied : death.text.copy}
+        </button>
+      </Show>
+    </div>
+  )
+}
+
 export const Sheet = (props: SheetProps) => {
   const sim = () => props.bridge.sim
 
@@ -175,6 +204,11 @@ export const Sheet = (props: SheetProps) => {
                   {`${formatTokens(experience())} ${sheetText.experience}`}
                 </div>
                 <div class={`badge standing-${hero().standing}`}>{hero().standing}</div>
+                <Show when={hero().standing === 'dead' && hero().cause !== null}>
+                  <div class="died">
+                    {deathText(hero().cause, hero().diedAt, performance.now() + sim().clockOffset)}
+                  </div>
+                </Show>
                 <dl>
                   <dt>{sheetText.quest}</dt>
                   <dd>{hero().quest || sheetText.noQuest}</dd>
@@ -196,7 +230,9 @@ export const Sheet = (props: SheetProps) => {
                   )}
                 </Show>
               </div>
-              <Terminal sheet={props.sheet} />
+              <Show when={hero().standing === 'dead'} fallback={<Terminal sheet={props.sheet} />}>
+                <Fallen hero={hero()} />
+              </Show>
             </section>
           </div>
         )

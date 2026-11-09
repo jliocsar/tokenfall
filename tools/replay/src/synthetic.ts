@@ -1,5 +1,6 @@
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import {
+  DEATH_CAUSES,
   LOCAL_MACHINE,
   NO_PLOT,
   sessionHeroId,
@@ -14,6 +15,7 @@ export type SyntheticOptions = {
   readonly workspacesPerGuild: number
   readonly tempo: number
   readonly startAt: number
+  readonly deaths?: boolean
 }
 
 export type Synthetic = {
@@ -38,6 +40,8 @@ const MEAN_DEAD_MS = 60_000
 const EXPERIENCE_EVERY_MS = 1000
 const BLOCK_CHANCE = 0.12
 const DEATH_CHANCE = 0.02
+const FREQUENT_DEATHS = [0.25, 15_000] as const
+const RARE_DEATHS = [DEATH_CHANCE, MEAN_DEAD_MS] as const
 const RESURRECT_CHANCE = 0.5
 
 const REPOS = [
@@ -80,6 +84,15 @@ const QUESTS = [
 const TITLE_CHANCE = 0.25
 const LEAD_EVERY = 2
 
+const LIVING = {
+  alive: true,
+  diedAt: 0,
+  cause: null,
+  ravens: 0,
+  ravenThread: null,
+  ravenSince: 0,
+} as const
+
 const createRandom = (seed: number): (() => number) => {
   let state = seed >>> 0
 
@@ -120,6 +133,20 @@ const pickStatus = (roll: number): number => {
   return roll < 0.95 ? DONE : BLOCKED
 }
 
+const deathOf = (hero: string, index: number, now: number): HeroEvent => ({
+  kind: 'hero.died',
+  at: now,
+  hero,
+  cause: DEATH_CAUSES[index % DEATH_CAUSES.length]!,
+})
+
+const resurrectionOf = (hero: HeroInfo, experience: number, now: number): HeroEvent => ({
+  kind: 'hero.resurrected',
+  at: now,
+  hero: hero.id,
+  info: { ...hero, status: STATUS_CODES[IDLE]!, experience: Math.round(experience) },
+})
+
 export const createSynthetic = (options: SyntheticOptions): Synthetic => {
   const random = createRandom(options.seed)
   const count = options.heroes
@@ -134,6 +161,7 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
   const heroes: HeroInfo[] = []
   const tempo = options.tempo
   const led = new Set<string>()
+  const [deathChance, meanDeadMs] = options.deaths === true ? FREQUENT_DEATHS : RARE_DEATHS
 
   for (let i = 0; i < count; i++) {
     const guild = Math.floor(random() * options.guilds)
@@ -170,10 +198,7 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
       experience: Math.round(experience[i]!),
       minions: random() < 0.2 ? Math.floor(random() * 8) : 0,
       lead,
-      alive: true,
-      ravens: 0,
-      ravenThread: null,
-      ravenSince: 0,
+      ...LIVING,
     })
   }
 
@@ -201,20 +226,20 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
       out.push({ kind: 'hero.quest', at: now, hero: ids[i]!, quest: pick(random, QUESTS) })
     }
 
-    if (next === IDLE && random() < DEATH_CHANCE) {
+    if (next === IDLE && random() < deathChance) {
       alive[i] = 0
-      nextChange[i] = now + exponential(random, MEAN_DEAD_MS / tempo)
-      out.push({ kind: 'hero.died', at: now, hero: ids[i]!, cause: 'exited' })
+      nextChange[i] = now + exponential(random, meanDeadMs / tempo)
+      out.push(deathOf(ids[i]!, i, now))
     }
   }
 
   const reviveOrStay = (i: number, now: number, out: HeroEvent[]): void => {
-    nextChange[i] = now + exponential(random, MEAN_DEAD_MS / tempo)
+    nextChange[i] = now + exponential(random, meanDeadMs / tempo)
 
     if (random() < RESURRECT_CHANCE) {
       alive[i] = 1
       status[i] = IDLE
-      out.push({ kind: 'hero.resurrected', at: now, hero: ids[i]! })
+      out.push(resurrectionOf(heroes[i]!, experience[i]!, now))
     }
   }
 

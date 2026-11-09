@@ -6,7 +6,9 @@ import { displayName, titleOf, isStranger } from '../../core/character.ts'
 import { clearSet } from '../../core/dense-set.ts'
 import { stateId } from '../../core/fsm.ts'
 import { guildLabel } from '../../core/groups.ts'
+import { heroOfEntity } from '../../core/hero-index.ts'
 import type { Sim } from '../../core/sim.ts'
+import { DEATH_CAUSES, type DeathCause } from '@tokenfall/protocol/hero'
 import { WAIT_LOOT, WAIT_NONE, waitOf, waitSince } from '../attention/queue.ts'
 
 export type Standing = (typeof STANDINGS)[number]
@@ -29,6 +31,9 @@ export type HeroRow = {
   readonly since: number
   readonly waiting: string
   readonly ravenThread: string
+  readonly diedAt: number
+  readonly cause: DeathCause | null
+  readonly session: string
 }
 
 export type Counts = Record<Standing, number>
@@ -53,9 +58,10 @@ type Rows = ReadonlyMap<number, HeroRow>
 type GuildDraft = { readonly group: GuildGroup; size: number }
 
 export type Roster = {
-  readonly rows: Readonly<Record<number, HeroRow>>
+  readonly rows: Readonly<Record<number, HeroRow | undefined>>
   readonly guilds: Accessor<GuildGroup[]>
   readonly attention: Accessor<number[]>
+  readonly fallen: Accessor<number[]>
   readonly flush: (now: number) => void
 }
 
@@ -68,6 +74,13 @@ const STANDING_OF_STATUS = [
 ] as const satisfies readonly Standing[]
 
 const BLOCKED = 3
+const SESSION_MARK = '/session/'
+
+const sessionOf = (id: string): string => {
+  const at = id.indexOf(SESSION_MARK)
+
+  return at === -1 ? '' : id.slice(at + SESSION_MARK.length)
+}
 
 export const STANDINGS = ['raven', 'loot', 'working', 'idle', 'unknown', 'dead'] as const
 
@@ -125,7 +138,7 @@ const rowOf = (sim: Sim, eid: number, dying: number, dead: number): HeroRow => {
     personality: personality.name,
     sheet: hero.sheet[eid]!,
     stranger: isStranger(sim.config.characters, hero.sheet[eid]!),
-    lead: hero.lead[eid] === 1,
+    lead: hero.lead[eid] === 1 && standing !== 'dead',
     level: hero.level[eid]!,
     standing,
     quest: sim.text.quest[eid]!,
@@ -135,6 +148,9 @@ const rowOf = (sim: Sim, eid: number, dying: number, dead: number): HeroRow => {
     since: wait === WAIT_NONE ? 0 : waitSince(sim, eid, wait),
     waiting: waitingText(sim, eid),
     ravenThread: sim.text.ravenThread[eid]!,
+    diedAt: hero.diedAt[eid]!,
+    cause: DEATH_CAUSES[hero.cause[eid]!] ?? null,
+    session: sessionOf(heroOfEntity(sim.index, eid)),
   }
 }
 
@@ -172,6 +188,10 @@ const group = (sim: Sim, rows: Rows): GuildGroup[] => {
   const parties = new Map<number, PartyGroup>()
 
   for (const row of rows.values()) {
+    if (row.standing === 'dead') {
+      continue
+    }
+
     const draft =
       guilds.get(row.guild) ??
       guilds
@@ -220,7 +240,7 @@ const group = (sim: Sim, rows: Rows): GuildGroup[] => {
 }
 
 export const createRoster = (sim: Sim): Roster => {
-  const [rows, setRows] = createStore<Record<number, HeroRow>>({})
+  const [rows, setRows] = createStore<Record<number, HeroRow | undefined>>({})
   const plain = new Map<number, HeroRow>()
   const pending = { regroup: false, nextRegroup: 0 }
   const [version, setVersion] = createSignal(0)
@@ -245,14 +265,37 @@ export const createRoster = (sim: Sim): Roster => {
     return out.sort(byWait(plain))
   })
 
+  const fallen = createMemo(() => {
+    version()
+
+    const out: number[] = []
+
+    for (const row of plain.values()) {
+      if (row.standing === 'dead') {
+        out.push(row.eid)
+      }
+    }
+
+    return out.sort((a, b) => plain.get(b)!.diedAt - plain.get(a)!.diedAt)
+  })
+
   return {
     rows,
     guilds,
     attention,
+    fallen,
     flush: (now) => {
-      const { changed } = sim
+      const { changed, forgotten } = sim
 
       batch(() => {
+        for (let i = 0; i < forgotten.size; i++) {
+          const eid = forgotten.dense[i]!
+          pending.regroup ||= plain.delete(eid)
+          setRows(eid, undefined)
+        }
+
+        clearSet(forgotten)
+
         for (let i = 0; i < changed.size; i++) {
           const eid = changed.dense[i]!
           const row = rowOf(sim, eid, dying, dead)

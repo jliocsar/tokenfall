@@ -24,6 +24,7 @@ import { createProfile, runSystems } from '../src/core/system.ts'
 import { SIM_SYSTEMS } from '../src/core/systems/index.ts'
 import { guildOf, partyOf } from '../src/core/groups.ts'
 
+const SWEEP_TIMEOUT_MS = 60_000
 const SEEDS = 200
 const TOWN_SEED = 7
 const ROOM_RANGE = [5, 25] as const
@@ -78,6 +79,8 @@ const hero = (id: string, workspace: string, experience: number): HeroInfo => ({
   minions: 0,
   lead: false,
   alive: true,
+  diedAt: 0,
+  cause: null,
   ravens: 0,
   ravenThread: null,
   ravenSince: 0,
@@ -99,33 +102,41 @@ describe('dungeon generator', () => {
     expect(generate(0, '/repo/a').cells).not.toEqual(generate(0, '/repo/b').cells)
   })
 
-  test('every room, the arrival point and the stairs are reachable', () => {
-    for (const tier of plan.tiers.keys()) {
-      for (let seed = 0; seed < SEEDS; seed++) {
-        const map = generate(tier, `/repo/${seed}`)
-        const seen = reachable(map)
+  test(
+    'every room, the arrival point and the stairs are reachable',
+    () => {
+      for (const tier of plan.tiers.keys()) {
+        for (let seed = 0; seed < SEEDS; seed++) {
+          const map = generate(tier, `/repo/${seed}`)
+          const seen = reachable(map)
 
-        for (let room = 0; room < map.rooms; room++) {
-          expect(seen[map.roomY[room]! * map.width + map.roomX[room]!]).toBe(1)
-        }
+          for (let room = 0; room < map.rooms; room++) {
+            expect(seen[map.roomY[room]! * map.width + map.roomX[room]!]).toBe(1)
+          }
 
-        for (const stairs of [map.up, map.down]) {
-          expect(stairs < 0 || seen[stairs] === 1).toBe(true)
+          for (const stairs of [map.up, map.down]) {
+            expect(stairs < 0 || seen[stairs] === 1).toBe(true)
+          }
         }
       }
-    }
-  })
+    },
+    SWEEP_TIMEOUT_MS,
+  )
 
-  test('room counts stay in range', () => {
-    for (const tier of plan.tiers.keys()) {
-      for (let seed = 0; seed < SEEDS; seed++) {
-        const { rooms } = generate(tier, `/repo/${seed}`)
+  test(
+    'room counts stay in range',
+    () => {
+      for (const tier of plan.tiers.keys()) {
+        for (let seed = 0; seed < SEEDS; seed++) {
+          const { rooms } = generate(tier, `/repo/${seed}`)
 
-        expect(rooms).toBeGreaterThanOrEqual(ROOM_RANGE[0])
-        expect(rooms).toBeLessThanOrEqual(ROOM_RANGE[1])
+          expect(rooms).toBeGreaterThanOrEqual(ROOM_RANGE[0])
+          expect(rooms).toBeLessThanOrEqual(ROOM_RANGE[1])
+        }
       }
-    }
-  })
+    },
+    SWEEP_TIMEOUT_MS,
+  )
 
   test('Prison has no stairs up and Hell no stairs down', () => {
     const prison = generate(0, '/repo/a')

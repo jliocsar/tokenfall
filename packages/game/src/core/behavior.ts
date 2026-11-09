@@ -2,6 +2,8 @@ import { HERO_STATUSES } from '@tokenfall/protocol/hero'
 import { enterState, NO_TRANSITION, nextState } from './fsm.ts'
 import { addMember, removeMember } from './dense-set.ts'
 import { enterDungeonAt } from './delve.ts'
+import { claimGrave } from './graves.ts'
+import { leaveGroups } from './membership.ts'
 import { leaveDungeon } from './dungeon.ts'
 import { entranceSpot, jitter, partySpot } from './layout.ts'
 import { TIMER_STATE, TIMER_WANDER, type Sim } from './sim.ts'
@@ -81,6 +83,21 @@ const stop: Action = (sim, eid) => {
   removeMember(sim.moving, eid)
 }
 
+const bury: Action = (sim, eid) => {
+  removeMember(sim.moving, eid)
+  leaveDungeon(sim, eid)
+  leaveGroups(sim, eid)
+  addMember(sim.changed, eid)
+
+  if (sim.stores.hero.stranger[eid] === 1) {
+    addMember(sim.releasing, eid)
+
+    return
+  }
+
+  claimGrave(sim, eid)
+}
+
 const ACTIONS = new Map<string, Action>([
   ['', () => undefined],
   ['settle-at-camp', settleAtCamp],
@@ -89,6 +106,7 @@ const ACTIONS = new Map<string, Action>([
   ['exit-dungeon', exitDungeon],
   ['warp-flare', flareHere],
   ['stop', stop],
+  ['bury', bury],
 ])
 
 export const validateActions = (names: readonly string[]): void => {

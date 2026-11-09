@@ -27,9 +27,11 @@ export const applyEvent = (table: HeroTable, event: HeroEvent): void => {
   } else if (event.kind === 'hero.lead') {
     update(table, event.hero, { lead: event.lead })
   } else if (event.kind === 'hero.died') {
-    update(table, event.hero, { alive: false })
+    update(table, event.hero, { alive: false, diedAt: event.at, cause: event.cause })
+  } else if (event.kind === 'hero.resurrected' && event.info !== undefined) {
+    table.set(event.hero, { ...event.info, alive: true, diedAt: 0, cause: null })
   } else if (event.kind === 'hero.resurrected') {
-    update(table, event.hero, { alive: true })
+    update(table, event.hero, { alive: true, diedAt: 0, cause: null })
   } else if (event.kind === 'hero.linked') {
     const hero = table.get(event.from)
 

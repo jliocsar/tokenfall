@@ -7,9 +7,11 @@ import {
   Texture,
   type TextureSource,
 } from 'pixi.js'
+import death from '@tokenfall/data/death.json'
 import world from '@tokenfall/data/world.json'
 import { hasMember } from '../core/dense-set.ts'
 import { stateFlags, stateId } from '../core/fsm.ts'
+import { NO_GRAVE } from '../core/graves.ts'
 import { screenX, screenY } from '../core/iso.ts'
 import type { Sim } from '../core/sim.ts'
 import { traceBegin, traceEnd, traceId } from '../core/trace.ts'
@@ -54,6 +56,9 @@ export type HeroLayer = {
   readonly states: { readonly dying: number; readonly dead: number; readonly warpIn: number }
   readonly hidden: Uint8Array
   readonly propTextures: ReadonlyMap<string, Texture>
+  readonly graveTextures: readonly Texture[]
+  readonly graveShown: Uint8Array
+  readonly anchor: readonly number[]
   props: PropSlots
   propCursor: number
   count: number
@@ -161,6 +166,9 @@ export const createHeroLayer = (
     world.directions.map((name) => atlas.directions.indexOf(name)),
   )
 
+  const propTextures = buildPropTextures(atlas, source)
+  const graveNames = [...death.graves.props, death.graves.bigProp]
+
   return {
     container: new ParticleContainer({
       dynamicProperties: { position: true, vertex: true, uvs: true, color: true, rotation: false },
@@ -180,7 +188,10 @@ export const createHeroLayer = (
       warpIn: stateId(sim.machine, 'warping-in'),
     },
     hidden: stateFlags(sim.machine, hiddenStates),
-    propTextures: buildPropTextures(atlas, source),
+    propTextures,
+    graveTextures: graveNames.map((name) => propTextures.get(name) ?? textures[0]!),
+    graveShown: new Uint8Array(entities),
+    anchor: [atlas.pivot[0]! / atlas.cell[0]!, atlas.pivot[1]! / atlas.cell[1]!],
     props: { particles: [], depth: [], sx: [], sy: [] },
     propCursor: 0,
     count: 0,
@@ -201,6 +212,40 @@ const adopt = (
   })
   layer.order[layer.count] = eid
   layer.count += 1
+}
+
+const forget = (layer: HeroLayer, dense: ArrayLike<number>): void => {
+  for (let i = 0; i < layer.count; i++) {
+    layer.known[layer.order[i]!] = 0
+  }
+
+  for (let i = 0; i < dense.length; i++) {
+    layer.known[dense[i]!] = 1
+    layer.order[i] = dense[i]!
+  }
+
+  layer.count = dense.length
+}
+
+const showGrave = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number): void => {
+  const prop = sim.graves.prop[eid]!
+  const texture = layer.graveTextures[prop]!
+  const scale = prop === death.graves.props.length ? death.graves.bigScale : 1
+  particle.texture = texture
+  particle.anchorX = texture.defaultAnchor?.x ?? 0.5
+  particle.anchorY = texture.defaultAnchor?.y ?? 1
+  particle.scaleX = scale
+  particle.scaleY = scale
+  particle.color = LIVE_COLOR
+  layer.graveShown[eid] = 1
+}
+
+const hideGrave = (layer: HeroLayer, particle: Particle, eid: number): void => {
+  particle.anchorX = layer.anchor[0]!
+  particle.anchorY = layer.anchor[1]!
+  particle.scaleX = 1
+  particle.scaleY = 1
+  layer.graveShown[eid] = 0
 }
 
 const sortByDepth = (layer: HeroLayer, sim: Sim): void => {
@@ -228,6 +273,16 @@ const sortByDepth = (layer: HeroLayer, sim: Sim): void => {
 }
 
 const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now: number): void => {
+  if (sim.graves.slotOf[eid] !== NO_GRAVE) {
+    showGrave(layer, sim, particle, eid)
+
+    return
+  }
+
+  if (layer.graveShown[eid] === 1) {
+    hideGrave(layer, particle, eid)
+  }
+
   const walking = hasMember(sim.moving, eid) ? 1 : 0
   const fps = walking === 1 ? WALK_FPS : IDLE_FPS
   const frames = layer.frameCounts[walking]!
@@ -281,6 +336,10 @@ export const syncHeroes = (
     if (layer.known[dense[i]!] === 0) {
       adopt(layer, atlas.pivot, atlas.cell, dense[i]!)
     }
+  }
+
+  if (layer.count !== dense.length) {
+    forget(layer, dense)
   }
 
   traceEnd()

@@ -124,8 +124,12 @@ How a Death plays out on screen. Every Death gets the same one, currently the Ho
 **Grave**:
 The marker a dead Hero leaves in the Graveyard for a day.
 
+**Fallen**:
+The dead Heroes whose Graves still stand, listed together in the Roster.
+_Avoid_: Dead list, graveyard (that's the place)
+
 **Resurrection**:
-A dead Hero coming back, with its Level intact, when its Agent's session is resumed. It rises from its Grave if the Grave still stands, otherwise it arrives through a Warp Portal.
+A dead Hero coming back, with its Level intact, when its Agent's session is seen alive again. It rises from its Grave if the Grave still stands, otherwise it arrives through a Warp Portal.
 
 ### Attention
 

@@ -666,3 +666,41 @@
   stroke: #5a3d10;
   stroke-width: 1;
 }
+
+.sheet-facts .died {
+  color: var(--ink-dim);
+  font: var(--text-small);
+}
+
+.fallen-frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--ink-dim);
+  font: var(--text-small);
+  text-align: center;
+}
+
+.fallen-frame .resume {
+  padding: 6px 10px;
+  border: 1px solid var(--edge);
+  color: var(--ink-gold);
+  font-family: 'JetBrainsMono Nerd', ui-monospace, monospace;
+  user-select: all;
+}
+
+.fallen-frame .copy-resume {
+  padding: 6px 14px;
+  border: 1px solid var(--edge);
+  background: transparent;
+  color: var(--ink-gold);
+  font: var(--text-pixel);
+  cursor: pointer;
+}
+
+.line.fallen .name {
+  color: var(--ink-dim);
+}

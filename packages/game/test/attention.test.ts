@@ -28,6 +28,8 @@ const hero = (id: string, status: HeroStatus): HeroInfo => ({
   minions: 0,
   lead: false,
   alive: true,
+  diedAt: 0,
+  cause: null,
   ravens: 0,
   ravenThread: null,
   ravenSince: 0,

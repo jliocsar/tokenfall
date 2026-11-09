@@ -1,13 +1,14 @@
 import { addComponent, addEntity } from 'bitecs'
-import type { HeroEvent, HeroJoined } from '@tokenfall/protocol/events'
-import type { HeroInfo } from '@tokenfall/protocol/hero'
+import type { HeroEvent, HeroJoined, HeroResurrected } from '@tokenfall/protocol/events'
+import { DEATH_CAUSES, type DeathCause, type HeroInfo } from '@tokenfall/protocol/hero'
 import { forceState, reenterState, sendInput, teleport } from '../behavior.ts'
 import { addMember, removeMember } from '../dense-set.ts'
 import { stateId } from '../fsm.ts'
 import { bindHero, entityOfHero, NONE, rekeyHero } from '../hero-index.ts'
 import { nameOf, personalityOf, STRANGER_NAME } from '../character.ts'
-import { guildOf, partyOf } from '../groups.ts'
-import { assignPlot, jitter, partySpot, releasePlot } from '../layout.ts'
+import { freeGrave } from '../graves.ts'
+import { jitter, partySpot } from '../layout.ts'
+import { joinGroups, leaveGroups, rejoinGroups } from '../membership.ts'
 import { levelFor } from '@tokenfall/protocol/level'
 import { peek, shift } from '../queue.ts'
 import type { Sim } from '../sim.ts'
@@ -24,32 +25,6 @@ const STATUS_CODES = {
   unknown: 4,
 } as const satisfies Record<HeroInfo['status'], number>
 
-const joinGroups = (
-  sim: Sim,
-  eid: number,
-  guildKey: string,
-  workspace: string,
-  plot: number,
-): void => {
-  const { hero } = sim.stores
-  const { groups } = sim
-  const guild = guildOf(groups, guildKey)
-  assignPlot(sim.town, guild, plot)
-  hero.guild[eid] = guild
-  hero.party[eid] = partyOf(groups, guild, workspace)
-  groups.guildHeroes[guild] = groups.guildHeroes[guild]! + 1
-}
-
-const leaveGroups = (sim: Sim, eid: number): void => {
-  const guild = sim.stores.hero.guild[eid]!
-  const { guildHeroes } = sim.groups
-  guildHeroes[guild] = guildHeroes[guild]! - 1
-
-  if (guildHeroes[guild] === 0) {
-    releasePlot(sim.town, guild)
-  }
-}
-
 const rollCharacter = (sim: Sim, eid: number, id: string, stranger: boolean): void => {
   const { characters } = sim.config
   const personality = personalityOf(characters, id)
@@ -62,6 +37,11 @@ const rollCharacter = (sim: Sim, eid: number, id: string, stranger: boolean): vo
 }
 
 const BLOCKED = STATUS_CODES.blocked
+const NO_CAUSE = 255
+const VANISHED: DeathCause = 'missing'
+
+const causeCode = (cause: DeathCause | null | undefined): number =>
+  cause === null || cause === undefined ? NO_CAUSE : DEATH_CAUSES.indexOf(cause)
 
 const trackWaiting = (sim: Sim, eid: number, alive = true): void => {
   const { hero } = sim.stores
@@ -82,6 +62,9 @@ const crown = (sim: Sim, eid: number, lead: boolean): void => {
     removeMember(sim.crowned, eid)
   }
 }
+
+const lifeless = (sim: Sim, eid: number): boolean =>
+  sim.lifeless[sim.stores.behavior.state[eid]!] === 1
 
 const withHero = (sim: Sim, id: string, apply: (eid: number) => void, quiet = false): boolean => {
   const eid = entityOfHero(sim.index, id)
@@ -129,6 +112,9 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   addComponent(sim.world, eid, sim.heroTag)
   stores.hero.status[eid] = STATUS_CODES[hero.status]
   rollCharacter(sim, eid, hero.id, hero.session === null)
+  stores.hero.stranger[eid] = hero.session === null ? 1 : 0
+  stores.hero.diedAt[eid] = hero.alive ? 0 : (hero.diedAt ?? event.at)
+  stores.hero.cause[eid] = hero.alive ? NO_CAUSE : causeCode(hero.cause)
   sim.text.title[eid] = hero.title
   sim.text.quest[eid] = hero.quest
   joinGroups(sim, eid, hero.guild, hero.workspace, hero.plot)
@@ -142,7 +128,6 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   stores.hero.statusSince[eid] = event.at
   sim.text.ravenThread[eid] = hero.ravenThread ?? ''
   trackWaiting(sim, eid, hero.alive)
-  stores.behavior.serial[eid] = 0
   stores.delve.inside[eid] = 0
   stores.delve.placed[eid] = 0
   partySpot(sim, stores.hero.party[eid]!, sim.scratch)
@@ -154,6 +139,76 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   sim.counters.joined += 1
   addMember(sim.changed, eid)
   addMember(sim.auraCheck, eid)
+
+  return true
+}
+
+const dropStranger = (sim: Sim, id: string, now: number): void => {
+  const eid = entityOfHero(sim.index, id)
+
+  if (eid === NONE) {
+    return
+  }
+
+  sim.stores.hero.stranger[eid] = 1
+  addMember(sim.auraCheck, eid)
+  addMember(sim.minionCheck, eid)
+  trackWaiting(sim, eid, false)
+  forceState(sim, eid, stateId(sim.machine, 'dead'), now)
+}
+
+const refresh = (sim: Sim, eid: number, info: HeroInfo | undefined): void => {
+  const { hero } = sim.stores
+
+  if (info === undefined) {
+    rejoinGroups(sim, eid)
+
+    return
+  }
+
+  joinGroups(sim, eid, info.guild, info.workspace, info.plot)
+  hero.status[eid] = STATUS_CODES[info.status]
+  hero.experience[eid] = info.experience
+  hero.level[eid] = levelFor(sim.thresholds, info.experience)
+  hero.minions[eid] = info.minions
+  hero.ravens[eid] = info.ravens
+  hero.ravenSince[eid] = info.ravenSince
+  sim.text.title[eid] = info.title
+  sim.text.quest[eid] = info.quest
+  sim.text.ravenThread[eid] = info.ravenThread ?? ''
+  crown(sim, eid, info.lead)
+}
+
+const resurrect = (sim: Sim, event: HeroResurrected, now: number): boolean => {
+  const eid = entityOfHero(sim.index, event.hero)
+
+  if (eid === NONE) {
+    if (event.info === undefined) {
+      sim.counters.unknownHeroEvents += 1
+
+      return true
+    }
+
+    return HANDLERS['hero.joined'](
+      sim,
+      { kind: 'hero.joined', at: event.at, hero: event.info },
+      now,
+    )
+  }
+
+  const { hero } = sim.stores
+  freeGrave(sim, eid)
+  refresh(sim, eid, event.info)
+  hero.diedAt[eid] = 0
+  hero.cause[eid] = NO_CAUSE
+  addMember(sim.auraCheck, eid)
+  addMember(sim.minionCheck, eid)
+  addMember(sim.changed, eid)
+  trackWaiting(sim, eid)
+
+  if (sendInput(sim, eid, sim.inputs['resurrected']!, now)) {
+    sim.counters.resurrected += 1
+  }
 
   return true
 }
@@ -176,6 +231,11 @@ const HANDLERS: Handlers = {
     withHero(sim, event.hero, (eid) => {
       sim.stores.hero.status[eid] = STATUS_CODES[event.status]
       sim.stores.hero.statusSince[eid] = event.at
+
+      if (lifeless(sim, eid)) {
+        return
+      }
+
       trackWaiting(sim, eid)
       addMember(sim.statusChanged, eid)
       sendInput(sim, eid, sim.inputs[event.status]!, now)
@@ -218,6 +278,10 @@ const HANDLERS: Handlers = {
       sim,
       event.hero,
       (eid) => {
+        if (lifeless(sim, eid)) {
+          return
+        }
+
         sim.text.tool[eid] = event.tool
         addMember(sim.toolChanged, eid)
         addMember(sim.toolSteps, eid)
@@ -238,11 +302,18 @@ const HANDLERS: Handlers = {
       sim.stores.hero.ravens[eid] = event.ravens
       sim.stores.hero.ravenSince[eid] = event.since
       sim.text.ravenThread[eid] = event.thread ?? ''
-      trackWaiting(sim, eid)
+      trackWaiting(sim, eid, !lifeless(sim, eid))
     }),
-  'hero.linked': (sim, event) => {
+  'hero.linked': (sim, event, now) => {
+    if (entityOfHero(sim.index, event.to) !== NONE) {
+      dropStranger(sim, event.from, now)
+
+      return true
+    }
+
     if (rekeyHero(sim.index, event.from, event.to)) {
       withHero(sim, event.to, (eid) => {
+        sim.stores.hero.stranger[eid] = 0
         rollCharacter(sim, eid, event.to, false)
       })
     }
@@ -251,24 +322,18 @@ const HANDLERS: Handlers = {
   },
   'hero.died': (sim, event, now) =>
     withHero(sim, event.hero, (eid) => {
+      const vanished = event.cause === VANISHED
+      sim.stores.hero.diedAt[eid] = event.at
+      sim.stores.hero.cause[eid] = causeCode(event.cause)
       addMember(sim.auraCheck, eid)
       addMember(sim.minionCheck, eid)
       trackWaiting(sim, eid, false)
 
-      if (sendInput(sim, eid, sim.inputs['died']!, now)) {
+      if (sendInput(sim, eid, sim.inputs[vanished ? 'vanished' : 'died']!, now)) {
         sim.counters.died += 1
       }
     }),
-  'hero.resurrected': (sim, event, now) =>
-    withHero(sim, event.hero, (eid) => {
-      addMember(sim.auraCheck, eid)
-      addMember(sim.minionCheck, eid)
-      trackWaiting(sim, eid)
-
-      if (sendInput(sim, eid, sim.inputs['resurrected']!, now)) {
-        sim.counters.resurrected += 1
-      }
-    }),
+  'hero.resurrected': (sim, event, now) => resurrect(sim, event, now),
 }
 
 const handle = (sim: Sim, event: HeroEvent, now: number): boolean => {
