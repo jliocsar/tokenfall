@@ -1,0 +1,16 @@
+{
+  "name": "warp-flare",
+  "shader": "ring-burst",
+  "particles": 96,
+  "lifetime": 0.9,
+  "attached": false,
+  "blend": "add",
+  "params": {
+    "radius": 44,
+    "rise": 120,
+    "size": 12,
+    "spin": 2,
+    "inner": [0.8, 0.95, 1, 1],
+    "outer": [0.3, 0.55, 1, 1]
+  }
+}

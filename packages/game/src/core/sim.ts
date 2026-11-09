@@ -5,7 +5,14 @@ import { buildTown, type Town, type TownTuning } from './layout.ts'
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import { createDenseSet, type DenseSet } from './dense-set.ts'
 import { createDungeons, type DepthTier, type Dungeons, type DungeonTuning } from './dungeon.ts'
-import { compileMachine, inputId, stateFlags, type Machine, type MachineDefinition } from './fsm.ts'
+import {
+  compileMachine,
+  inputId,
+  stateFlags,
+  stateId,
+  type Machine,
+  type MachineDefinition,
+} from './fsm.ts'
 import { createHeroIndex, type HeroIndex } from './hero-index.ts'
 import { levelThresholds, type LevelCurve } from '@tokenfall/protocol/level'
 import { createQueue, type Queue } from './queue.ts'
@@ -114,6 +121,8 @@ export type Sim = {
   readonly changed: DenseSet
   readonly statusChanged: DenseSet
   readonly toolChanged: DenseSet
+  readonly toolSteps: DenseSet
+  readonly tierCheck: DenseSet
   readonly waiting: DenseSet
   readonly wanders: Uint8Array
   readonly thresholds: Float64Array
@@ -160,7 +169,7 @@ const createStores = (arena: Arena, entities: number) => ({
   delve: createStore(
     arena,
     'Delve',
-    { inside: 'u8', placed: 'u8', tier: 'u8', room: 'u16' },
+    { inside: 'u8', placed: 'u8', tier: 'u8', room: 'u16', walking: 'u8', goal: 'i32' },
     entities,
   ),
   emitter: createStore(
@@ -204,6 +213,8 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
     changed: createDenseSet(budgets.entities),
     statusChanged: createDenseSet(budgets.entities),
     toolChanged: createDenseSet(budgets.entities),
+    toolSteps: createDenseSet(budgets.entities),
+    tierCheck: createDenseSet(budgets.entities),
     waiting: createDenseSet(budgets.entities),
     wanders: stateFlags(machine, config.tuning.wanderStates),
     thresholds: levelThresholds(config.curve),
@@ -216,7 +227,11 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
       ravenThread: Array.from({ length: budgets.entities }, () => ''),
     },
     town: buildTown(config.seed, config.town, budgets.guilds),
-    dungeons: createDungeons(budgets.guilds, config.dungeon.tiers.length),
+    dungeons: createDungeons(
+      budgets.guilds,
+      config.dungeon.tiers.length,
+      stateId(machine, 'delving'),
+    ),
     effects: [],
     scratch: new Float64Array(4),
     random: mulberry32(config.seed),

@@ -199,3 +199,54 @@ describe('party rooms', () => {
     expect(map.roomOf[cell]).toBe(partyRoom(sim, guild, tier, sim.stores.hero.party[eid]!))
   })
 })
+
+describe('walking inside', () => {
+  const run = (sim: ReturnType<typeof bootSim>, from: number, until: number): void => {
+    const profile = createProfile(SIM_SYSTEMS)
+
+    for (let now = from; now < until; now += 16) {
+      runSystems(SIM_SYSTEMS, profile, sim, now, 16)
+    }
+  }
+
+  test('a Hero entering an open tier walks from the portal to its Party room', () => {
+    const sim = bootSim(TOWN_SEED, 0, {})
+    const guild = guildOf(sim.groups, '/repo')
+    ensureDungeon(sim, guild, 0)
+    push(sim.inbound, { kind: 'hero.joined', at: 0, hero: hero('a', 'w1', 0) })
+    run(sim, 0, 40_000)
+    const eid = entityOfHero(sim.index, 'a')
+    const map = dungeonAt(sim, guild, 0)!
+    const cell = cellAt(sim, map, guild, sim.stores.position.x[eid]!, sim.stores.position.y[eid]!)
+
+    expect(sim.stores.delve.placed[eid]).toBe(1)
+    expect(map.roomOf[cell]).toBe(sim.stores.delve.room[eid])
+  })
+
+  test('a Hero that levels into the next tier takes the stairs down', () => {
+    const sim = bootSim(TOWN_SEED, 0, {})
+    const guild = guildOf(sim.groups, '/repo')
+    ensureDungeon(sim, guild, 0)
+    ensureDungeon(sim, guild, 1)
+    push(sim.inbound, { kind: 'hero.joined', at: 0, hero: hero('a', 'w1', 0) })
+    run(sim, 0, 30_000)
+    const eid = entityOfHero(sim.index, 'a')
+
+    expect(sim.stores.delve.tier[eid]).toBe(0)
+
+    push(sim.inbound, {
+      kind: 'hero.experience',
+      at: 30_000,
+      hero: 'a',
+      experience: sim.thresholds[30]!,
+      catchUp: false,
+    })
+    run(sim, 30_000, 120_000)
+    const map = dungeonAt(sim, guild, 1)!
+    const cell = cellAt(sim, map, guild, sim.stores.position.x[eid]!, sim.stores.position.y[eid]!)
+
+    expect(sim.stores.delve.tier[eid]).toBe(1)
+    expect(sim.stores.delve.placed[eid]).toBe(1)
+    expect(walkable(map.cells[cell]!)).toBe(true)
+  })
+})

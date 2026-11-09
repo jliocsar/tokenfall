@@ -21,23 +21,37 @@ export type DungeonTuning = {
   readonly cellSize: number
   readonly placeRadius: number
   readonly wanderTries: number
+  readonly roamChance: number
+  readonly roamRooms: number
   readonly tiers: readonly TierPlan[]
 }
+
+export type DungeonFields = (Int16Array | undefined)[]
+
+export type DungeonView = { guild: number; tier: number }
 
 export type Dungeons = {
   readonly maps: (DungeonMap | undefined)[]
   readonly claims: (Int32Array | undefined)[]
+  readonly fields: (DungeonFields | undefined)[]
+  readonly view: DungeonView
+  readonly delving: number
 }
 
 export type Bounds = { minX: number; minY: number; maxX: number; maxY: number }
 
-const LIMBO = -50_000
 const UNCLAIMED = -1
 const CELL_CENTER = 0.5
+const NO_VIEW = -1
 
-export const createDungeons = (guilds: number, tiers: number): Dungeons => ({
+export const LIMBO = -50_000
+
+export const createDungeons = (guilds: number, tiers: number, delving: number): Dungeons => ({
   maps: Array.from<DungeonMap | undefined>({ length: guilds * tiers }),
   claims: Array.from<Int32Array | undefined>({ length: guilds * tiers }),
+  fields: Array.from<DungeonFields | undefined>({ length: guilds * tiers }),
+  view: { guild: NO_VIEW, tier: NO_VIEW },
+  delving,
 })
 
 export const depthTierOf = (level: number, tiers: readonly DepthTier[]): number => {
@@ -60,7 +74,8 @@ export const heroTier = (sim: Sim, eid: number): number =>
 export const tierInside = (sim: Sim, eid: number): number =>
   sim.stores.delve.inside[eid] === 1 ? sim.stores.delve.tier[eid]! : heroTier(sim, eid)
 
-const slotOf = (sim: Sim, guild: number, tier: number): number => guild * tierCount(sim) + tier
+export const slotOf = (sim: Sim, guild: number, tier: number): number =>
+  guild * tierCount(sim) + tier
 
 export const dungeonAt = (sim: Sim, guild: number, tier: number): DungeonMap | undefined =>
   sim.dungeons.maps[slotOf(sim, guild, tier)]
@@ -155,10 +170,10 @@ export const partyRoom = (sim: Sim, guild: number, tier: number, party: number):
   return start
 }
 
-const roomCenter = (map: DungeonMap, room: number): number =>
+export const roomCenter = (map: DungeonMap, room: number): number =>
   map.roomY[room]! * map.width + map.roomX[room]!
 
-const spotInRoom = (sim: Sim, map: DungeonMap, room: number): number => {
+export const spotInRoom = (sim: Sim, map: DungeonMap, room: number): number => {
   const radius = sim.config.dungeon.placeRadius
   const center = roomCenter(map, room)
 
@@ -176,7 +191,7 @@ const spotInRoom = (sim: Sim, map: DungeonMap, room: number): number => {
   return center
 }
 
-const putAt = (sim: Sim, eid: number, x: number, y: number): void => {
+export const putHero = (sim: Sim, eid: number, x: number, y: number): void => {
   sim.stores.position.x[eid] = x
   sim.stores.position.y[eid] = y
   sim.stores.anchor.x[eid] = x
@@ -190,28 +205,32 @@ export const placeInDungeon = (sim: Sim, eid: number, map: DungeonMap): void => 
   cellWorld(sim, map, guild, spotInRoom(sim, map, room), sim.scratch)
   sim.stores.delve.room[eid] = room
   sim.stores.delve.placed[eid] = 1
-  putAt(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
-}
-
-export const enterDungeonAt = (sim: Sim, eid: number): void => {
-  const tier = heroTier(sim, eid)
-  const map = dungeonAt(sim, sim.stores.hero.guild[eid]!, tier)
-  sim.stores.delve.tier[eid] = tier
-  sim.stores.delve.inside[eid] = 1
-
-  if (map === undefined) {
-    sim.stores.delve.placed[eid] = 0
-    putAt(sim, eid, LIMBO, LIMBO)
-
-    return
-  }
-
-  placeInDungeon(sim, eid, map)
+  putHero(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
 }
 
 export const leaveDungeon = (sim: Sim, eid: number): void => {
   sim.stores.delve.placed[eid] = 0
   sim.stores.delve.inside[eid] = 0
+  sim.stores.delve.walking[eid] = 0
+}
+
+export const seenInDungeon = (sim: Sim, eid: number): boolean => {
+  const { delve, hero } = sim.stores
+  const { view } = sim.dungeons
+
+  return delve.placed[eid] === 1 && hero.guild[eid] === view.guild && delve.tier[eid] === view.tier
+}
+
+export const atEntrance = (sim: Sim, eid: number): boolean =>
+  sim.stores.behavior.state[eid] === sim.dungeons.delving && !seenInDungeon(sim, eid)
+
+export const openView = (sim: Sim, guild: number, tier: number): void => {
+  sim.dungeons.view.guild = guild
+  sim.dungeons.view.tier = tier
+}
+
+export const closeView = (sim: Sim): void => {
+  openView(sim, NO_VIEW, NO_VIEW)
 }
 
 export const settleTier = (sim: Sim, guild: number, tier: number): DungeonMap => {

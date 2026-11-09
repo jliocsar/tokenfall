@@ -17,6 +17,7 @@ export type EffectDefinition = {
 
 export const EMITTER_STRIDE = 8
 export const NOT_SPAWNED = -1
+export const NO_TARGET = 0
 
 export const registerEffectKind = (sim: Sim, definition: EffectDefinition): number => {
   const capacity = sim.config.budgets.effectEmittersPerKind
@@ -128,6 +129,25 @@ export const spawnEffect = (sim: Sim, kindId: number, target: number, now: numbe
 
   if (kind.attached) {
     addMember(sim.attachedEmitters, eid)
+  }
+
+  return eid
+}
+
+export const spawnEffectAt = (
+  sim: Sim,
+  kindId: number,
+  x: number,
+  y: number,
+  now: number,
+): number => {
+  const eid = spawnEffect(sim, kindId, NO_TARGET, now)
+
+  if (eid !== -1) {
+    const kind = sim.effects[kindId]!
+    const slot = sim.stores.emitter.slot[eid]!
+    kind.data[slot * EMITTER_STRIDE] = screenX(x, y)
+    kind.data[slot * EMITTER_STRIDE + 1] = screenY(x, y)
   }
 
   return eid

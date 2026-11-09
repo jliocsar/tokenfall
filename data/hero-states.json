@@ -147,6 +147,7 @@
   "onEnter": {
     "camp": "settle-at-camp",
     "to-dungeon": "walk-to-entrance",
+    "warping-in": "warp-flare",
     "delving": "enter-dungeon",
     "looting": "settle-at-camp",
     "dying": "stop",

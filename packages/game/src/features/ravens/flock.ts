@@ -1,5 +1,6 @@
 import { Particle, ParticleContainer, type Texture } from 'pixi.js'
 import tuning from '@tokenfall/data/ravens.json'
+import { atEntrance } from '../../core/dungeon.ts'
 import { screenX, screenY } from '../../core/iso.ts'
 import { NO_PLOT } from '../../core/layout.ts'
 import type { Sim } from '../../core/sim.ts'
@@ -89,9 +90,9 @@ const place = (
   particle.alpha = 1
 }
 
-export const syncFlock = (flock: Flock, sim: Sim, layer: HeroLayer, now: number): void => {
+export const syncFlock = (flock: Flock, sim: Sim, now: number): void => {
   const { waiting, town } = sim
-  const { position, behavior, hero } = sim.stores
+  const { position, hero } = sim.stores
   const previous = flock.used
   flock.frame += 1
   flock.used = 0
@@ -99,7 +100,7 @@ export const syncFlock = (flock: Flock, sim: Sim, layer: HeroLayer, now: number)
   for (let i = 0; i < waiting.size && flock.used < flock.particles.length; i++) {
     const eid = waiting.dense[i]!
 
-    if (layer.hidden[behavior.state[eid]!] !== 1) {
+    if (!atEntrance(sim, eid)) {
       const x = position.x[eid]!
       const y = position.y[eid]!
       place(flock, flock.used, eid, screenX(x, y), screenY(x, y) - bird.height, now)

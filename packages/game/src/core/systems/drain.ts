@@ -185,6 +185,7 @@ const HANDLERS: Handlers = {
           hero.level[eid] = level
           addMember(sim.changed, eid)
           addMember(sim.auraCheck, eid)
+          addMember(sim.tierCheck, eid)
 
           if (!event.catchUp) {
             sim.counters.levelUps += 1
@@ -207,6 +208,7 @@ const HANDLERS: Handlers = {
       (eid) => {
         sim.text.tool[eid] = event.tool
         addMember(sim.toolChanged, eid)
+        addMember(sim.toolSteps, eid)
       },
       true,
     ),

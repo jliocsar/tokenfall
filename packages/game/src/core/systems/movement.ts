@@ -1,4 +1,5 @@
 import { scheduleWander, sendInput } from '../behavior.ts'
+import { advanceWalk } from '../delve.ts'
 import { removeMember } from '../dense-set.ts'
 import { directionOf } from '../iso.ts'
 import type { Sim } from '../sim.ts'
@@ -6,6 +7,10 @@ import type { System } from '../system.ts'
 
 const arrive = (sim: Sim, eid: number, now: number): void => {
   removeMember(sim.moving, eid)
+
+  if (advanceWalk(sim, eid)) {
+    return
+  }
 
   if (
     !sendInput(sim, eid, sim.inputs['arrived']!, now) &&

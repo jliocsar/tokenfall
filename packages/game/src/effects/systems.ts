@@ -6,6 +6,8 @@ import { endEffect, followTargets, spawnEffect } from './emitters.ts'
 
 export const LEVEL_UP_KIND = 0
 export const AURA_KIND = 1
+export const WARP_PORTAL_KIND = 2
+export const WARP_FLARE_KIND = 3
 
 export const levelUpBurstSystem: System = {
   name: 'level-up-bursts',

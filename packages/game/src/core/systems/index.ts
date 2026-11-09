@@ -1,6 +1,7 @@
 import { commitRemovals } from 'bitecs'
 import { auraSystem, effectFollowSystem, levelUpBurstSystem } from '../../effects/systems.ts'
 import type { System } from '../system.ts'
+import { delveSystem } from './delve.ts'
 import { drainSystem } from './drain.ts'
 import { movementSystem } from './movement.ts'
 import { timerSystem } from './timers.ts'
@@ -17,6 +18,7 @@ export const SIM_SYSTEMS: readonly System[] = [
   drainSystem,
   commitSystem,
   timerSystem,
+  delveSystem,
   movementSystem,
   levelUpBurstSystem,
   auraSystem,

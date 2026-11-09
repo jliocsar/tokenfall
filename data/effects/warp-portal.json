@@ -1,0 +1,17 @@
+{
+  "name": "warp-portal",
+  "shader": "aura",
+  "particles": 72,
+  "lifetime": 1.6,
+  "attached": false,
+  "loop": true,
+  "blend": "add",
+  "params": {
+    "radius": 26,
+    "rise": 54,
+    "size": 13,
+    "spin": 1.2,
+    "inner": [0.6, 0.85, 1, 1],
+    "outer": [0.25, 0.45, 1, 0.2]
+  }
+}

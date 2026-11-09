@@ -6,6 +6,8 @@
   "cellSize": 0.75,
   "placeRadius": 2.2,
   "wanderTries": 8,
+  "roamChance": 0.3,
+  "roamRooms": 3,
   "tiers": [
     {
       "name": "Prison",

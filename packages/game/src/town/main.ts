@@ -61,7 +61,9 @@ import { boardAt, createBoardBadge, ravenReach, syncBoardBadge } from '../featur
 import { threadUrl, type InboxState } from '@tokenfall/protocol/inbox'
 import { createChests, syncChests } from '../features/loot/chests.ts'
 import dungeonTuning from '@tokenfall/data/dungeon.json'
-import { tierInside } from '../core/dungeon.ts'
+import { cellWorld, closeView, openView, tierInside } from '../core/dungeon.ts'
+import { endEffect, spawnEffectAt } from '../effects/emitters.ts'
+import { WARP_PORTAL_KIND } from '../effects/systems.ts'
 import { stateFlags } from '../core/fsm.ts'
 import { guildLabel } from '../core/groups.ts'
 import { NONE } from '../core/hero-index.ts'
@@ -188,6 +190,8 @@ const scene = {
   townY: 0,
   townZoom: 0.35,
   counts: new Uint16Array(dungeonTuning.tiers.length),
+  portals: Array.from<number>({ length: 0 }),
+  dungeonPortal: -1,
 }
 const effects = createEffectLayer(sim, EFFECT_DEFINITIONS)
 const world = new Container({ label: 'world', isRenderGroup: true })
@@ -335,6 +339,46 @@ const hideTown = (): void => {
   setStaticLights(light, [])
 }
 
+const endPortal = (eid: number): void => {
+  if (eid > 0) {
+    endEffect(sim, eid)
+  }
+}
+
+const placeDungeonPortal = (guild: number): void => {
+  const { map } = dungeonView
+  endPortal(scene.dungeonPortal)
+  scene.dungeonPortal = -1
+
+  if (map !== undefined) {
+    cellWorld(sim, map, guild, map.arrival, sim.scratch)
+    scene.dungeonPortal = spawnEffectAt(
+      sim,
+      WARP_PORTAL_KIND,
+      sim.scratch[0]!,
+      sim.scratch[1]!,
+      performance.now(),
+    )
+  }
+}
+
+const placeTownPortals = (): void => {
+  for (const eid of scene.portals) {
+    endPortal(eid)
+  }
+
+  scene.portals.length = 0
+
+  for (let guild = 0; guild < sim.groups.guildKeys.length; guild++) {
+    if (sim.town.plotOfGuild[guild] !== NO_PLOT) {
+      entranceSpot(sim, guild, sim.scratch)
+      scene.portals.push(
+        spawnEffectAt(sim, WARP_PORTAL_KIND, sim.scratch[0]!, sim.scratch[1]!, performance.now()),
+      )
+    }
+  }
+}
+
 const openDungeon = (guild: number, tier: number): void => {
   if (dungeonView.open === undefined) {
     hideTown()
@@ -343,6 +387,8 @@ const openDungeon = (guild: number, tier: number): void => {
   const tuning = dungeonTuning.tiers[tier]!
   setAmbient(light, tuning.ambient, tuning.ambientLuminance)
   const dressing = showTier(dungeonView, sim, guild, tier)
+  openView(sim, guild, tier)
+  placeDungeonPortal(guild)
   setProps(heroes, off.has('props') ? [] : dressing.props)
   setStaticLights(light, dressing.lights)
   dungeonModel.show(guildLabel(sim.groups.guildKeys[guild] ?? ''), tier)
@@ -358,6 +404,9 @@ const leaveDungeonView = (): void => {
 
   hideDungeon(dungeonView)
   dungeonModel.hide()
+  closeView(sim)
+  endPortal(scene.dungeonPortal)
+  scene.dungeonPortal = -1
   town.container.visible = true
   town.labels.visible = true
   badges.container.visible = true
@@ -624,6 +673,7 @@ const furnishTown = (): void => {
         : []
     }),
   )
+  placeTownPortals()
 }
 
 const paintHud = (now: number): void => {
@@ -662,7 +712,7 @@ const syncAttention = (now: number): void => {
   }
 
   if (flock !== undefined) {
-    syncFlock(flock, sim, heroes, now)
+    syncFlock(flock, sim, now)
   }
 }
 
@@ -722,7 +772,7 @@ const frame = (now: number): void => {
     syncBoardBadge(boardBadge, noticeBoard.spot, noticeBoard.board.count, screen)
   }
 
-  const speaking = overlaid ? syncBubbles(bubbles, sim, heroes, screen, bridge.selected(), now) : 0
+  const speaking = overlaid ? syncBubbles(bubbles, sim, screen, bridge.selected(), now) : 0
   const syncEnd = performance.now()
   measure?.gpu.begin()
   light.overlay.visible = !off.has('light')

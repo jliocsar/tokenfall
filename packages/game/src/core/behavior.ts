@@ -1,10 +1,13 @@
 import { HERO_STATUSES } from '@tokenfall/protocol/hero'
 import { enterState, NO_TRANSITION, nextState } from './fsm.ts'
 import { addMember, removeMember } from './dense-set.ts'
-import { enterDungeonAt, leaveDungeon } from './dungeon.ts'
+import { enterDungeonAt } from './delve.ts'
+import { leaveDungeon } from './dungeon.ts'
 import { entranceSpot, jitter, partySpot } from './layout.ts'
 import { TIMER_STATE, TIMER_WANDER, type Sim } from './sim.ts'
 import { schedule } from './timers.ts'
+import { spawnEffectAt } from '../effects/emitters.ts'
+import { WARP_FLARE_KIND } from '../effects/systems.ts'
 
 type Action = (sim: Sim, eid: number, now: number) => void
 
@@ -51,14 +54,27 @@ const walkToEntrance: Action = (sim, eid) => {
   moveTo(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
 }
 
-const exitDungeon: Action = (sim, eid) => {
+const flareHere = (sim: Sim, eid: number, now: number): void => {
+  spawnEffectAt(sim, WARP_FLARE_KIND, sim.stores.position.x[eid]!, sim.stores.position.y[eid]!, now)
+}
+
+const exitDungeon: Action = (sim, eid, now) => {
+  if (sim.stores.delve.placed[eid] === 1) {
+    flareHere(sim, eid, now)
+  }
+
   leaveDungeon(sim, eid)
   entranceSpot(sim, sim.stores.hero.guild[eid]!, sim.scratch)
   teleport(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
+  flareHere(sim, eid, now)
 }
 
-const enterDungeon: Action = (sim, eid) => {
+const enterDungeon: Action = (sim, eid, now) => {
   enterDungeonAt(sim, eid)
+
+  if (sim.stores.delve.placed[eid] === 1) {
+    flareHere(sim, eid, now)
+  }
 }
 
 const stop: Action = (sim, eid) => {
@@ -71,6 +87,7 @@ const ACTIONS = new Map<string, Action>([
   ['walk-to-entrance', walkToEntrance],
   ['enter-dungeon', enterDungeon],
   ['exit-dungeon', exitDungeon],
+  ['warp-flare', flareHere],
   ['stop', stop],
 ])
 

@@ -3,11 +3,11 @@ import { BitmapText, Container, Graphics } from 'pixi.js'
 import budgets from '@tokenfall/data/budgets.json'
 import world from '@tokenfall/data/world.json'
 import { clearSet } from '../../core/dense-set.ts'
+import { atEntrance } from '../../core/dungeon.ts'
 import { screenX, screenY } from '../../core/iso.ts'
 import { NO_PLOT } from '../../core/layout.ts'
 import type { Sim } from '../../core/sim.ts'
 import type { Screen } from '../../render/camera.ts'
-import type { HeroLayer } from '../../render/heroes.ts'
 import { statusLine, toolLine, type Mood } from './lines.ts'
 
 export type Bubble = {
@@ -238,16 +238,13 @@ const speak = (
 export const syncBubbles = (
   bubbles: Bubbles,
   sim: Sim,
-  heroes: HeroLayer,
   screen: Screen,
   selected: number,
   now: number,
 ): number => {
   const out = sim.scratch
-  const hidden = heroes.hidden
-
   const { speaker } = bubbles
-  const insideOf = (eid: number): boolean => hidden[sim.stores.behavior.state[eid]!] === 1
+  const insideOf = (eid: number): boolean => atEntrance(sim, eid)
 
   if (selected >= 0 && now >= bubbles.nextSelected) {
     bubbles.nextSelected = now + tuning.selectedEveryMs
