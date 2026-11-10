@@ -1,5 +1,6 @@
 import world from '@tokenfall/data/world.json'
 import { Particle, ParticleContainer, type Container, type Texture } from 'pixi.js'
+import { backOffset } from '../../core/combat.ts'
 import { screenX, screenY } from '../../core/iso.ts'
 import {
   MONSTER_ATTACK,
@@ -47,6 +48,7 @@ const IDLE_FPS = 6
 const ALPHA = 255 << 24
 const HIT = 0x80_80_ff + ALPHA
 const CRIT = 0x40_d0_ff + ALPHA
+const BACK = new Float64Array(2)
 
 const container = (texture: Texture): ParticleContainer =>
   new ParticleContainer({
@@ -171,8 +173,9 @@ export const syncMonsters = (layer: MonsterLayer, sim: Sim, now: number): void =
 
     const clip = clipOf(layer, sim, slot, now)
     const particle = layer.particles[slot]!
-    const x = monsters.x[slot]!
-    const y = monsters.y[slot]!
+    backOffset(sim, slot, now, BACK)
+    const x = monsters.x[slot]! + BACK[0]!
+    const y = monsters.y[slot]! + BACK[1]!
     particle.texture =
       layer.textures[
         textureIndex(

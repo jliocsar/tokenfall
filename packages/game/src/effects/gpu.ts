@@ -14,6 +14,7 @@ import { AURA_VERTEX } from './shaders/aura.ts'
 import { BOLT_VERTEX } from './shaders/bolt.ts'
 import { RING_BURST_FRAGMENT, RING_BURST_VERTEX } from './shaders/ring-burst.ts'
 import { WISPS_VERTEX } from './shaders/wisps.ts'
+import { DART_VERTEX } from './shaders/dart.ts'
 
 type ShaderSource = { readonly vertex: string; readonly fragment: string }
 
@@ -30,6 +31,7 @@ const SHADERS = new Map<string, ShaderSource>([
   ['wisps', { vertex: WISPS_VERTEX, fragment: RING_BURST_FRAGMENT }],
   ['bolt', { vertex: BOLT_VERTEX, fragment: RING_BURST_FRAGMENT }],
   ['arc', { vertex: ARC_VERTEX, fragment: RING_BURST_FRAGMENT }],
+  ['dart', { vertex: DART_VERTEX, fragment: RING_BURST_FRAGMENT }],
 ])
 
 const QUAD = new Float32Array([-0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, 0.5])

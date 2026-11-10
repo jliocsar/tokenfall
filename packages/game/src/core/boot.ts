@@ -8,9 +8,11 @@ import healGlow from '@tokenfall/data/effects/heal-glow.json'
 import mageBolt from '@tokenfall/data/effects/mage-bolt.json'
 import minionWisps from '@tokenfall/data/effects/minion-wisps.json'
 import necroRise from '@tokenfall/data/effects/necro-rise.json'
+import skeletonBolt from '@tokenfall/data/effects/skeleton-bolt.json'
 import slashArc from '@tokenfall/data/effects/slash-arc.json'
 import warpFlare from '@tokenfall/data/effects/warp-flare.json'
 import warpPortal from '@tokenfall/data/effects/warp-portal.json'
+import wispDart from '@tokenfall/data/effects/wisp-dart.json'
 import machine from '@tokenfall/data/hero-states.json'
 import dungeon from '@tokenfall/data/dungeon.json'
 import curve from '@tokenfall/data/level-curve.json'
@@ -48,6 +50,8 @@ export const EFFECT_DEFINITIONS = [
   critFlash,
   frenzyAura,
   healGlow,
+  wispDart,
+  skeletonBolt,
 ] as const
 
 export const bootSim = (seed: number, epoch: number, overrides: Partial<Budgets>): Sim => {

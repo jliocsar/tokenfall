@@ -1,0 +1,16 @@
+{
+  "name": "wisp-dart",
+  "shader": "dart",
+  "particles": 8,
+  "lifetime": 0.5,
+  "attached": true,
+  "blend": "add",
+  "params": {
+    "rise": 34,
+    "arc": 14,
+    "size": 8,
+    "lag": 0.05,
+    "inner": [0.75, 0.95, 1, 1],
+    "outer": [0.35, 0.6, 1, 0.2]
+  }
+}

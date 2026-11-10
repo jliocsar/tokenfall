@@ -1,4 +1,5 @@
 import wisps from '@tokenfall/data/effects/minion-wisps.json'
+import dart from '@tokenfall/data/effects/wisp-dart.json'
 import { addMember, removeMember } from '../core/dense-set.ts'
 import { stateId } from '../core/fsm.ts'
 import { NO_AURA } from '../core/sim.ts'
@@ -17,7 +18,10 @@ export const SLASH_KIND = 8
 export const CRIT_KIND = 9
 export const FRENZY_KIND = 10
 export const HEAL_KIND = 11
+export const DART_KIND = 12
+export const SKULL_BOLT_KIND = 13
 export const MAX_WISPS = wisps.particles / wisps.params.trail
+export const DART_REACH_MS = dart.lifetime * 500
 
 export const levelUpBurstSystem: System = {
   name: 'level-up-bursts',

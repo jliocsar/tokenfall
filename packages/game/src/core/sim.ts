@@ -39,6 +39,8 @@ export type Budgets = {
   readonly chests: number
   readonly horde: number
   readonly monsters: number
+  readonly damageNumbers: number
+  readonly hpBars: number
 }
 
 export type WorldTuning = {
@@ -251,7 +253,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
     forgotten: createDenseSet(budgets.entities),
     graves: createGraves(config.death.graves, budgets.entities),
     horde: createHorde(budgets.horde),
-    combat: createCombat(config.combat, budgets.entities, budgets.monsters),
+    combat: createCombat(config.combat, budgets.entities, budgets.monsters, budgets.damageNumbers),
     dyingPanes: new Map(),
     dyingState: stateId(machine, 'dying'),
     wanders: stateFlags(machine, config.tuning.wanderStates),

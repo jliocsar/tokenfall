@@ -44,5 +44,32 @@
   "minionShare": 0.3,
   "minionStrikes": 4,
   "minionGapMs": 300,
-  "maxRooms": 64
+  "maxRooms": 64,
+  "backOff": 1,
+  "backOffMs": 450,
+  "rangedRadius": 1,
+  "numbers": {
+    "lifeMs": 900,
+    "rise": 28,
+    "lift": 44,
+    "scale": 0.6,
+    "critScale": 0.85,
+    "wispScale": 0.5,
+    "jitter": 7,
+    "digits": 5,
+    "colors": [
+      [255, 248, 236],
+      [255, 196, 64],
+      [170, 220, 255]
+    ]
+  },
+  "bars": {
+    "width": 26,
+    "height": 3,
+    "heroLift": 58,
+    "monsterLift": 52,
+    "back": [30, 18, 24],
+    "hero": [96, 220, 110],
+    "monster": [228, 64, 52]
+  }
 }

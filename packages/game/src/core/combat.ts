@@ -1,5 +1,14 @@
 import { aimEffect, endEffect, spawnEffect, spawnEffectAt } from '../effects/emitters.ts'
-import { BOLT_KIND, CRIT_KIND, FRENZY_KIND, HEAL_KIND, SLASH_KIND } from '../effects/systems.ts'
+import {
+  BOLT_KIND,
+  CRIT_KIND,
+  DART_KIND,
+  DART_REACH_MS,
+  FRENZY_KIND,
+  HEAL_KIND,
+  SKULL_BOLT_KIND,
+  SLASH_KIND,
+} from '../effects/systems.ts'
 import { sceneLength } from './death-scene.ts'
 import { roomDistance, startWalk, walkTo } from './delve.ts'
 import { addMember, hasMember, removeMember } from './dense-set.ts'
@@ -7,6 +16,9 @@ import { dungeonSeed, walkable, type DungeonMap } from './dungeon-gen.ts'
 import { cellAt, cellWorld, dungeonAt, roomCenter, slotOf } from './dungeon.ts'
 import { directionOf, screenX, screenY } from './iso.ts'
 import {
+  DAMAGE_CRIT,
+  DAMAGE_HIT,
+  DAMAGE_WISP,
   MONSTER_ATTACK,
   MONSTER_CRUMBLE,
   MONSTER_FREE,
@@ -16,6 +28,7 @@ import {
   NO_ROOM,
   NO_TARGET,
   intensityTier,
+  noteDamage,
 } from './monsters.ts'
 import type { Sim } from './sim.ts'
 import type { System } from './system.ts'
@@ -41,7 +54,7 @@ const mix = (a: number, b: number): number => {
 const lifeless = (sim: Sim, eid: number): boolean =>
   sim.lifeless[sim.stores.behavior.state[eid]!] === 1
 
-const fights = (sim: Sim, eid: number): boolean => {
+export const fights = (sim: Sim, eid: number): boolean => {
   const { behavior, delve, hero } = sim.stores
   const { view } = sim.dungeons
 
@@ -87,11 +100,14 @@ const placeMonster = (
   slot: number,
 ): void => {
   const { monsters, rooms } = sim.combat
-  const { spread } = sim.config.combat.pack
+  const tuning = sim.config.combat
+  const { spread } = tuning.pack
   cellWorld(sim, map, rooms.guild, roomCenter(map, room), sim.scratch)
   const cx = sim.scratch[0]!
   const cy = sim.scratch[1]!
-  let radius = spread * (RADIUS_MIN + (1 - RADIUS_MIN) * ((hash & 0xff_ff) / 0xff_ff))
+  const near = RADIUS_MIN + (1 - RADIUS_MIN) * ((hash & 0xff_ff) / 0xff_ff)
+  const ranged = tuning.monsters[monsters.kind[slot]!]!.ranged
+  let radius = spread * (ranged ? tuning.rangedRadius : near)
 
   for (let attempt = 0; attempt < PLACE_TRIES; attempt++) {
     const x = cx + Math.cos(angle) * radius
@@ -144,8 +160,8 @@ export const spawnPack = (
     const hash = mix(seed, index)
     const kind = hash % tuning.monsters.length
     const angle = (index / size) * FULL_TURN + (mix(hash, 1) / UNIT) * ANGLE_JITTER
-    placeMonster(sim, map, room, mix(hash, 2), angle, slot)
     monsters.kind[slot] = kind
+    placeMonster(sim, map, room, mix(hash, 2), angle, slot)
     monsters.room[slot] = room
     monsters.state[slot] = rising ? MONSTER_RISING : MONSTER_IDLE
     monsters.since[slot] = now
@@ -201,6 +217,8 @@ export const resetCombat = (sim: Sim): void => {
   rooms.clearedAt.fill(0)
   rooms.refillAt.fill(0)
   rooms.holdUntil.fill(0)
+  rooms.holdX.fill(0)
+  rooms.holdY.fill(0)
   rooms.packs.fill(0)
   rooms.count = 0
   rooms.guild = NO_ROOM
@@ -328,6 +346,41 @@ const roomCleared = (sim: Sim, room: number, now: number): void => {
   }
 }
 
+const nearestFighter = (sim: Sim, slot: number, room: number, fallback: number): number => {
+  const { fighters, monsters } = sim.combat
+  const { x, y } = sim.stores.position
+  let best = fallback
+  let bestDistance = Number.POSITIVE_INFINITY
+
+  for (let i = 0; i < fighters.size; i++) {
+    const eid = fighters.dense[i]!
+
+    if (sim.stores.delve.room[eid] === room && !lifeless(sim, eid)) {
+      const distance = Math.hypot(x[eid]! - monsters.x[slot]!, y[eid]! - monsters.y[slot]!)
+
+      if (distance < bestDistance) {
+        best = eid
+        bestDistance = distance
+      }
+    }
+  }
+
+  return best
+}
+
+const rouse = (sim: Sim, slot: number, eid: number, now: number): void => {
+  const { monsters } = sim.combat
+  const room = monsters.room[slot]!
+  const first = now + sim.config.combat.monsterSwingMs * FIRST_SWING_SHARE
+
+  for (let other = 0; other < monsters.state.length; other++) {
+    if (targetable(sim, other, room) && monsters.target[other] === NO_TARGET) {
+      monsters.target[other] = other === slot ? eid : nearestFighter(sim, other, room, eid)
+      monsters.nextSwing[other] = first + (other % 3) * sim.config.combat.attackMs
+    }
+  }
+}
+
 export const hitMonster = (
   sim: Sim,
   slot: number,
@@ -342,8 +395,7 @@ export const hitMonster = (
   monsters.hitCrit[slot] = crit ? 1 : 0
 
   if (monsters.target[slot] === NO_TARGET) {
-    monsters.target[slot] = eid
-    monsters.nextSwing[slot] = now + sim.config.combat.monsterSwingMs * FIRST_SWING_SHARE
+    rouse(sim, slot, eid, now)
   }
 
   if (monsters.hp[slot] > 0) {
@@ -369,14 +421,21 @@ const attackEffects = (sim: Sim, eid: number, slot: number, crit: boolean, now: 
   const mx = monsters.x[slot]!
   const my = monsters.y[slot]!
   const ranged = sim.config.combat.rangedSheet[sim.stores.hero.sheet[eid]!] === 1
-  const effect = spawnEffect(sim, ranged ? BOLT_KIND : SLASH_KIND, eid, now)
-
-  if (effect !== -1) {
-    aimEffect(sim, effect, screenX(mx, my) - screenX(hx, hy), screenY(mx, my) - screenY(hx, hy))
-  }
+  aimAt(sim, spawnEffect(sim, ranged ? BOLT_KIND : SLASH_KIND, eid, now), hx, hy, mx, my)
 
   if (crit) {
     spawnEffectAt(sim, CRIT_KIND, mx, my, now)
+  }
+}
+
+const aimAt = (sim: Sim, effect: number, fromX: number, fromY: number, x: number, y: number) => {
+  if (effect !== -1) {
+    aimEffect(
+      sim,
+      effect,
+      screenX(x, y) - screenX(fromX, fromY),
+      screenY(x, y) - screenY(fromX, fromY),
+    )
   }
 }
 
@@ -400,8 +459,18 @@ const swing = (sim: Sim, eid: number, slot: number, now: number): void => {
   combat.swingCrit[eid] = crit ? 1 : 0
   combat.counters.swings += 1
   combat.counters.crits += crit ? 1 : 0
+  const damage = heroDamage(sim, eid) * (crit ? tuning.critMultiplier : 1)
+  const { monsters } = combat
   attackEffects(sim, eid, slot, crit, now)
-  hitMonster(sim, slot, heroDamage(sim, eid) * (crit ? tuning.critMultiplier : 1), crit, eid, now)
+  noteDamage(
+    sim,
+    monsters.x[slot]!,
+    monsters.y[slot]!,
+    damage,
+    crit ? DAMAGE_CRIT : DAMAGE_HIT,
+    now,
+  )
+  hitMonster(sim, slot, damage, crit, eid, now)
 }
 
 const strike = (sim: Sim, eid: number, slot: number, now: number): void => {
@@ -415,7 +484,20 @@ const strike = (sim: Sim, eid: number, slot: number, now: number): void => {
   combat.strikes[eid] = combat.strikes[eid]! - 1
   combat.strikeAt[eid] = now
   combat.counters.strikes += 1
-  hitMonster(sim, slot, heroDamage(sim, eid) * tuning.minionShare, false, eid, now)
+  const damage = heroDamage(sim, eid) * tuning.minionShare
+  const { monsters } = combat
+  const mx = monsters.x[slot]!
+  const my = monsters.y[slot]!
+  aimAt(
+    sim,
+    spawnEffect(sim, DART_KIND, eid, now),
+    sim.stores.position.x[eid]!,
+    sim.stores.position.y[eid]!,
+    mx,
+    my,
+  )
+  noteDamage(sim, mx, my, damage, DAMAGE_WISP, now + DART_REACH_MS)
+  hitMonster(sim, slot, damage, false, eid, now)
 }
 
 const face = (sim: Sim, eid: number, slot: number): void => {
@@ -441,6 +523,8 @@ const dropFighter = (sim: Sim, eid: number, now: number): void => {
 
   if (lifeless(sim, eid) && room < rooms.count) {
     rooms.holdUntil[room] = now + sceneLength(sim.config.death.scene)
+    rooms.holdX[room] = sim.stores.position.x[eid]!
+    rooms.holdY[room] = sim.stores.position.y[eid]!
   }
 }
 
@@ -537,6 +621,14 @@ const monsterSwing = (sim: Sim, slot: number, now: number): void => {
     now + tuning.monsterSwingMs * (1 - SWING_JITTER / 2 + sim.random() * SWING_JITTER)
   monsters.state[slot] = MONSTER_ATTACK
   monsters.since[slot] = now
+
+  if (tuning.monsters[monsters.kind[slot]!]!.ranged) {
+    const mx = monsters.x[slot]!
+    const my = monsters.y[slot]!
+    const effect = spawnEffectAt(sim, SKULL_BOLT_KIND, mx, my, now)
+    aimAt(sim, effect, mx, my, sim.stores.position.x[eid]!, sim.stores.position.y[eid]!)
+  }
+
   const hit = low! + sim.random() * (high! - low!)
   combat.hp[eid] = Math.max(tuning.hpFloor, combat.hp[eid]! - hit)
 }
@@ -641,7 +733,8 @@ const roomFlow = (sim: Sim, map: DungeonMap, now: number): void => {
 
 export const combatSystem: System = {
   name: 'combat',
-  complexity: 'O(fighting heroes + budgets.monsters) while a Dungeon is open, else O(1)',
+  complexity:
+    'O(fighting heroes + budgets.monsters) while a Dungeon is open, plus O(budgets.monsters x fighting heroes) on the first hit on a Pack, else O(1)',
   run: (sim, now) => {
     const { view } = sim.dungeons
     const { rooms, monsters } = sim.combat
@@ -698,6 +791,45 @@ export const lungeOffset = (sim: Sim, eid: number, now: number, out: Float64Arra
   }
 
   const push = Math.sin((elapsed / tuning.lungeMs) * Math.PI) * tuning.lunge
+  out[0] = (dx / distance) * push
+  out[1] = (dy / distance) * push
+}
+
+const easeBack = (sim: Sim, room: number, now: number): number => {
+  const { holdUntil } = sim.combat.rooms
+  const { backOffMs } = sim.config.combat
+  const until = holdUntil[room]!
+  const since = now - (until - sceneLength(sim.config.death.scene))
+
+  if (now >= until || since < 0) {
+    return 0
+  }
+
+  const share = Math.min(1, since / backOffMs, (until - now) / backOffMs)
+
+  return share * share * (3 - 2 * share)
+}
+
+export const backOffset = (sim: Sim, slot: number, now: number, out: Float64Array): void => {
+  const { monsters, rooms } = sim.combat
+  const room = monsters.room[slot]!
+  out[0] = 0
+  out[1] = 0
+
+  if (room < 0 || room >= rooms.count) {
+    return
+  }
+
+  const ease = easeBack(sim, room, now)
+  const dx = monsters.x[slot]! - rooms.holdX[room]!
+  const dy = monsters.y[slot]! - rooms.holdY[room]!
+  const distance = Math.hypot(dx, dy)
+
+  if (ease === 0 || distance === 0) {
+    return
+  }
+
+  const push = ease * sim.config.combat.backOff
   out[0] = (dx / distance) * push
   out[1] = (dy / distance) * push
 }

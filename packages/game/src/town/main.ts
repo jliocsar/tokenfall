@@ -96,6 +96,7 @@ import {
 import { setAmbient, TOWN_AMBIENT } from '../features/light/light.ts'
 import { groundX, groundY } from '../core/iso.ts'
 import { createCrowns, syncCrowns } from '../features/crown/crowns.ts'
+import { createCombatMarks, syncCombatMarks } from '../features/combat/marks.ts'
 import {
   createTownMeasure,
   type MeasurePlan,
@@ -148,7 +149,7 @@ const readSettings = (): Settings => {
     measure: plan,
     dungeon: params.has('dungeon') ? Number(params.get('dungeon') ?? 0) : undefined,
     deaths: params.has('deaths'),
-    combat: params.has('combat'),
+    combat: params.has('combat') || plan?.combat === true,
   }
 }
 
@@ -237,6 +238,8 @@ const glow = new Container({ label: 'glow', isRenderGroup: true })
 glow.addChild(effects.container)
 const crowns = createCrowns()
 glow.addChild(crowns.container)
+const combatMarks = createCombatMarks(sim)
+glow.addChild(combatMarks.container)
 
 if (flock !== undefined) {
   glow.addChild(flock.container)
@@ -895,6 +898,7 @@ const frame = (now: number): void => {
 
   syncEffects(effects, sim, now)
   syncCrowns(crowns, sim)
+  syncCombatMarks(combatMarks, sim, now)
   screen.width = app.screen.width
   screen.height = app.screen.height
   screen.x = camera.x

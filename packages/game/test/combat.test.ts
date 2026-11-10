@@ -5,15 +5,43 @@ import curve from '@tokenfall/data/level-curve.json'
 import { LOCAL_MACHINE, NO_PLOT, type HeroInfo } from '@tokenfall/protocol/hero'
 import { bootSim } from '../src/core/boot.ts'
 import { hasMember } from '../src/core/dense-set.ts'
-import { closeView, depthTierOf, ensureDungeon, openView } from '../src/core/dungeon.ts'
+import {
+  cellWorld,
+  closeView,
+  depthTierOf,
+  dungeonAt,
+  ensureDungeon,
+  openView,
+  roomCenter,
+} from '../src/core/dungeon.ts'
 import { guildOf } from '../src/core/groups.ts'
 import { entityOfHero } from '../src/core/hero-index.ts'
-import { intensityTier, MONSTER_FREE, noteTools, tierOf, toolCount } from '../src/core/monsters.ts'
+import { backOffset } from '../src/core/combat.ts'
+import {
+  DAMAGE_CRIT,
+  DAMAGE_HIT,
+  DAMAGE_WISP,
+  intensityTier,
+  MONSTER_FREE,
+  noteDamage,
+  noteTools,
+  tierOf,
+  toolCount,
+} from '../src/core/monsters.ts'
 import { push } from '../src/core/queue.ts'
 import { createProfile, runSystems } from '../src/core/system.ts'
 import { SIM_SYSTEMS } from '../src/core/systems/index.ts'
 import { EMITTER_STRIDE } from '../src/effects/emitters.ts'
-import { BOLT_KIND, CRIT_KIND, FRENZY_KIND, HEAL_KIND, SLASH_KIND } from '../src/effects/systems.ts'
+import {
+  BOLT_KIND,
+  CRIT_KIND,
+  DART_KIND,
+  DART_REACH_MS,
+  FRENZY_KIND,
+  HEAL_KIND,
+  SKULL_BOLT_KIND,
+  SLASH_KIND,
+} from '../src/effects/systems.ts'
 
 type Sim = ReturnType<typeof bootSim>
 
@@ -309,9 +337,22 @@ describe('the fight', () => {
 
     expect(sim.combat.counters.swings).toBe(swings)
 
+    const { monsters, rooms } = sim.combat
+    const slot = monsters.room.indexOf(room)
+    const away = new Float64Array(2)
+    backOffset(sim, slot, now + 1000, away)
+    const outX = monsters.x[slot]! - rooms.holdX[room]!
+    const outY = monsters.y[slot]! - rooms.holdY[room]!
+
+    expect(Math.hypot(away[0]!, away[1]!)).toBeCloseTo(combat.backOff, 3)
+    expect(away[0]! * outX + away[1]! * outY).toBeGreaterThan(0)
+
     const until = sim.combat.rooms.holdUntil[room]!
     run(sim, now + 1000, until + 4000)
+    backOffset(sim, slot, until + 4000, away)
 
+    expect(away[0]).toBe(0)
+    expect(away[1]).toBe(0)
     expect(sim.combat.counters.swings).toBeGreaterThan(swings)
   })
 })
@@ -402,5 +443,119 @@ describe('effects', () => {
     step(sim, now + FRAME_MS)
 
     expect(sim.effects[FRENZY_KIND]!.active).toBe(0)
+  })
+})
+
+const styles = (sim: Sim): Set<number> => {
+  const { damage } = sim.combat
+  const seen = new Set<number>()
+
+  for (let index = 0; index < damage.at.length; index++) {
+    if (damage.at[index]! > Number.NEGATIVE_INFINITY) {
+      seen.add(damage.style[index]!)
+    }
+  }
+
+  return seen
+}
+
+describe('feedback', () => {
+  test('each hit notes a damage number on its Monster, gold for a crit', () => {
+    const { sim, heroes, room } = party(3, 30)
+    const { damage, monsters } = sim.combat
+    let crits = 0
+
+    for (let now = FRAME_MS; sim.combat.rooms.clearedAt[room] === 0; now += FRAME_MS) {
+      if (now % BURST_EVERY_MS < FRAME_MS) {
+        burst(sim, heroes, now)
+      }
+
+      const swings = sim.combat.counters.swings
+      step(sim, now)
+
+      if (sim.combat.counters.swings > swings) {
+        const last = (damage.head - 1 + damage.at.length) % damage.at.length
+        const slot = sim.combat.target[heroes.find((eid) => sim.combat.swingAt[eid] === now)!]!
+
+        expect(damage.at[last]).toBe(now)
+        expect(damage.value[last]).toBeGreaterThan(0)
+        expect(damage.x[last]).toBe(monsters.x[slot])
+        expect(damage.y[last]).toBe(monsters.y[slot])
+
+        crits += damage.style[last] === DAMAGE_CRIT ? 1 : 0
+      }
+    }
+
+    expect(crits).toBeGreaterThan(0)
+    expect(styles(sim).has(DAMAGE_HIT)).toBe(true)
+  })
+
+  test('damage numbers keep their budget and drop the oldest first', () => {
+    const sim = bootSim(TOWN_SEED, 0, {})
+    const { damage } = sim.combat
+
+    for (let index = 0; index < budgets.damageNumbers + 3; index++) {
+      noteDamage(sim, 0, 0, index + 1, DAMAGE_HIT, index)
+    }
+
+    expect(damage.at.length).toBe(budgets.damageNumbers)
+    expect(damage.head).toBe(3)
+    expect(Math.min(...damage.at)).toBe(3)
+    expect(damage.value[0]).toBe(budgets.damageNumbers + 1)
+  })
+
+  test('a Minion call darts a wisp at the target, and its number lands when the wisp does', () => {
+    const { sim, heroes } = party(2, 1)
+    const eid = heroes[0]!
+    let now = FRAME_MS
+
+    while (sim.combat.target[eid] === -1 || sim.combat.counters.swings === 0) {
+      step(sim, now)
+      now += FRAME_MS
+    }
+
+    noteTools(sim, eid, 1, true, now)
+    step(sim, now)
+
+    expect(sim.combat.counters.strikes).toBe(1)
+    expect(sim.effects[DART_KIND]!.active).toBe(1)
+    expect(aimed(sim, DART_KIND)).toBe(true)
+
+    const { damage } = sim.combat
+    const last = (damage.head - 1 + damage.at.length) % damage.at.length
+
+    expect(damage.style[last]).toBe(DAMAGE_WISP)
+    expect(damage.at[last]).toBe(now + DART_REACH_MS)
+  })
+
+  test('Skeleton Mages stand at the edge of the Pack and fire bolts back', () => {
+    const { sim, room } = party(4, 1)
+    const { monsters, rooms } = sim.combat
+    const map = dungeonAt(sim, rooms.guild, rooms.tier)!
+    const center = new Float64Array(2)
+    const edges: number[] = []
+
+    for (let slot = 0; slot < monsters.state.length; slot++) {
+      if (monsters.state[slot] !== MONSTER_FREE && combat.monsters[monsters.kind[slot]!]!.ranged) {
+        cellWorld(sim, map, rooms.guild, roomCenter(map, monsters.room[slot]!), center)
+        edges.push(Math.hypot(monsters.x[slot]! - center[0]!, monsters.y[slot]! - center[1]!))
+      }
+    }
+
+    expect(edges.length).toBeGreaterThan(0)
+    expect(Math.max(...edges)).toBeCloseTo(combat.pack.spread * combat.rangedRadius, 3)
+
+    const mage = Array.from(monsters.kind).findIndex(
+      (kind, slot) => monsters.room[slot] === room && combat.monsters[kind]!.ranged,
+    )
+    let bolts = 0
+
+    for (let now = FRAME_MS; rooms.clearedAt[room] === 0 && now < FIGHT_LIMIT_MS; now += FRAME_MS) {
+      step(sim, now)
+      bolts = Math.max(bolts, sim.effects[SKULL_BOLT_KIND]!.active)
+    }
+
+    expect(mage).toBeGreaterThanOrEqual(0)
+    expect(bolts).toBeGreaterThan(0)
   })
 })

@@ -8,6 +8,7 @@ export type MeasurePlan = {
   readonly off: ReadonlySet<string>
   readonly dungeon: boolean
   readonly deaths: boolean
+  readonly combat: boolean
   readonly label: string
   readonly rest: readonly string[]
 }
@@ -44,10 +45,12 @@ const CONTINUE = 'continue'
 const MB = 1_048_576
 
 const DEFAULT_PLAN =
-  '500,1000,1000-light,1000-props,1000-overlay,1000-dungeon,1000-dungeon-light,1000-deaths'
+  '500,1000,1000-light,1000-props,1000-overlay,1000-dungeon,1000-dungeon-light,1000-deaths,1000-combat'
 
 const DUNGEON = 'dungeon'
 const DEATHS = 'deaths'
+const COMBAT = 'combat'
+const PLAN_FLAGS: ReadonlySet<string> = new Set([DUNGEON, DEATHS, COMBAT])
 
 export const readMeasurePlan = (params: URLSearchParams): MeasurePlan | undefined => {
   const value = params.get('measure')
@@ -65,9 +68,10 @@ export const readMeasurePlan = (params: URLSearchParams): MeasurePlan | undefine
 
   return {
     heroes: Number(heroes) || 500,
-    off: new Set(off.filter((flag) => flag !== DUNGEON && flag !== DEATHS)),
-    dungeon: off.includes(DUNGEON),
+    off: new Set(off.filter((flag) => !PLAN_FLAGS.has(flag))),
+    dungeon: off.includes(DUNGEON) || off.includes(COMBAT),
     deaths: off.includes(DEATHS),
+    combat: off.includes(COMBAT),
     label: entries[0] ?? '500',
     rest: entries.slice(1),
   }

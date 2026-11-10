@@ -53,6 +53,29 @@ export type CombatTuning = {
   readonly minionStrikes: number
   readonly minionGapMs: number
   readonly maxRooms: number
+  readonly backOff: number
+  readonly backOffMs: number
+  readonly rangedRadius: number
+  readonly numbers: {
+    readonly lifeMs: number
+    readonly rise: number
+    readonly lift: number
+    readonly scale: number
+    readonly critScale: number
+    readonly wispScale: number
+    readonly jitter: number
+    readonly digits: number
+    readonly colors: readonly (readonly number[])[]
+  }
+  readonly bars: {
+    readonly width: number
+    readonly height: number
+    readonly heroLift: number
+    readonly monsterLift: number
+    readonly back: readonly number[]
+    readonly hero: readonly number[]
+    readonly monster: readonly number[]
+  }
 }
 
 export type CombatConfig = CombatTuning & { readonly rangedSheet: Uint8Array }
@@ -79,10 +102,21 @@ export type Rooms = {
   readonly clearedAt: Float64Array
   readonly refillAt: Float64Array
   readonly holdUntil: Float64Array
+  readonly holdX: Float32Array
+  readonly holdY: Float32Array
   readonly packs: Uint16Array
   count: number
   guild: number
   tier: number
+}
+
+export type DamageNumbers = {
+  readonly x: Float32Array
+  readonly y: Float32Array
+  readonly value: Float32Array
+  readonly style: Uint8Array
+  readonly at: Float64Array
+  head: number
 }
 
 export type CombatCounters = {
@@ -109,6 +143,7 @@ export type Combat = {
   readonly glowing: DenseSet
   readonly monsters: Monsters
   readonly rooms: Rooms
+  readonly damage: DamageNumbers
   readonly counters: CombatCounters
 }
 
@@ -120,13 +155,21 @@ export const MONSTER_RISING = 1
 export const MONSTER_IDLE = 2
 export const MONSTER_ATTACK = 3
 export const MONSTER_CRUMBLE = 4
+export const DAMAGE_HIT = 0
+export const DAMAGE_CRIT = 1
+export const DAMAGE_WISP = 2
 
 export const combatConfig = (tuning: CombatTuning, sheets: readonly string[]): CombatConfig => ({
   ...tuning,
   rangedSheet: new Uint8Array(sheets.map((sheet) => (tuning.rangedSheets.includes(sheet) ? 1 : 0))),
 })
 
-export const createCombat = (config: CombatConfig, entities: number, size: number): Combat => ({
+export const createCombat = (
+  config: CombatConfig,
+  entities: number,
+  size: number,
+  numbers: number,
+): Combat => ({
   calls: new Float64Array(entities * config.ring).fill(Number.NEGATIVE_INFINITY),
   head: new Uint8Array(entities),
   bonus: new Uint8Array(entities),
@@ -161,13 +204,41 @@ export const createCombat = (config: CombatConfig, entities: number, size: numbe
     clearedAt: new Float64Array(config.maxRooms),
     refillAt: new Float64Array(config.maxRooms),
     holdUntil: new Float64Array(config.maxRooms),
+    holdX: new Float32Array(config.maxRooms),
+    holdY: new Float32Array(config.maxRooms),
     packs: new Uint16Array(config.maxRooms),
     count: 0,
     guild: NO_ROOM,
     tier: NO_ROOM,
   },
+  damage: {
+    x: new Float32Array(numbers),
+    y: new Float32Array(numbers),
+    value: new Float32Array(numbers),
+    style: new Uint8Array(numbers),
+    at: new Float64Array(numbers).fill(Number.NEGATIVE_INFINITY),
+    head: 0,
+  },
   counters: { swings: 0, crits: 0, strikes: 0, cleared: 0, skipped: 0 },
 })
+
+export const noteDamage = (
+  sim: Sim,
+  x: number,
+  y: number,
+  value: number,
+  style: number,
+  at: number,
+): void => {
+  const { damage } = sim.combat
+  const head = damage.head
+  damage.x[head] = x
+  damage.y[head] = y
+  damage.value[head] = value
+  damage.style[head] = style
+  damage.at[head] = at
+  damage.head = (head + 1) % damage.at.length
+}
 
 export const toolCount = (sim: Sim, eid: number, now: number): number => {
   const { ring, windowMs } = sim.config.combat
