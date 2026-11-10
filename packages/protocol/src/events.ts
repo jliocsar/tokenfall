@@ -65,6 +65,8 @@ export type HeroTool = {
   readonly at: number
   readonly hero: HeroId
   readonly tool: string
+  readonly calls: number
+  readonly minion: boolean
 }
 
 export type HeroRavens = {

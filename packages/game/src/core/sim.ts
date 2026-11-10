@@ -16,6 +16,7 @@ import {
 import type { SceneTuning } from './death-scene.ts'
 import { createGraves, type Graves, type GraveTuning } from './graves.ts'
 import { createHorde, type Horde } from './horde.ts'
+import { createCombat, type Combat, type CombatConfig } from './monsters.ts'
 import { createHeroIndex, type HeroIndex } from './hero-index.ts'
 import { levelThresholds, type LevelCurve } from '@tokenfall/protocol/level'
 import { createQueue, type Queue } from './queue.ts'
@@ -37,6 +38,7 @@ export type Budgets = {
   readonly ravens: number
   readonly chests: number
   readonly horde: number
+  readonly monsters: number
 }
 
 export type WorldTuning = {
@@ -58,6 +60,7 @@ export type SimConfig = {
   readonly dungeon: DungeonTuning
   readonly depthTiers: readonly DepthTier[]
   readonly death: { readonly graves: GraveTuning; readonly scene: SceneTuning }
+  readonly combat: CombatConfig
 }
 
 export type Stores = ReturnType<typeof createStores>
@@ -138,6 +141,7 @@ export type Sim = {
   readonly forgotten: DenseSet
   readonly graves: Graves
   readonly horde: Horde
+  readonly combat: Combat
   readonly dyingPanes: Map<string, number>
   readonly dyingState: number
   readonly wanders: Uint8Array
@@ -247,6 +251,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
     forgotten: createDenseSet(budgets.entities),
     graves: createGraves(config.death.graves, budgets.entities),
     horde: createHorde(budgets.horde),
+    combat: createCombat(config.combat, budgets.entities, budgets.monsters),
     dyingPanes: new Map(),
     dyingState: stateId(machine, 'dying'),
     wanders: stateFlags(machine, config.tuning.wanderStates),

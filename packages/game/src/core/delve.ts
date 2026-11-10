@@ -10,9 +10,11 @@ import {
   partyRoom,
   putHero,
   roomCenter,
+  noteFighter,
   slotOf,
   spotInRoom,
 } from './dungeon.ts'
+import { engaged } from './monsters.ts'
 import type { Sim } from './sim.ts'
 
 const WALK_ROUTE = 1
@@ -80,7 +82,7 @@ const fieldTo = (sim: Sim, guild: number, map: DungeonMap, goal: number): Int16A
   ))
 }
 
-const walkTo = (sim: Sim, eid: number, x: number, y: number): void => {
+export const walkTo = (sim: Sim, eid: number, x: number, y: number): void => {
   const { motion } = sim.stores
   motion.tx[eid] = x
   motion.ty[eid] = y
@@ -144,6 +146,7 @@ const descend = (sim: Sim, eid: number): void => {
   const room = partyRoom(sim, guild, tier, hero.party[eid]!)
   delve.room[eid] = room
   startWalk(sim, eid, room)
+  noteFighter(sim, eid)
 
   if (heroTier(sim, eid) > tier) {
     addMember(sim.tierCheck, eid)
@@ -196,6 +199,14 @@ export const advanceWalk = (sim: Sim, eid: number): boolean => {
   return true
 }
 
+export const roomDistance = (
+  sim: Sim,
+  guild: number,
+  map: DungeonMap,
+  from: number,
+  to: number,
+): number => fieldTo(sim, guild, map, from)[roomCenter(map, to)]!
+
 export const startWalk = (sim: Sim, eid: number, goal: number): void => {
   sim.stores.delve.goal[eid] = goal
   sim.stores.delve.walking[eid] = WALK_ROUTE
@@ -234,6 +245,7 @@ export const enterDungeonAt = (sim: Sim, eid: number): void => {
   const room = partyRoom(sim, guild, tier, hero.party[eid]!)
   delve.room[eid] = room
   startWalk(sim, eid, room)
+  noteFighter(sim, eid)
 }
 
 export const toolStep = (sim: Sim, eid: number): void => {
@@ -242,7 +254,7 @@ export const toolStep = (sim: Sim, eid: number): void => {
   const guild = hero.guild[eid]!
   const map = dungeonAt(sim, guild, delve.tier[eid]!)
 
-  if (delve.placed[eid] !== 1 || !idle || map === undefined) {
+  if (delve.placed[eid] !== 1 || !idle || map === undefined || engaged(sim, eid)) {
     return
   }
 

@@ -9,6 +9,7 @@ import {
 } from 'pixi.js'
 import death from '@tokenfall/data/death.json'
 import world from '@tokenfall/data/world.json'
+import { lungeOffset } from '../core/combat.ts'
 import { hasMember } from '../core/dense-set.ts'
 import { stateFlags, stateId } from '../core/fsm.ts'
 import { NO_GRAVE } from '../core/graves.ts'
@@ -86,6 +87,7 @@ const WARPING_COLOR = 0xff_ff_ff + (((0.5 * 255) | 0) << 24)
 const DYING_CLIPS = ['Idle', 'Hit_A', 'Death_A', 'Lie_StandUp'] as const
 const STAND_UP = 3
 const POSE: Pose = { clip: 0, progress: 0, alpha: 1 }
+const LUNGE = new Float64Array(2)
 const SPAN_ADOPT = traceId('heroes.adopt')
 const SPAN_SORT = traceId('heroes.sort')
 const SPAN_CULL_PAINT = traceId('heroes.cull-paint')
@@ -446,8 +448,9 @@ export const syncHeroes = (
 
     visible = paintProps(layer, view, x[eid]! + y[eid]!, visible)
     const particle = layer.particles[eid]!
-    particle.x = sx
-    particle.y = sy
+    lungeOffset(sim, eid, now, LUNGE)
+    particle.x = screenX(x[eid]! + LUNGE[0]!, y[eid]! + LUNGE[1]!)
+    particle.y = screenY(x[eid]! + LUNGE[0]!, y[eid]! + LUNGE[1]!)
     paint(layer, sim, particle, eid, now)
     children[visible] = particle
     visible += 1

@@ -12,10 +12,12 @@ import curve from '@tokenfall/data/level-curve.json'
 import names from '@tokenfall/data/names.json'
 import personalities from '@tokenfall/data/personalities.json'
 import death from '@tokenfall/data/death.json'
+import combat from '@tokenfall/data/combat.json'
 import town from '@tokenfall/data/town.json'
 import world from '@tokenfall/data/world.json'
 import { validateActions } from './behavior.ts'
 import { createCharacters } from './character.ts'
+import { combatConfig } from './monsters.ts'
 import { createSim, type Budgets, type Sim } from './sim.ts'
 import { registerEffectKind } from '../effects/emitters.ts'
 
@@ -53,6 +55,7 @@ export const bootSim = (seed: number, epoch: number, overrides: Partial<Budgets>
       dungeon,
       depthTiers: curve.depthTiers,
       death,
+      combat: combatConfig(combat, HERO_SHEETS),
     },
     epoch,
   )

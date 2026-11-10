@@ -9,6 +9,7 @@ import { nameOf, personalityOf, STRANGER_NAME } from '../character.ts'
 import { freeGrave } from '../graves.ts'
 import { jitter, partySpot } from '../layout.ts'
 import { joinGroups, leaveGroups, rejoinGroups } from '../membership.ts'
+import { noteTools } from '../monsters.ts'
 import { levelFor } from '@tokenfall/protocol/level'
 import { peek, shift } from '../queue.ts'
 import { sceneLength } from '../death-scene.ts'
@@ -301,12 +302,18 @@ const HANDLERS: Handlers = {
       joinGroups(sim, eid, event.guild, event.workspace, event.plot)
       reenterState(sim, eid, now)
     }),
-  'hero.tool': (sim, event) =>
+  'hero.tool': (sim, event, now) =>
     withHero(
       sim,
       event.hero,
       (eid) => {
         if (lifeless(sim, eid)) {
+          return
+        }
+
+        noteTools(sim, eid, event.calls, event.minion, now)
+
+        if (event.minion) {
           return
         }
 

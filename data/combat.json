@@ -1,0 +1,40 @@
+{
+  "windowMs": 4000,
+  "ring": 8,
+  "tiers": [
+    { "name": "steady", "from": 0, "swingMs": 1500, "crit": 0 },
+    { "name": "busy", "from": 2, "swingMs": 1200, "crit": 0.2 },
+    { "name": "frenzy", "from": 5, "swingMs": 1000, "crit": 0.75 }
+  ],
+  "critMultiplier": 1.75,
+  "bonusSwings": 2,
+  "bonusGapMs": 250,
+  "packShare": 0.15,
+  "levelBonus": 0.5,
+  "levelSpan": 25,
+  "monsterHp": [120, 400, 1200, 4000],
+  "monsters": [
+    { "name": "minion", "hp": 0.8, "ranged": false },
+    { "name": "warrior", "hp": 1.3, "ranged": false },
+    { "name": "rogue", "hp": 0.9, "ranged": false },
+    { "name": "mage", "hp": 1, "ranged": true }
+  ],
+  "pack": { "base": 2, "perHero": 1, "max": 6, "spread": 0.9 },
+  "monsterSwingMs": 1800,
+  "monsterHit": [0.04, 0.09],
+  "hpFloor": 0.3,
+  "reach": { "melee": 0.5, "ranged": 1.5, "slack": 0.25, "spread": 0.35 },
+  "rangedSheets": ["mage"],
+  "riseMs": 900,
+  "attackMs": 500,
+  "crumbleMs": 900,
+  "hitFlashMs": 160,
+  "lungeMs": 220,
+  "lunge": 0.18,
+  "moveOnMs": 1500,
+  "refillMs": 8000,
+  "minionShare": 0.3,
+  "minionStrikes": 4,
+  "minionGapMs": 300,
+  "maxRooms": 64
+}

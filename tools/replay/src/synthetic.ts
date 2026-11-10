@@ -16,11 +16,19 @@ export type SyntheticOptions = {
   readonly tempo: number
   readonly startAt: number
   readonly deaths?: boolean
+  readonly combat?: boolean
 }
 
 export type Synthetic = {
   readonly heroes: readonly HeroInfo[]
   readonly step: (now: number, out: HeroEvent[]) => void
+}
+
+type ToolFeed = {
+  readonly next: Float64Array
+  readonly serial: Uint32Array
+  readonly bursts: readonly number[]
+  readonly every: readonly number[]
 }
 
 const STATUS_CODES: readonly HeroStatus[] = ['idle', 'working', 'done', 'blocked']
@@ -81,6 +89,20 @@ const QUESTS = [
   'Chase a memory leak',
 ] as const
 
+const TOOLS = ['Read', 'Grep', 'Edit', 'Bash', 'Glob', 'Write'] as const
+
+const NORMAL_TOOLS = [
+  [1, 1, 2, 1, 3, 1, 1, 6],
+  [3500, 2200, 5000, 1600, 4200],
+] as const
+const COMBAT_TOOLS = [
+  [2, 6, 3, 5, 1, 7, 2, 5],
+  [900, 1400, 700, 1800, 1100],
+] as const
+
+const TOOL_PHASE_MS = 137
+const BURST_STRIDE = 5
+const MINION_EVERY = 3
 const TITLE_CHANCE = 0.25
 const LEAD_EVERY = 2
 
@@ -147,6 +169,55 @@ const resurrectionOf = (hero: HeroInfo, experience: number, now: number): HeroEv
   info: { ...hero, status: STATUS_CODES[IDLE]!, experience: Math.round(experience) },
 })
 
+const createToolFeed = (count: number, startAt: number, combat: boolean): ToolFeed => {
+  const [bursts, every] = combat ? COMBAT_TOOLS : NORMAL_TOOLS
+  const next = new Float64Array(count)
+
+  for (let i = 0; i < count; i++) {
+    next[i] = startAt + ((i * TOOL_PHASE_MS) % every[0])
+  }
+
+  return { next, serial: new Uint32Array(count), bursts, every }
+}
+
+const feedTools = (
+  feed: ToolFeed,
+  i: number,
+  hero: HeroInfo,
+  working: boolean,
+  now: number,
+  out: HeroEvent[],
+): void => {
+  const serial = feed.serial[i]!
+  feed.serial[i] = serial + 1
+  feed.next[i] = now + feed.every[(i + serial) % feed.every.length]!
+
+  if (!working) {
+    return
+  }
+
+  const turn = i * BURST_STRIDE + serial
+  out.push({
+    kind: 'hero.tool',
+    at: now,
+    hero: hero.id,
+    tool: TOOLS[turn % TOOLS.length]!,
+    calls: feed.bursts[turn % feed.bursts.length]!,
+    minion: false,
+  })
+
+  if (hero.minions > 0 && turn % MINION_EVERY === 0) {
+    out.push({
+      kind: 'hero.tool',
+      at: now,
+      hero: hero.id,
+      tool: TOOLS[(turn + 1) % TOOLS.length]!,
+      calls: 1 + (serial % MINION_EVERY),
+      minion: true,
+    })
+  }
+}
+
 export const createSynthetic = (options: SyntheticOptions): Synthetic => {
   const random = createRandom(options.seed)
   const count = options.heroes
@@ -157,9 +228,9 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
   const experience = new Float64Array(count)
   const tokensPerSecond = new Float64Array(count)
   const lastStep = new Float64Array(count).fill(options.startAt)
+  const tools = createToolFeed(count, options.startAt, options.combat === true)
   const ids: string[] = []
   const heroes: HeroInfo[] = []
-  const tempo = options.tempo
   const led = new Set<string>()
   const [deathChance, meanDeadMs] = options.deaths === true ? FREQUENT_DEATHS : RARE_DEATHS
 
@@ -181,8 +252,8 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
       MAX_EXPERIENCE,
       MEDIAN_EXPERIENCE * Math.exp(normal(random) * EXPERIENCE_SIGMA),
     )
-    tokensPerSecond[i] = MEDIAN_TOKENS_PER_SECOND * Math.exp(normal(random)) * tempo
-    nextChange[i] = options.startAt + exponential(random, MEAN_IDLE_MS / tempo)
+    tokensPerSecond[i] = MEDIAN_TOKENS_PER_SECOND * Math.exp(normal(random)) * options.tempo
+    nextChange[i] = options.startAt + exponential(random, MEAN_IDLE_MS / options.tempo)
     nextExperience[i] = options.startAt + random() * EXPERIENCE_EVERY_MS
     heroes.push({
       id,
@@ -219,7 +290,7 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
     }
 
     status[i] = next
-    nextChange[i] = now + exponential(random, mean / tempo)
+    nextChange[i] = now + exponential(random, mean / options.tempo)
     out.push({ kind: 'hero.status', at: now, hero: ids[i]!, status: STATUS_CODES[next]! })
 
     if (current === IDLE) {
@@ -228,13 +299,13 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
 
     if (next === IDLE && random() < deathChance) {
       alive[i] = 0
-      nextChange[i] = now + exponential(random, meanDeadMs / tempo)
+      nextChange[i] = now + exponential(random, meanDeadMs / options.tempo)
       out.push(deathOf(ids[i]!, i, now))
     }
   }
 
   const reviveOrStay = (i: number, now: number, out: HeroEvent[]): void => {
-    nextChange[i] = now + exponential(random, meanDeadMs / tempo)
+    nextChange[i] = now + exponential(random, meanDeadMs / options.tempo)
 
     if (random() < RESURRECT_CHANCE) {
       alive[i] = 1
@@ -274,6 +345,10 @@ export const createSynthetic = (options: SyntheticOptions): Synthetic => {
 
       if (now >= nextExperience[i]!) {
         earn(i, now, out)
+      }
+
+      if (now >= tools.next[i]!) {
+        feedTools(tools, i, heroes[i]!, status[i] === WORKING && alive[i] === 1, now, out)
       }
     }
   }

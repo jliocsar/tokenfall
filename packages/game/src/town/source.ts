@@ -38,6 +38,7 @@ export type SyntheticSettings = {
   readonly seed: number
   readonly tempo: number
   readonly deaths: boolean
+  readonly combat: boolean
 }
 
 const FEED_EVERY_MS = 100
@@ -54,6 +55,7 @@ export const syntheticSource = (settings: SyntheticSettings, now: number): Sourc
     workspacesPerGuild: WORKSPACES_PER_GUILD,
     tempo: settings.tempo,
     deaths: settings.deaths,
+    combat: settings.combat,
     startAt: now,
   })
   const state = { joined: false, nextFeed: now }

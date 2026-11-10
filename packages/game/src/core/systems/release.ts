@@ -3,6 +3,7 @@ import { addMember, clearSet, removeMember, type DenseSet } from '../dense-set.t
 import { freeGrave, expireGraves } from '../graves.ts'
 import { heroOfEntity, unbindHero } from '../hero-index.ts'
 import { dismissHorde } from '../horde.ts'
+import { forgetCombat } from '../monsters.ts'
 import { leaveGroups } from '../membership.ts'
 import type { Sim } from '../sim.ts'
 import type { System } from '../system.ts'
@@ -26,6 +27,7 @@ const release = (sim: Sim, sets: readonly DenseSet[], eid: number): void => {
   unbindHero(sim.index, heroOfEntity(sim.index, eid))
   leaveGroups(sim, eid)
   freeGrave(sim, eid)
+  forgetCombat(sim, eid)
 
   for (const set of sets) {
     removeMember(set, eid)

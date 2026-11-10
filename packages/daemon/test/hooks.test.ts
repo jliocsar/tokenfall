@@ -82,7 +82,7 @@ describe('hook events', () => {
     expect(world.live.has('local/session/s1')).toBe(true)
   })
 
-  test('tool names coalesce to the latest per Hero and skip Subagents', () => {
+  test('tool calls coalesce per Hero with a count, and Minion calls come separately', () => {
     const world = freshWorld()
     observe(world, seen('w1:p1', 's1'), 1)
     drain(world)
@@ -92,7 +92,21 @@ describe('hook events', () => {
     flushTools(world, 5)
 
     expect(drain(world)).toEqual([
-      { kind: 'hero.tool', at: 5, hero: 'local/session/s1', tool: 'Edit' },
+      { kind: 'hero.tool', at: 5, hero: 'local/session/s1', tool: 'Edit', calls: 2, minion: false },
+      { kind: 'hero.tool', at: 5, hero: 'local/session/s1', tool: 'Bash', calls: 1, minion: true },
+    ])
+  })
+
+  test('a Hero with only Minion calls gets only the Minion event', () => {
+    const world = freshWorld()
+    observe(world, seen('w1:p1', 's1'), 1)
+    drain(world)
+    handleHook(world, hook('PreToolUse', 's1', { tool: 'Grep', agent: 'a1' }), 'w1:p1', 2)
+    handleHook(world, hook('PreToolUse', 's1', { tool: 'Read', agent: 'a2' }), 'w1:p1', 3)
+    flushTools(world, 4)
+
+    expect(drain(world)).toEqual([
+      { kind: 'hero.tool', at: 4, hero: 'local/session/s1', tool: 'Read', calls: 2, minion: true },
     ])
   })
 

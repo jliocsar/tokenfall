@@ -6,6 +6,7 @@ import {
   minionSystem,
 } from '../../effects/systems.ts'
 import type { System } from '../system.ts'
+import { combatSystem } from '../combat.ts'
 import { delveSystem } from './delve.ts'
 import { drainSystem } from './drain.ts'
 import { movementSystem } from './movement.ts'
@@ -26,6 +27,7 @@ export const SIM_SYSTEMS: readonly System[] = [
   timerSystem,
   delveSystem,
   movementSystem,
+  combatSystem,
   levelUpBurstSystem,
   auraSystem,
   minionSystem,

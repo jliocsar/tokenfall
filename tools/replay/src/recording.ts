@@ -41,12 +41,19 @@ const upgradeV2 = (event: HeroEvent): HeroEvent =>
     ? { ...event, hero: { ...event.hero, ravens: 0, ravenThread: null, ravenSince: 0 } }
     : event
 
+const upgradeV4 = (event: HeroEvent): HeroEvent =>
+  event.kind === 'hero.tool' ? { ...event, calls: 1, minion: false } : event
+
 const upgrade = (version: number, event: HeroEvent): HeroEvent => {
   if (version === 1) {
-    return upgradeV2(upgradeV1(event))
+    return upgradeV4(upgradeV2(upgradeV1(event)))
   }
 
-  return version === 2 ? upgradeV2(event) : event
+  if (version === 2) {
+    return upgradeV4(upgradeV2(event))
+  }
+
+  return version < 5 ? upgradeV4(event) : event
 }
 
 export const parseRecording = (text: string): Recording => {

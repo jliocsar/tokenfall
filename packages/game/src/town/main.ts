@@ -60,6 +60,12 @@ import {
   syncHorde,
   type HordeLayer,
 } from '../features/death/horde-layer.ts'
+import {
+  loadMonsterLayer,
+  placeMonsters,
+  syncMonsters,
+  type MonsterLayer,
+} from '../features/combat/monster-layer.ts'
 import { deathText } from '../features/death/text.ts'
 import { loadFonts } from '../ui/fonts.ts'
 import { mountUi } from '../ui/mount.tsx'
@@ -110,9 +116,12 @@ type Settings = {
   readonly measure: MeasurePlan | undefined
   readonly dungeon: number | undefined
   readonly deaths: boolean
+  readonly combat: boolean
 }
 
 type HordeView = { layer: HordeLayer | undefined; loading: boolean }
+
+type MonsterView = { layer: MonsterLayer | undefined; loading: boolean }
 
 const HUD_EVERY_MS = 250
 const HORDE_ATLAS = '/sprites/horde-atlas'
@@ -139,6 +148,7 @@ const readSettings = (): Settings => {
     measure: plan,
     dungeon: params.has('dungeon') ? Number(params.get('dungeon') ?? 0) : undefined,
     deaths: params.has('deaths'),
+    combat: params.has('combat'),
   }
 }
 
@@ -693,6 +703,26 @@ const deathWave = (now: number): void => {
 
 const hordeView: HordeView = { layer: undefined, loading: false }
 
+const monsterView: MonsterView = { layer: undefined, loading: false }
+
+const syncMonsterView = (now: number): void => {
+  if (monsterView.layer !== undefined) {
+    syncMonsters(monsterView.layer, sim, now)
+
+    return
+  }
+
+  if (sim.combat.monsters.active > 0 && !monsterView.loading) {
+    monsterView.loading = true
+    void loadMonsterLayer(sim, HORDE_ATLAS).then((layer) => {
+      placeMonsters(layer, world, heroes.container)
+      monsterView.layer = layer
+
+      return layer
+    })
+  }
+}
+
 const syncHordeView = (now: number): void => {
   if (hordeView.layer !== undefined) {
     syncHorde(hordeView.layer, sim, now)
@@ -858,6 +888,7 @@ const frame = (now: number): void => {
   glow.scale.copyFrom(world.scale)
   syncHeroes(heroes, sim, atlas, view, now)
   syncHordeView(now)
+  syncMonsterView(now)
   deathWave(now)
   syncSelectionMarker(marker, sim, bridge.selected())
   syncAttention(now)

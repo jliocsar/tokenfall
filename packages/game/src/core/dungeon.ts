@@ -1,4 +1,4 @@
-import { removeMember } from './dense-set.ts'
+import { clearSet, removeMember } from './dense-set.ts'
 import {
   CELL,
   dungeonSeed,
@@ -8,6 +8,7 @@ import {
   type TierPlan,
 } from './dungeon-gen.ts'
 import { NONE } from './hero-index.ts'
+import { joinFight } from './monsters.ts'
 import { hashString } from './random.ts'
 import type { Sim } from './sim.ts'
 
@@ -206,6 +207,7 @@ export const placeInDungeon = (sim: Sim, eid: number, map: DungeonMap): void => 
   sim.stores.delve.room[eid] = room
   sim.stores.delve.placed[eid] = 1
   putHero(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
+  noteFighter(sim, eid)
 }
 
 export const leaveDungeon = (sim: Sim, eid: number): void => {
@@ -224,9 +226,28 @@ export const seenInDungeon = (sim: Sim, eid: number): boolean => {
 export const atEntrance = (sim: Sim, eid: number): boolean =>
   sim.stores.behavior.state[eid] === sim.dungeons.delving && !seenInDungeon(sim, eid)
 
+export const noteFighter = (sim: Sim, eid: number): void => {
+  if (seenInDungeon(sim, eid) && sim.stores.behavior.state[eid] === sim.dungeons.delving) {
+    joinFight(sim, eid)
+  }
+}
+
 export const openView = (sim: Sim, guild: number, tier: number): void => {
   sim.dungeons.view.guild = guild
   sim.dungeons.view.tier = tier
+  clearSet(sim.combat.fighters)
+
+  if (guild === NO_VIEW) {
+    return
+  }
+
+  for (let slot = 0; slot < sim.index.nextSlot; slot++) {
+    const eid = sim.index.entityOf[slot]!
+
+    if (eid !== NONE) {
+      noteFighter(sim, eid)
+    }
+  }
 }
 
 export const closeView = (sim: Sim): void => {

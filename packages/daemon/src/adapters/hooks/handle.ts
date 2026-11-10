@@ -102,8 +102,19 @@ const sessionEnd: Handler = (world, hook, pane, now) => {
 const preToolUse: Handler = (world, hook) => {
   const id = sessionHeroId(LOCAL_MACHINE, hook.session)
 
-  if (hook.agent === undefined && hook.tool !== undefined && world.live.has(id)) {
-    world.tools.set(id, hook.tool)
+  if (hook.tool === undefined || !world.live.has(id)) {
+    return
+  }
+
+  const tally = world.tools.get(id) ?? { tool: '', calls: 0, minionTool: '', minionCalls: 0 }
+  world.tools.set(id, tally)
+
+  if (hook.agent === undefined) {
+    tally.tool = hook.tool
+    tally.calls += 1
+  } else {
+    tally.minionTool = hook.tool
+    tally.minionCalls += 1
   }
 }
 

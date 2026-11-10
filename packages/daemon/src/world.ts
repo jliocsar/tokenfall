@@ -42,6 +42,13 @@ export type Observed = {
   readonly status: HeroStatus
 }
 
+export type ToolTally = {
+  tool: string
+  calls: number
+  minionTool: string
+  minionCalls: number
+}
+
 export type World = {
   readonly db: Database
   readonly plotCount: number
@@ -55,7 +62,7 @@ export type World = {
   readonly hookSessions: Map<PaneId, string>
   readonly ended: Set<string>
   readonly minions: Map<HeroId, Set<string>>
-  readonly tools: Map<HeroId, string>
+  readonly tools: Map<HeroId, ToolTally>
   readonly chronicle: ChronicleLine[]
   readonly arriving: Map<HeroId, ChronicleKind>
   readonly inbox: InboxFeed
@@ -450,8 +457,28 @@ export const sessionFor = (world: World, pane: PaneId, reported: string | null):
   (reported !== null && !world.ended.has(reported) ? reported : null)
 
 export const flushTools = (world: World, now: number): void => {
-  for (const [hero, tool] of world.tools) {
-    world.outbox.push({ kind: 'hero.tool', at: now, hero, tool })
+  for (const [hero, tally] of world.tools) {
+    if (tally.calls > 0) {
+      world.outbox.push({
+        kind: 'hero.tool',
+        at: now,
+        hero,
+        tool: tally.tool,
+        calls: tally.calls,
+        minion: false,
+      })
+    }
+
+    if (tally.minionCalls > 0) {
+      world.outbox.push({
+        kind: 'hero.tool',
+        at: now,
+        hero,
+        tool: tally.minionTool,
+        calls: tally.minionCalls,
+        minion: true,
+      })
+    }
   }
 
   world.tools.clear()

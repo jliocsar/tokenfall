@@ -13,5 +13,6 @@
   "bubbles": 12,
   "ravens": 64,
   "chests": 256,
-  "horde": 48
+  "horde": 48,
+  "monsters": 96
 }
