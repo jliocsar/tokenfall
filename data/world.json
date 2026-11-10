@@ -32,7 +32,6 @@
     "rowsEveryMs": 250,
     "regroupEveryMs": 1000
   },
-  "deathFadeMs": 1500,
   "marks": {
     "crownLift": 46,
     "crownScale": 1.2,

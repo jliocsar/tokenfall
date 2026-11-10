@@ -10,7 +10,9 @@
     "dying",
     "dead",
     "rising",
-    "opening"
+    "opening",
+    "succeeding",
+    "arriving"
   ],
   "inputs": [
     "idle",
@@ -145,15 +147,26 @@
       "from": "rising",
       "on": "timer",
       "to": "camp"
+    },
+    {
+      "from": "arriving",
+      "on": "timer",
+      "to": "camp"
+    },
+    {
+      "from": "succeeding",
+      "on": "timer",
+      "to": "arriving"
     }
   ],
   "timers": {
     "warping-in": 600,
     "warping-out": 600,
     "warping-out-with-loot": 600,
-    "dying": 2500,
+    "dying": 4600,
     "rising": 1500,
-    "opening": 600
+    "opening": 600,
+    "arriving": 600
   },
   "onEnter": {
     "camp": "settle-at-camp",
@@ -161,10 +174,11 @@
     "warping-in": "warp-flare",
     "delving": "enter-dungeon",
     "looting": "settle-at-camp",
-    "dying": "stop",
+    "dying": "summon-horde",
     "rising": "settle-at-camp",
     "warping-out": "exit-dungeon",
     "warping-out-with-loot": "exit-dungeon",
-    "dead": "bury"
+    "dead": "bury",
+    "arriving": "arrive-at-camp"
   }
 }

@@ -51,7 +51,15 @@ import {
 import { createHeroLayer, loadAtlas, setProps, syncHeroes, type View } from '../render/heroes.ts'
 import { createBridge, NOBODY } from '../ui/bridge.ts'
 import { DEATH_CAUSES } from '@tokenfall/protocol/hero'
+import death from '@tokenfall/data/death.json'
+import { sceneLength } from '../core/death-scene.ts'
 import { graveAt } from '../features/death/pick.ts'
+import {
+  loadHordeLayer,
+  placeHorde,
+  syncHorde,
+  type HordeLayer,
+} from '../features/death/horde-layer.ts'
 import { deathText } from '../features/death/text.ts'
 import { loadFonts } from '../ui/fonts.ts'
 import { mountUi } from '../ui/mount.tsx'
@@ -104,7 +112,10 @@ type Settings = {
   readonly deaths: boolean
 }
 
+type HordeView = { layer: HordeLayer | undefined; loading: boolean }
+
 const HUD_EVERY_MS = 250
+const HORDE_ATLAS = '/sprites/horde-atlas'
 const PICK_REACH = 60
 const ROSTER_SPACE = 360
 const SOUTH = 'S'
@@ -189,7 +200,7 @@ const source = pickSource()
 const sim = bootSim(await source.ready, started, {})
 sim.clockOffset = settings.synthetic ? 0 : performance.timeOrigin
 const town = createTownLayer()
-const heroes = createHeroLayer(sim, atlas, texture, [])
+const heroes = createHeroLayer(sim, atlas, texture, ['succeeding'])
 const dungeonView = createDungeonView(heroes.textures[0]!, heroes.propTextures)
 const inside = stateFlags(sim.machine, ['warping-in', 'delving'])
 const scene = {
@@ -659,6 +670,47 @@ window.addEventListener('keydown', (event) => {
   }
 })
 
+const wave = { next: 0, cursor: 0 }
+
+const deathWave = (now: number): void => {
+  if (settings.measure?.deaths !== true || now < wave.next) {
+    return
+  }
+
+  wave.next = now + sceneLength(death.scene)
+  let killed = 0
+
+  while (killed < death.measureWave && wave.cursor < sim.index.nextSlot) {
+    const id = sim.index.idOf[wave.cursor]!
+    wave.cursor += 1
+
+    if (id !== '') {
+      push(sim.inbound, { kind: 'hero.died', at: now, hero: id, cause: 'killed' })
+      killed += 1
+    }
+  }
+}
+
+const hordeView: HordeView = { layer: undefined, loading: false }
+
+const syncHordeView = (now: number): void => {
+  if (hordeView.layer !== undefined) {
+    syncHorde(hordeView.layer, sim, now)
+
+    return
+  }
+
+  if (sim.horde.active > 0 && !hordeView.loading) {
+    hordeView.loading = true
+    void loadHordeLayer(sim, HORDE_ATLAS).then((layer) => {
+      placeHorde(layer, world, heroes.container)
+      hordeView.layer = layer
+
+      return layer
+    })
+  }
+}
+
 const graveTip = (eid: number): string => {
   const { hero } = sim.stores
   const died = deathText(
@@ -805,6 +857,8 @@ const frame = (now: number): void => {
   glow.position.copyFrom(world.position)
   glow.scale.copyFrom(world.scale)
   syncHeroes(heroes, sim, atlas, view, now)
+  syncHordeView(now)
+  deathWave(now)
   syncSelectionMarker(marker, sim, bridge.selected())
   syncAttention(now)
 

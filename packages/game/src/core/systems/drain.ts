@@ -1,7 +1,7 @@
 import { addComponent, addEntity } from 'bitecs'
 import type { HeroEvent, HeroJoined, HeroResurrected } from '@tokenfall/protocol/events'
 import { DEATH_CAUSES, type DeathCause, type HeroInfo } from '@tokenfall/protocol/hero'
-import { forceState, reenterState, sendInput, teleport } from '../behavior.ts'
+import { forceState, forgetDying, reenterState, sendInput, teleport } from '../behavior.ts'
 import { addMember, removeMember } from '../dense-set.ts'
 import { stateId } from '../fsm.ts'
 import { bindHero, entityOfHero, NONE, rekeyHero } from '../hero-index.ts'
@@ -11,6 +11,9 @@ import { jitter, partySpot } from '../layout.ts'
 import { joinGroups, leaveGroups, rejoinGroups } from '../membership.ts'
 import { levelFor } from '@tokenfall/protocol/level'
 import { peek, shift } from '../queue.ts'
+import { sceneLength } from '../death-scene.ts'
+import { schedule } from '../timers.ts'
+import { TIMER_STATE } from '../sim.ts'
 import type { Sim } from '../sim.ts'
 import type { System } from '../system.ts'
 
@@ -100,6 +103,19 @@ const startingState = (sim: Sim, hero: HeroInfo): number => {
   return sim.machine.initial
 }
 
+const awaitPredecessor = (sim: Sim, eid: number, hero: HeroInfo, now: number): void => {
+  const before = sim.dyingPanes.get(hero.pane)
+
+  if (!hero.alive || before === undefined || before === eid) {
+    return
+  }
+
+  const { behavior } = sim.stores
+  const until = behavior.since[before]! + sceneLength(sim.config.death.scene)
+  forceState(sim, eid, stateId(sim.machine, 'succeeding'), now)
+  schedule(sim.timers, Math.max(now, until), eid, behavior.serial[eid]!, TIMER_STATE)
+}
+
 const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   const { hero } = event
   const { stores } = sim
@@ -117,6 +133,7 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   stores.hero.cause[eid] = hero.alive ? NO_CAUSE : causeCode(hero.cause)
   sim.text.title[eid] = hero.title
   sim.text.quest[eid] = hero.quest
+  sim.text.pane[eid] = hero.pane
   joinGroups(sim, eid, hero.guild, hero.workspace, hero.plot)
   stores.hero.experience[eid] = hero.experience
   stores.hero.level[eid] = levelFor(sim.thresholds, hero.experience)
@@ -135,6 +152,7 @@ const spawnHero = (sim: Sim, event: HeroJoined, now: number): boolean => {
   teleport(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
   stores.behavior.state[eid] = sim.machine.initial
   forceState(sim, eid, startingState(sim, hero), now)
+  awaitPredecessor(sim, eid, hero, now)
   sim.spawnsThisFrame += 1
   sim.counters.joined += 1
   addMember(sim.changed, eid)
@@ -167,6 +185,7 @@ const refresh = (sim: Sim, eid: number, info: HeroInfo | undefined): void => {
   }
 
   joinGroups(sim, eid, info.guild, info.workspace, info.plot)
+  sim.text.pane[eid] = info.pane
   hero.status[eid] = STATUS_CODES[info.status]
   hero.experience[eid] = info.experience
   hero.level[eid] = levelFor(sim.thresholds, info.experience)
@@ -197,6 +216,7 @@ const resurrect = (sim: Sim, event: HeroResurrected, now: number): boolean => {
   }
 
   const { hero } = sim.stores
+  forgetDying(sim, eid)
   freeGrave(sim, eid)
   refresh(sim, eid, event.info)
   hero.diedAt[eid] = 0
@@ -259,7 +279,7 @@ const HANDLERS: Handlers = {
           addMember(sim.auraCheck, eid)
           addMember(sim.tierCheck, eid)
 
-          if (!event.catchUp) {
+          if (!event.catchUp && !lifeless(sim, eid)) {
             sim.counters.levelUps += 1
             addMember(sim.levelUps, eid)
           }

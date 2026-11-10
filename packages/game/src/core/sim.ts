@@ -13,7 +13,9 @@ import {
   type Machine,
   type MachineDefinition,
 } from './fsm.ts'
+import type { SceneTuning } from './death-scene.ts'
 import { createGraves, type Graves, type GraveTuning } from './graves.ts'
+import { createHorde, type Horde } from './horde.ts'
 import { createHeroIndex, type HeroIndex } from './hero-index.ts'
 import { levelThresholds, type LevelCurve } from '@tokenfall/protocol/level'
 import { createQueue, type Queue } from './queue.ts'
@@ -34,10 +36,10 @@ export type Budgets = {
   readonly parties: number
   readonly ravens: number
   readonly chests: number
+  readonly horde: number
 }
 
 export type WorldTuning = {
-  readonly deathFadeMs: number
   readonly walkSpeed: number
   readonly wanderEveryMs: readonly number[]
   readonly wanderRadius: number
@@ -55,7 +57,7 @@ export type SimConfig = {
   readonly characters: Characters
   readonly dungeon: DungeonTuning
   readonly depthTiers: readonly DepthTier[]
-  readonly death: { readonly graves: GraveTuning }
+  readonly death: { readonly graves: GraveTuning; readonly scene: SceneTuning }
 }
 
 export type Stores = ReturnType<typeof createStores>
@@ -90,6 +92,7 @@ export type HeroText = {
   readonly quest: string[]
   readonly tool: string[]
   readonly ravenThread: string[]
+  readonly pane: string[]
 }
 
 export type Counters = {
@@ -99,6 +102,7 @@ export type Counters = {
   resurrected: number
   levelUps: number
   burstsSkipped: number
+  hordeSkipped: number
   unknownHeroEvents: number
 }
 
@@ -133,6 +137,9 @@ export type Sim = {
   readonly releasing: DenseSet
   readonly forgotten: DenseSet
   readonly graves: Graves
+  readonly horde: Horde
+  readonly dyingPanes: Map<string, number>
+  readonly dyingState: number
   readonly wanders: Uint8Array
   readonly lifeless: Uint8Array
   readonly thresholds: Float64Array
@@ -239,6 +246,9 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
     releasing: createDenseSet(budgets.entities),
     forgotten: createDenseSet(budgets.entities),
     graves: createGraves(config.death.graves, budgets.entities),
+    horde: createHorde(budgets.horde),
+    dyingPanes: new Map(),
+    dyingState: stateId(machine, 'dying'),
     wanders: stateFlags(machine, config.tuning.wanderStates),
     lifeless: stateFlags(machine, ['dying', 'dead']),
     thresholds: levelThresholds(config.curve),
@@ -249,6 +259,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
       quest: Array.from({ length: budgets.entities }, () => ''),
       tool: Array.from({ length: budgets.entities }, () => ''),
       ravenThread: Array.from({ length: budgets.entities }, () => ''),
+      pane: Array.from({ length: budgets.entities }, () => ''),
     },
     town: buildTown(config.seed, config.town, budgets.guilds),
     dungeons: createDungeons(
@@ -266,6 +277,7 @@ export const createSim = (config: SimConfig, epoch: number): Sim => {
       resurrected: 0,
       levelUps: 0,
       burstsSkipped: 0,
+      hordeSkipped: 0,
       unknownHeroEvents: 0,
     },
     epoch,

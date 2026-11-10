@@ -1,6 +1,5 @@
 import { BitmapFontManager, Container, Graphics, GraphicsContext, Sprite, Texture } from 'pixi.js'
 import world from '@tokenfall/data/world.json'
-import { stateId } from '../../core/fsm.ts'
 import { screenX, screenY } from '../../core/iso.ts'
 import type { Sim } from '../../core/sim.ts'
 import { MAX_WISPS } from '../../effects/systems.ts'
@@ -113,13 +112,12 @@ export const createCrowns = (): Crowns => {
 export const syncCrowns = (crowns: Crowns, sim: Sim): void => {
   const { x, y } = sim.stores.position
   const { state } = sim.stores.behavior
-  const dead = stateId(sim.machine, 'dead')
   let used = 0
 
   for (let i = 0; i < sim.crowned.size; i++) {
     const eid = sim.crowned.dense[i]!
 
-    if (state[eid] !== dead) {
+    if (sim.lifeless[state[eid]!] !== 1) {
       const crown = crownAt(crowns, used)
       crown.alpha = 1
       crown.position.set(screenX(x[eid]!, y[eid]!), screenY(x[eid]!, y[eid]!) - marks.crownLift)

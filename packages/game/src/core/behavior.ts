@@ -3,8 +3,9 @@ import { enterState, NO_TRANSITION, nextState } from './fsm.ts'
 import { addMember, removeMember } from './dense-set.ts'
 import { enterDungeonAt } from './delve.ts'
 import { claimGrave } from './graves.ts'
+import { summonHorde } from './horde.ts'
 import { leaveGroups } from './membership.ts'
-import { leaveDungeon } from './dungeon.ts'
+import { leaveDungeon, seenInDungeon } from './dungeon.ts'
 import { entranceSpot, jitter, partySpot } from './layout.ts'
 import { TIMER_STATE, TIMER_WANDER, type Sim } from './sim.ts'
 import { schedule } from './timers.ts'
@@ -83,7 +84,42 @@ const stop: Action = (sim, eid) => {
   removeMember(sim.moving, eid)
 }
 
+export const forgetDying = (sim: Sim, eid: number): void => {
+  const pane = sim.text.pane[eid]!
+
+  if (sim.dyingPanes.get(pane) === eid) {
+    sim.dyingPanes.delete(pane)
+  }
+}
+
+const campNow = (sim: Sim, eid: number): void => {
+  leaveDungeon(sim, eid)
+  partySpot(sim, sim.stores.hero.party[eid]!, sim.scratch)
+  jitter(sim, sim.config.town.party.radius, sim.scratch)
+  setAnchor(sim, eid)
+  teleport(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
+}
+
+const summon: Action = (sim, eid, now) => {
+  removeMember(sim.moving, eid)
+  sim.dyingPanes.set(sim.text.pane[eid]!, eid)
+
+  if (sim.stores.delve.inside[eid] === 1 && !seenInDungeon(sim, eid)) {
+    flareHere(sim, eid, now)
+    campNow(sim, eid)
+    flareHere(sim, eid, now)
+  }
+
+  summonHorde(sim, eid, now)
+}
+
+const arriveAtCamp: Action = (sim, eid, now) => {
+  campNow(sim, eid)
+  flareHere(sim, eid, now)
+}
+
 const bury: Action = (sim, eid) => {
+  forgetDying(sim, eid)
   removeMember(sim.moving, eid)
   leaveDungeon(sim, eid)
   leaveGroups(sim, eid)
@@ -107,6 +143,8 @@ const ACTIONS = new Map<string, Action>([
   ['warp-flare', flareHere],
   ['stop', stop],
   ['bury', bury],
+  ['summon-horde', summon],
+  ['arrive-at-camp', arriveAtCamp],
 ])
 
 export const validateActions = (names: readonly string[]): void => {

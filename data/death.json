@@ -23,5 +23,19 @@
     "copied": "Copied",
     "noSession": "No session to resume",
     "terminal": "This Hero has fallen. Resume its session to bring it back:"
-  }
+  },
+  "scene": {
+    "riseMs": 900,
+    "attackMs": 700,
+    "hits": 2,
+    "fallMs": 800,
+    "crumbleMs": 900,
+    "fadeMs": 600,
+    "base": 3,
+    "perLevels": 25,
+    "max": 6,
+    "ring": 0.85,
+    "arriveMs": 600
+  },
+  "measureWave": 20
 }

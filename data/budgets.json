@@ -12,5 +12,6 @@
   "heroLights": 512,
   "bubbles": 12,
   "ravens": 64,
-  "chests": 256
+  "chests": 256,
+  "horde": 48
 }

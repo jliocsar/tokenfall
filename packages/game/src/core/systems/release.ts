@@ -2,6 +2,7 @@ import { removeEntity } from 'bitecs'
 import { addMember, clearSet, removeMember, type DenseSet } from '../dense-set.ts'
 import { freeGrave, expireGraves } from '../graves.ts'
 import { heroOfEntity, unbindHero } from '../hero-index.ts'
+import { dismissHorde } from '../horde.ts'
 import { leaveGroups } from '../membership.ts'
 import type { Sim } from '../sim.ts'
 import type { System } from '../system.ts'
@@ -33,6 +34,14 @@ const release = (sim: Sim, sets: readonly DenseSet[], eid: number): void => {
   sim.stores.behavior.serial[eid] = sim.stores.behavior.serial[eid]! + 1
   removeEntity(sim.world, eid)
   addMember(sim.forgotten, eid)
+}
+
+export const hordeSystem: System = {
+  name: 'horde',
+  complexity: 'O(budgets.horde) while any skeleton is out, else O(1)',
+  run: (sim, now) => {
+    dismissHorde(sim, now)
+  },
 }
 
 export const graveSystem: System = {

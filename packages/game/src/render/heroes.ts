@@ -12,6 +12,7 @@ import world from '@tokenfall/data/world.json'
 import { hasMember } from '../core/dense-set.ts'
 import { stateFlags, stateId } from '../core/fsm.ts'
 import { NO_GRAVE } from '../core/graves.ts'
+import { HERO_FALL, HERO_HIT, heroPose, type Pose } from '../core/death-scene.ts'
 import { screenX, screenY } from '../core/iso.ts'
 import type { Sim } from '../core/sim.ts'
 import { traceBegin, traceEnd, traceId } from '../core/trace.ts'
@@ -53,6 +54,7 @@ export type HeroLayer = {
   readonly directionToSheet: Uint8Array
   readonly frameCounts: readonly number[]
   readonly clips: number
+  readonly dyingClips: Uint8Array
   readonly query: { readonly dense: ArrayLike<number> }
   readonly states: { readonly dying: number; readonly dead: number; readonly warpIn: number }
   readonly hidden: Uint8Array
@@ -73,10 +75,11 @@ const WALK_FPS = 10
 const CULL_MARGIN = 160
 const UNKNOWN_STATUS = 4
 const DEAD_TINT = 0x33_33_66
-const DEAD_ALPHA = 0.55
 const UNKNOWN_COLOR = 0x88_88_88 + (255 << 24)
 const LIVE_COLOR = 0xff_ff_ff + (255 << 24)
 const WARPING_COLOR = 0xff_ff_ff + (((0.5 * 255) | 0) << 24)
+const DYING_CLIPS = ['Idle', 'Hit_A', 'Death_A'] as const
+const POSE: Pose = { clip: 0, progress: 0, alpha: 1 }
 const SPAN_ADOPT = traceId('heroes.adopt')
 const SPAN_SORT = traceId('heroes.sort')
 const SPAN_CULL_PAINT = traceId('heroes.cull-paint')
@@ -88,6 +91,16 @@ export const textureIndex = (
   direction: number,
   frame: number,
 ): number => ((sheet * clips + animation) * DIRECTIONS + direction) * MAX_FRAMES + frame
+
+export const clipIndices = (atlas: Atlas, names: readonly string[]): Uint8Array =>
+  new Uint8Array(
+    names.map((name) =>
+      Math.max(
+        0,
+        atlas.animations.findIndex((animation) => animation.name === name),
+      ),
+    ),
+  )
 
 export const loadAtlas = async (
   url: string,
@@ -189,6 +202,7 @@ export const createHeroLayer = (
     directionToSheet,
     frameCounts: atlas.animations.map((animation) => animation.frames),
     clips: atlas.animations.length,
+    dyingClips: clipIndices(atlas, DYING_CLIPS),
     query: registerQuery(sim.world, [sim.heroTag]),
     states: {
       dying: stateId(sim.machine, 'dying'),
@@ -280,6 +294,26 @@ const sortByDepth = (layer: HeroLayer, sim: Sim): void => {
   }
 }
 
+const paintDying = (
+  layer: HeroLayer,
+  sim: Sim,
+  particle: Particle,
+  eid: number,
+  now: number,
+): void => {
+  heroPose(sim.config.death.scene, now - sim.stores.behavior.since[eid]!, POSE)
+  const clip = layer.dyingClips[POSE.clip]!
+  const frames = layer.frameCounts[clip]!
+  const looping = POSE.clip !== HERO_FALL && POSE.clip !== HERO_HIT
+  const frame = looping
+    ? Math.floor((now * IDLE_FPS) / 1000) % frames
+    : Math.min(frames - 1, Math.floor(POSE.progress * frames))
+  const direction = layer.directionToSheet[sim.stores.motion.dir[eid]!]!
+  particle.texture =
+    layer.textures[textureIndex(layer.clips, sim.stores.hero.sheet[eid]!, clip, direction, frame)]!
+  particle.color = WHITE + (((POSE.alpha * 255) | 0) << 24)
+}
+
 const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now: number): void => {
   if (sim.graves.slotOf[eid] !== NO_GRAVE) {
     showGrave(layer, sim, particle, eid)
@@ -289,6 +323,12 @@ const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now:
 
   if (layer.graveShown[eid] === 1) {
     hideGrave(layer, particle, eid)
+  }
+
+  if (sim.stores.behavior.state[eid] === layer.states.dying) {
+    paintDying(layer, sim, particle, eid, now)
+
+    return
   }
 
   const walking = hasMember(sim.moving, eid) ? 1 : 0
@@ -304,9 +344,6 @@ const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now:
 
   if (state === layer.states.dead) {
     particle.color = DEAD_TINT
-  } else if (state === layer.states.dying) {
-    const left = 1 - (now - sim.stores.behavior.since[eid]!) / sim.config.tuning.deathFadeMs
-    particle.color = DEAD_TINT + (((Math.max(0, left) * DEAD_ALPHA * 255) | 0) << 24)
   } else if (sim.stores.hero.status[eid] === UNKNOWN_STATUS) {
     particle.color = UNKNOWN_COLOR
   } else {

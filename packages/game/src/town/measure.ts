@@ -7,6 +7,7 @@ export type MeasurePlan = {
   readonly heroes: number
   readonly off: ReadonlySet<string>
   readonly dungeon: boolean
+  readonly deaths: boolean
   readonly label: string
   readonly rest: readonly string[]
 }
@@ -41,8 +42,12 @@ const CAPACITY = 6000
 const STORAGE_KEY = 'tokenfall.measure'
 const CONTINUE = 'continue'
 const MB = 1_048_576
-const DEFAULT_PLAN = '500,1000,1000-light,1000-props,1000-overlay,1000-dungeon,1000-dungeon-light'
+
+const DEFAULT_PLAN =
+  '500,1000,1000-light,1000-props,1000-overlay,1000-dungeon,1000-dungeon-light,1000-deaths'
+
 const DUNGEON = 'dungeon'
+const DEATHS = 'deaths'
 
 export const readMeasurePlan = (params: URLSearchParams): MeasurePlan | undefined => {
   const value = params.get('measure')
@@ -60,8 +65,9 @@ export const readMeasurePlan = (params: URLSearchParams): MeasurePlan | undefine
 
   return {
     heroes: Number(heroes) || 500,
-    off: new Set(off.filter((flag) => flag !== DUNGEON)),
+    off: new Set(off.filter((flag) => flag !== DUNGEON && flag !== DEATHS)),
     dungeon: off.includes(DUNGEON),
+    deaths: off.includes(DEATHS),
     label: entries[0] ?? '500',
     rest: entries.slice(1),
   }
