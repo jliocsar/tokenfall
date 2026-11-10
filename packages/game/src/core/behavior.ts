@@ -10,7 +10,7 @@ import { entranceSpot, jitter, partySpot } from './layout.ts'
 import { TIMER_STATE, TIMER_WANDER, type Sim } from './sim.ts'
 import { schedule } from './timers.ts'
 import { spawnEffectAt } from '../effects/emitters.ts'
-import { WARP_FLARE_KIND } from '../effects/systems.ts'
+import { DUST_KIND, NECRO_KIND, WARP_FLARE_KIND } from '../effects/systems.ts'
 
 type Action = (sim: Sim, eid: number, now: number) => void
 
@@ -113,12 +113,27 @@ const summon: Action = (sim, eid, now) => {
   summonHorde(sim, eid, now)
 }
 
+const riseAtGrave: Action = (sim, eid, now) => {
+  removeMember(sim.moving, eid)
+  const x = sim.stores.position.x[eid]!
+  const y = sim.stores.position.y[eid]!
+  spawnEffectAt(sim, NECRO_KIND, x, y, now)
+  spawnEffectAt(sim, DUST_KIND, x, y, now)
+}
+
+const walkToCamp: Action = (sim, eid) => {
+  partySpot(sim, sim.stores.hero.party[eid]!, sim.scratch)
+  jitter(sim, sim.config.town.party.radius, sim.scratch)
+  setAnchor(sim, eid)
+  moveTo(sim, eid, sim.scratch[0]!, sim.scratch[1]!)
+}
+
 const arriveAtCamp: Action = (sim, eid, now) => {
   campNow(sim, eid)
   flareHere(sim, eid, now)
 }
 
-const bury: Action = (sim, eid) => {
+const bury: Action = (sim, eid, now) => {
   forgetDying(sim, eid)
   removeMember(sim.moving, eid)
   leaveDungeon(sim, eid)
@@ -131,7 +146,7 @@ const bury: Action = (sim, eid) => {
     return
   }
 
-  claimGrave(sim, eid)
+  claimGrave(sim, eid, now)
 }
 
 const ACTIONS = new Map<string, Action>([
@@ -145,6 +160,8 @@ const ACTIONS = new Map<string, Action>([
   ['bury', bury],
   ['summon-horde', summon],
   ['arrive-at-camp', arriveAtCamp],
+  ['rise-at-grave', riseAtGrave],
+  ['walk-to-camp', walkToCamp],
 ])
 
 export const validateActions = (names: readonly string[]): void => {

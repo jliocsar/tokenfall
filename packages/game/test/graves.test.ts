@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { LOCAL_MACHINE, NO_PLOT, type HeroInfo } from '@tokenfall/protocol/hero'
 import death from '@tokenfall/data/death.json'
+import machine from '@tokenfall/data/hero-states.json'
 import { bootSim } from '../src/core/boot.ts'
 import { NO_GRAVE } from '../src/core/graves.ts'
 import { entityOfHero, NONE } from '../src/core/hero-index.ts'
@@ -13,6 +14,7 @@ type Sim = ReturnType<typeof bootSim>
 const DAY_MS = death.graves.hours * 3_600_000
 const SLOTS = death.graves.rows * death.graves.columns
 const AFTER_DYING = 5000
+const RISE_MS = machine.timers.rising
 
 const hero = (id: string, overrides: Partial<HeroInfo> = {}): HeroInfo => ({
   id,
@@ -164,6 +166,11 @@ describe('resurrection', () => {
     expect(graveOf(sim, 'a')).toBe(NO_GRAVE)
     expect(sim.stores.hero.grouped[eid]).toBe(1)
     expect(sim.graves.count).toBe(0)
+
+    step(sim, 20 + RISE_MS + 1)
+
+    expect(state(sim, 'a')).toBe('returning')
+    expect(sim.moving.size).toBeGreaterThan(0)
   })
 
   test('a Hero whose Grave is gone comes back from its info', () => {
@@ -172,6 +179,10 @@ describe('resurrection', () => {
     step(sim, 20)
 
     expect(entityOfHero(sim.index, 'a')).not.toBe(NONE)
+    expect(state(sim, 'a')).toBe('arriving')
+
+    step(sim, 1000)
+
     expect(state(sim, 'a')).toBe('camp')
   })
 

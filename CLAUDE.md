@@ -71,6 +71,9 @@ Things learned from that source that the docs don't say:
 - **Herdr's `pane.read` `revision` is always 0.** Hash the text to spot changes. The size comes from `pane.layout` (`rect.width` is the column count).
 - **rot.js has one global RNG.** Call `RNG.setSeed` right before each synchronous `create()` in `core/dungeon-gen.ts`, and keep `timeLimit` huge (`data/dungeon.json`) or Digger and Uniform return fewer rooms on a slow frame.
 - **Herdr's `tab.list` labels** arrive as `<number> · <label>` on the live server. Strip the number before matching the `/team` skill's `lead` tab.
+- **Pixi's `ParticleContainer`** treats `color` as static by default: tinting a particle after the first upload does nothing, and a never-uploaded color draws invisible. Put `color: true` in `dynamicProperties` (see `features/death/horde-layer.ts`).
+- **bitECS recycles entity ids**, so the behavior timer serial is never reset on spawn: a stale timer from the old occupant must not fire on the new one.
+- **The sim clock is `now + sim.clockOffset`**: `performance.timeOrigin` for daemon and replay sources, 0 for synthetic. Compare it with wire times like `diedAt`, never raw `now`.
 - **The Plannotator Inbox** is a private format. `adapters/inbox/parse.ts` follows its own state rules (spec §8). Read only `url` from `inbox.json`, never the token.
 
 ## How code is written here

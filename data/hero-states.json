@@ -12,7 +12,8 @@
     "rising",
     "opening",
     "succeeding",
-    "arriving"
+    "arriving",
+    "returning"
   ],
   "inputs": [
     "idle",
@@ -144,11 +145,6 @@
       "to": "rising"
     },
     {
-      "from": "rising",
-      "on": "timer",
-      "to": "camp"
-    },
-    {
       "from": "arriving",
       "on": "timer",
       "to": "camp"
@@ -157,6 +153,26 @@
       "from": "succeeding",
       "on": "timer",
       "to": "arriving"
+    },
+    {
+      "from": "rising",
+      "on": "timer",
+      "to": "returning"
+    },
+    {
+      "from": "returning",
+      "on": "arrived",
+      "to": "camp"
+    },
+    {
+      "from": "returning",
+      "on": "working",
+      "to": "to-dungeon"
+    },
+    {
+      "from": "returning",
+      "on": "done",
+      "to": "looting"
     }
   ],
   "timers": {
@@ -164,7 +180,7 @@
     "warping-out": 600,
     "warping-out-with-loot": 600,
     "dying": 4600,
-    "rising": 1500,
+    "rising": 2400,
     "opening": 600,
     "arriving": 600
   },
@@ -175,10 +191,11 @@
     "delving": "enter-dungeon",
     "looting": "settle-at-camp",
     "dying": "summon-horde",
-    "rising": "settle-at-camp",
+    "rising": "rise-at-grave",
     "warping-out": "exit-dungeon",
     "warping-out-with-loot": "exit-dungeon",
     "dead": "bury",
-    "arriving": "arrive-at-camp"
+    "arriving": "arrive-at-camp",
+    "returning": "walk-to-camp"
   }
 }

@@ -1,4 +1,6 @@
 import { addMember } from './dense-set.ts'
+import { spawnEffectAt } from '../effects/emitters.ts'
+import { DUST_KIND } from '../effects/systems.ts'
 import { heroOfEntity } from './hero-index.ts'
 import { hashString } from './random.ts'
 import type { Sim } from './sim.ts'
@@ -79,7 +81,8 @@ export const freeGrave = (sim: Sim, eid: number): void => {
   refreshExpiry(graves)
 }
 
-export const crumbleGrave = (sim: Sim, eid: number): void => {
+export const crumbleGrave = (sim: Sim, eid: number, now: number): void => {
+  spawnEffectAt(sim, DUST_KIND, sim.stores.position.x[eid]!, sim.stores.position.y[eid]!, now)
   freeGrave(sim, eid)
   addMember(sim.releasing, eid)
 }
@@ -121,7 +124,7 @@ const settle = (sim: Sim, eid: number, slot: number): void => {
   sim.stores.position.y[eid] = sim.scratch[1]!
 }
 
-export const claimGrave = (sim: Sim, eid: number): number => {
+export const claimGrave = (sim: Sim, eid: number, now: number): number => {
   const { graves } = sim
 
   if (graves.slotOf[eid] !== NO_GRAVE) {
@@ -129,7 +132,7 @@ export const claimGrave = (sim: Sim, eid: number): number => {
   }
 
   if (graves.count >= graves.occupant.length) {
-    crumbleGrave(sim, graves.occupant[oldestSlot(graves)]!)
+    crumbleGrave(sim, graves.occupant[oldestSlot(graves)]!, now)
   }
 
   const id = heroOfEntity(sim.index, eid)
@@ -161,6 +164,6 @@ export const expireGraves = (sim: Sim, now: number): void => {
   const clock = now + sim.clockOffset
 
   while (clock >= graves.nextExpiry) {
-    crumbleGrave(sim, graves.occupant[oldestSlot(graves)]!)
+    crumbleGrave(sim, graves.occupant[oldestSlot(graves)]!, now)
   }
 }

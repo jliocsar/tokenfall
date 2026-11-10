@@ -208,11 +208,19 @@ const resurrect = (sim: Sim, event: HeroResurrected, now: number): boolean => {
       return true
     }
 
-    return HANDLERS['hero.joined'](
+    const joined = HANDLERS['hero.joined'](
       sim,
       { kind: 'hero.joined', at: event.at, hero: event.info },
       now,
     )
+    const risen = entityOfHero(sim.index, event.hero)
+
+    if (risen !== NONE) {
+      forceState(sim, risen, stateId(sim.machine, 'arriving'), now)
+      sim.counters.resurrected += 1
+    }
+
+    return joined
   }
 
   const { hero } = sim.stores

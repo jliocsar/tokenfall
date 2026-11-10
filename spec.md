@@ -35,8 +35,11 @@ Status: M0 and M1 done. Benchmarked on your machine (Intel Raptor Lake integrate
 
 - **A Hero is one Agent's session:** `/compact` and resume keep the same Hero. `/clear`, a fork or a fresh `claude` make a new one.
 - **Death:** exiting, killing and `/clear` all cause a Death, and every Death plays the same Death Scene: the Horde attacks and the Hero falls. The Death Scene is one replaceable event.
-- **Graves:** a Grave stands in the Graveyard for 24 hours.
-- **Resurrection:** resuming a dead Hero's session brings it back at its old Level. It rises from its Grave if the Grave still stands, otherwise it arrives through a Warp Portal at its Camp.
+- **The Death Scene:** 3 skeletons rise around the Hero, plus 1 per 25 Levels, up to 6. They hit it twice, it falls, and they crumble. At most 48 skeletons show at once; a Death past that plays without its Horde. A working Hero dies inside its Dungeon if that tier is open, otherwise at Camp.
+- **Graves:** a Grave stands in the Graveyard for 24 hours, through reloads and daemon restarts. The yard is a 6×5 grid of 30 Graves; when it's full, the oldest crumbles early. A Grave crumbles with a dust puff and no Chronicle line. Its prop is picked by Hero id, and Level 65+ Heroes get the big crypt stone. Strangers get the Death Scene and no Grave.
+- **Fallen:** dead Heroes whose Grave stands. They sit in a collapsed Fallen group in the Roster. Hovering a Grave shows name, Level, cause and time; clicking it opens the Character Sheet, which copies `claude --resume <session>`. The game never runs it.
+- **`/clear`:** the new Hero waits for the old one's Death Scene to end, then warps in at Camp.
+- **Resurrection:** any sighting of a dead Hero's session id, from the `SessionStart` hook or Herdr's `agent.list`, brings it back at its old Level. It stands up from its Grave in a green necro glow and walks back to Camp if the Grave still stands, otherwise it arrives through a Warp Portal at its Camp. A Death gets a Chronicle line only, never an Attention notice.
 - **Hero records** are kept forever.
 
 ### Characters
@@ -149,9 +152,9 @@ The starting targets are a median session around Level 40, the 90th percentile a
 | `pane_closed`, `pane_exited` | Death |
 | `pane_agent_detected` with `released: true` | Death: Claude quit, shell stayed |
 | `SessionEnd`, any reason except `resume` | Death. `/clear` counts |
-| `SessionStart` with `source: resume` for a dead Hero | Resurrection |
+| Any sighting of a dead Hero's session id: `SessionStart`, `agent.list`, or a Stranger linking to it | Resurrection |
 
-Signals are deduped per Hero. Losing the Herdr connection kills nobody. Herdr restores Claude panes after a restart by running `claude --resume`, so Heroes come back as themselves. Heroes still missing after a full resync get a Grave without a Death Scene.
+Signals are deduped per Hero: a second Death signal for a dead Hero is a no-op. Losing the Herdr connection kills nobody. Herdr restores Claude panes after a restart by running `claude --resume`, so Heroes come back as themselves. Heroes still missing after a full resync have vanished: they get a Grave without a Death Scene.
 
 ### Narration
 
@@ -380,8 +383,8 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 | Heroes | KayKit Adventurers | Rendered and tested |
 | Dungeon | KayKit Dungeon Remastered | One room tested, corner gap to fix |
 | Town | KayKit Medieval Hexagon | Not tested, built for hex tiles |
-| Horde | KayKit Skeletons | Not tested |
-| Graves | KayKit Halloween Bits | Not tested |
+| Horde | KayKit Skeletons | Minion rendered, its own lazy atlas |
+| Graves | KayKit Halloween Bits | Three grave props and the crypt stone |
 | UI frames | Kenney Fantasy UI Borders | Not tested, license not confirmed |
 | Fonts | To pick | Must be OFL or CC0 |
 
@@ -401,7 +404,7 @@ Each one ends with something you can run.
 
 **M4: Dungeons. Done.** Seeded generator using rot.js, with a seed derived from the Town seed and the Repo, four Depth Tiers, Warp Portals, Minions and the lead's crown. Like Diablo, only one Dungeon is open at a time, showing one tier. It opens on the deepest tier with anyone inside, or on the tier of the Hero you clicked, and the tier strip, stairs or PgUp/PgDn switch tiers. Done when you can watch a Guild at any tier.
 
-**M5: Death and Resurrection.** Death Scene, Horde, Graveyard, 24-hour Graves and Resurrection. Done when killing, clearing and resuming a test session all play out correctly.
+**M5: Death and Resurrection.** Built, waiting on your live test. Death Scene, Horde, Graveyard, 24-hour Graves and Resurrection. Done when killing, clearing and resuming a test session all play out correctly.
 
 **After v1:** prompting from the game with an auth token and Origin checks, then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
 
@@ -445,7 +448,13 @@ Each one ends with something you can run.
 - `tab.list` against live Herdr: labels arrive as `<number> · <label>`.
 - Warp Portals, wisps and the crown in headless Chrome, which has no GPU, so they still need your eyes.
 
-**Not yet seen live:** the Aura and level-up ring on a real GPU, a real `/team` lead's crown, and the Dungeon numbers from `/?measure`.
+**Built and tested in M5:**
+
+- A live run on throwaway Herdr panes: `/clear` killed the first Hero and its successor warped in after the Death Scene, closing the pane killed the successor, and `claude --resume` in a new pane raised it from its Grave and walked it back to Camp.
+- Graves keep their slots across a reload, the 31st crumbles the oldest, and Graves expire at 24 hours, in the sim tests.
+- A mass Death of 20 Heroes at Level 99 filled the 48-skeleton cap and dropped the rest, in headless Chrome.
+
+**Not yet seen live:** the Death Scene and necro glow on a real GPU, the `1000-deaths` numbers from `/?measure`, the Aura and level-up ring on a real GPU, a real `/team` lead's crown, and the Dungeon numbers from `/?measure`.
 
 **Read in Herdr's and Claude's source, docs or local data, but not tested live:**
 

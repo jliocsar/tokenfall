@@ -56,7 +56,12 @@ export type HeroLayer = {
   readonly clips: number
   readonly dyingClips: Uint8Array
   readonly query: { readonly dense: ArrayLike<number> }
-  readonly states: { readonly dying: number; readonly dead: number; readonly warpIn: number }
+  readonly states: {
+    readonly dying: number
+    readonly dead: number
+    readonly warpIn: number
+    readonly rising: number
+  }
   readonly hidden: Uint8Array
   readonly propTextures: ReadonlyMap<string, Texture>
   readonly graveTextures: readonly Texture[]
@@ -78,7 +83,8 @@ const DEAD_TINT = 0x33_33_66
 const UNKNOWN_COLOR = 0x88_88_88 + (255 << 24)
 const LIVE_COLOR = 0xff_ff_ff + (255 << 24)
 const WARPING_COLOR = 0xff_ff_ff + (((0.5 * 255) | 0) << 24)
-const DYING_CLIPS = ['Idle', 'Hit_A', 'Death_A'] as const
+const DYING_CLIPS = ['Idle', 'Hit_A', 'Death_A', 'Lie_StandUp'] as const
+const STAND_UP = 3
 const POSE: Pose = { clip: 0, progress: 0, alpha: 1 }
 const SPAN_ADOPT = traceId('heroes.adopt')
 const SPAN_SORT = traceId('heroes.sort')
@@ -208,6 +214,7 @@ export const createHeroLayer = (
       dying: stateId(sim.machine, 'dying'),
       dead: stateId(sim.machine, 'dead'),
       warpIn: stateId(sim.machine, 'warping-in'),
+      rising: stateId(sim.machine, 'rising'),
     },
     hidden: stateFlags(sim.machine, hiddenStates),
     propTextures,
@@ -314,6 +321,24 @@ const paintDying = (
   particle.color = WHITE + (((POSE.alpha * 255) | 0) << 24)
 }
 
+const paintRising = (
+  layer: HeroLayer,
+  sim: Sim,
+  particle: Particle,
+  eid: number,
+  now: number,
+): void => {
+  const length = sim.machine.timeoutMs[layer.states.rising]!
+  const progress = Math.min(1, (now - sim.stores.behavior.since[eid]!) / length)
+  const clip = layer.dyingClips[STAND_UP]!
+  const frames = layer.frameCounts[clip]!
+  const direction = layer.directionToSheet[sim.stores.motion.dir[eid]!]!
+  const frame = Math.min(frames - 1, Math.floor(progress * frames))
+  particle.texture =
+    layer.textures[textureIndex(layer.clips, sim.stores.hero.sheet[eid]!, clip, direction, frame)]!
+  particle.color = LIVE_COLOR
+}
+
 const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now: number): void => {
   if (sim.graves.slotOf[eid] !== NO_GRAVE) {
     showGrave(layer, sim, particle, eid)
@@ -327,6 +352,12 @@ const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now:
 
   if (sim.stores.behavior.state[eid] === layer.states.dying) {
     paintDying(layer, sim, particle, eid, now)
+
+    return
+  }
+
+  if (sim.stores.behavior.state[eid] === layer.states.rising) {
+    paintRising(layer, sim, particle, eid, now)
 
     return
   }
