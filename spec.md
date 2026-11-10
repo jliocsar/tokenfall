@@ -406,7 +406,9 @@ Each one ends with something you can run.
 
 **M5: Death and Resurrection. Done.** Death Scene, Horde, Graveyard, 24-hour Graves and Resurrection. Done when killing, clearing and resuming a test session all play out correctly.
 
-**After v1:** prompting from the game with an auth token and Origin checks, then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
+**M6: Combat.** Working Heroes always fight Packs of skeletons in the open Dungeon, idle-RPG style, and always win. Their tool calls set the pace, from normal attacks to a Frenzy. Done when a live agent's parallel tool calls visibly speed up its Hero's fight.
+
+**After v1:** bosses during Workflows (likely M7), prompting from the game with an auth token and Origin checks, then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
 
 ## 11. Verified and not
 

@@ -71,6 +71,18 @@ _Avoid_: Helper, follower
 The skeletons that attack a Hero in its Death Scene.
 _Avoid_: Zombies, mob
 
+**Monster**:
+A creature living in a Dungeon room that working Heroes fight. Heroes always win.
+_Avoid_: Enemy, mob, creep
+
+**Pack**:
+The group of Monsters in one Dungeon room. A cleared Pack comes back once no Party is in the room.
+_Avoid_: Spawn, wave
+
+**Frenzy**:
+A Hero's fiercest fighting, while its Agent starts many tools at once.
+_Avoid_: Rage, berserk
+
 ### Places
 
 **Town**:
