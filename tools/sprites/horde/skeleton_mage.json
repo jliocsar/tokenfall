@@ -1,0 +1,37 @@
+{
+  "mode": "hero",
+  "cell": 128,
+  "ss": 2,
+  "samples": 8,
+  "dirs": [0, 1, 2, 3, 4, 5, 6, 7],
+  "actions": {
+    "Spawn_Ground_Skeletons": 6,
+    "Idle_Combat": 4,
+    "Spellcast_Shoot": 6,
+    "Hit_A": 4,
+    "Death_C_Skeletons": 6
+  },
+  "oneshot": ["Spawn_Ground_Skeletons", "Spellcast_Shoot", "Hit_A", "Death_C_Skeletons"],
+  "rename": {
+    "Spellcast_Shoot": "Attack"
+  },
+  "name": "skeleton_mage",
+  "glb": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/skeletons/gltf/Skeleton_Mage.glb",
+  "attach": [
+    {
+      "glb": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/skeletons/assets/Skeleton_Staff.gltf",
+      "bone": "handslot.r"
+    }
+  ],
+  "hide": [],
+  "out": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/out/raw/skeleton_mage",
+  "bone_scale": {
+    "head": 0.72
+  },
+  "tint": {
+    "hue": 0.5,
+    "sat": 0.35,
+    "val": 1.1,
+    "skip": ["Cloak", "Cape", "Hood", "Hat", "Eyes"]
+  }
+}

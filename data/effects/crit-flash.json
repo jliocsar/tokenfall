@@ -1,0 +1,16 @@
+{
+  "name": "crit-flash",
+  "shader": "ring-burst",
+  "particles": 40,
+  "lifetime": 0.45,
+  "attached": false,
+  "blend": "add",
+  "params": {
+    "radius": 28,
+    "rise": 30,
+    "size": 11,
+    "spin": 3,
+    "inner": [1, 0.95, 0.6, 1],
+    "outer": [1, 0.55, 0.15, 0.8]
+  }
+}

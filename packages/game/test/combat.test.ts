@@ -5,13 +5,15 @@ import curve from '@tokenfall/data/level-curve.json'
 import { LOCAL_MACHINE, NO_PLOT, type HeroInfo } from '@tokenfall/protocol/hero'
 import { bootSim } from '../src/core/boot.ts'
 import { hasMember } from '../src/core/dense-set.ts'
-import { depthTierOf, ensureDungeon, openView } from '../src/core/dungeon.ts'
+import { closeView, depthTierOf, ensureDungeon, openView } from '../src/core/dungeon.ts'
 import { guildOf } from '../src/core/groups.ts'
 import { entityOfHero } from '../src/core/hero-index.ts'
 import { intensityTier, MONSTER_FREE, noteTools, tierOf, toolCount } from '../src/core/monsters.ts'
 import { push } from '../src/core/queue.ts'
 import { createProfile, runSystems } from '../src/core/system.ts'
 import { SIM_SYSTEMS } from '../src/core/systems/index.ts'
+import { EMITTER_STRIDE } from '../src/effects/emitters.ts'
+import { BOLT_KIND, CRIT_KIND, FRENZY_KIND, HEAL_KIND, SLASH_KIND } from '../src/effects/systems.ts'
 
 type Sim = ReturnType<typeof bootSim>
 
@@ -311,5 +313,94 @@ describe('the fight', () => {
     run(sim, now + 1000, until + 4000)
 
     expect(sim.combat.counters.swings).toBeGreaterThan(swings)
+  })
+})
+
+const aimed = (sim: Sim, kindId: number): boolean => {
+  const kind = sim.effects[kindId]!
+
+  for (let slot = 0; slot < kind.highWater; slot++) {
+    const base = slot * EMITTER_STRIDE + 4
+
+    if (kind.used[slot] === 1 && (kind.data[base] !== 0 || kind.data[base + 1] !== 0)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+describe('effects', () => {
+  test('every swing throws a slash or a bolt toward its target, and a crit flashes', () => {
+    const { sim, heroes, room } = party(3, 30)
+    let swings = 0
+    let crits = 0
+    let swingFrames = 0
+    let critFrames = 0
+
+    for (let now = FRAME_MS; sim.combat.rooms.clearedAt[room] === 0; now += FRAME_MS) {
+      if (now % BURST_EVERY_MS < FRAME_MS) {
+        burst(sim, heroes, now)
+      }
+
+      step(sim, now)
+
+      if (sim.combat.counters.swings > swings) {
+        swingFrames += 1
+
+        expect(sim.effects[SLASH_KIND]!.active + sim.effects[BOLT_KIND]!.active).toBeGreaterThan(0)
+        expect(aimed(sim, SLASH_KIND) || aimed(sim, BOLT_KIND)).toBe(true)
+      }
+
+      if (sim.combat.counters.crits > crits) {
+        critFrames += 1
+
+        expect(sim.effects[CRIT_KIND]!.active).toBeGreaterThan(0)
+      }
+
+      swings = sim.combat.counters.swings
+      crits = sim.combat.counters.crits
+    }
+
+    expect(swingFrames).toBeGreaterThan(0)
+    expect(critFrames).toBeGreaterThan(0)
+  })
+
+  test('a cleared room makes its Party glow', () => {
+    const fight = party(3, 1)
+    timeToClear(fight, true)
+
+    expect(fight.sim.effects[HEAL_KIND]!.active).toBe(fight.heroes.length)
+  })
+
+  test('a Frenzy lights an aura that goes out when the calls stop or the view closes', () => {
+    const fight = party(2, 1)
+    const { sim } = fight
+    let now = FRAME_MS
+
+    while (sim.combat.counters.swings === 0) {
+      step(sim, now)
+      now += FRAME_MS
+    }
+
+    burst(sim, fight.heroes, now)
+    step(sim, now)
+
+    expect(sim.effects[FRENZY_KIND]!.active).toBe(fight.heroes.length)
+
+    run(sim, now + FRAME_MS, now + combat.windowMs + FRAME_MS * 2)
+
+    expect(sim.effects[FRENZY_KIND]!.active).toBe(0)
+
+    now += combat.windowMs + FRAME_MS * 4
+    burst(sim, fight.heroes, now)
+    step(sim, now)
+
+    expect(sim.effects[FRENZY_KIND]!.active).toBe(fight.heroes.length)
+
+    closeView(sim)
+    step(sim, now + FRAME_MS)
+
+    expect(sim.effects[FRENZY_KIND]!.active).toBe(0)
   })
 })

@@ -121,10 +121,25 @@ def render_to(path):
     bpy.ops.render.render(write_still=True)
 
 
+def attach(rig, item):
+    """Hang a loose prop (a weapon, a shield) on a hand slot bone so it follows the clip."""
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.gltf(filepath=item['glb'])
+    bpy.context.view_layer.update()
+    bone = rig.pose.bones[item['bone']]
+    for o in [o for o in bpy.data.objects if o not in before and o.parent is None]:
+        o.parent = rig
+        o.parent_type = 'BONE'
+        o.parent_bone = item['bone']
+        o.matrix_world = rig.matrix_world @ bone.matrix
+
+
 def hero():
     s = reset_scene()
     bpy.ops.import_scene.gltf(filepath=cfg['glb'])
     rig = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
+    for item in cfg.get('attach', []):
+        attach(rig, item)
     hide = set(cfg.get('hide', []))
     for o in bpy.data.objects:
         if o.type != 'MESH':
@@ -155,6 +170,7 @@ def hero():
             print('RENDER missing action', act)
             continue
         assign(rig, a)
+        name = cfg.get('rename', {}).get(act, act)
         f0, f1 = a.frame_range
         span = max(frames - 1, 1) if act in cfg.get('oneshot', []) else max(frames, 1)
         for fi in range(frames):
@@ -163,7 +179,7 @@ def hero():
             for d in cfg['dirs']:
                 rig.rotation_euler = (0, 0, math.radians(45 * d))
                 bpy.context.view_layer.update()
-                render_to(os.path.join(cfg['out'], f'{act}_d{d}_f{fi}.png'))
+                render_to(os.path.join(cfg['out'], f'{name}_d{d}_f{fi}.png'))
                 n += 1
     print(f'RENDER {cfg["name"]} frames={n} seconds={time.time() - t0:.1f}')
 

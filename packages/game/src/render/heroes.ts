@@ -56,6 +56,7 @@ export type HeroLayer = {
   readonly frameCounts: readonly number[]
   readonly clips: number
   readonly dyingClips: Uint8Array
+  readonly attackClip: number
   readonly query: { readonly dense: ArrayLike<number> }
   readonly states: {
     readonly dying: number
@@ -80,12 +81,13 @@ const IDLE_FPS = 6
 const WALK_FPS = 10
 const CULL_MARGIN = 160
 const UNKNOWN_STATUS = 4
-const DEAD_TINT = 0x33_33_66
+const DEAD_TINT = 0x66_33_33
 const UNKNOWN_COLOR = 0x88_88_88 + (255 << 24)
 const LIVE_COLOR = 0xff_ff_ff + (255 << 24)
 const WARPING_COLOR = 0xff_ff_ff + (((0.5 * 255) | 0) << 24)
 const DYING_CLIPS = ['Idle', 'Hit_A', 'Death_A', 'Lie_StandUp'] as const
 const STAND_UP = 3
+const ATTACK_CLIP = 'Attack'
 const POSE: Pose = { clip: 0, progress: 0, alpha: 1 }
 const LUNGE = new Float64Array(2)
 const SPAN_ADOPT = traceId('heroes.adopt')
@@ -211,6 +213,7 @@ export const createHeroLayer = (
     frameCounts: atlas.animations.map((animation) => animation.frames),
     clips: atlas.animations.length,
     dyingClips: clipIndices(atlas, DYING_CLIPS),
+    attackClip: clipIndices(atlas, [ATTACK_CLIP])[0]!,
     query: registerQuery(sim.world, [sim.heroTag]),
     states: {
       dying: stateId(sim.machine, 'dying'),
@@ -365,14 +368,18 @@ const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now:
   }
 
   const walking = hasMember(sim.moving, eid) ? 1 : 0
+  const attackMs = sim.config.combat.heroAttackMs
+  const swung = now - sim.combat.swingAt[eid]!
+  const attacking = walking === 0 && swung < attackMs
+  const clip = attacking ? layer.attackClip : walking
   const fps = walking === 1 ? WALK_FPS : IDLE_FPS
-  const frames = layer.frameCounts[walking]!
-  const frame = Math.floor((now * fps) / 1000 + eid * 0.37) % frames
+  const frames = layer.frameCounts[clip]!
+  const frame = attacking
+    ? Math.min(frames - 1, Math.floor((swung / attackMs) * frames))
+    : Math.floor((now * fps) / 1000 + eid * 0.37) % frames
   const direction = layer.directionToSheet[sim.stores.motion.dir[eid]!]!
   particle.texture =
-    layer.textures[
-      textureIndex(layer.clips, sim.stores.hero.sheet[eid]!, walking, direction, frame)
-    ]!
+    layer.textures[textureIndex(layer.clips, sim.stores.hero.sheet[eid]!, clip, direction, frame)]!
   const state = sim.stores.behavior.state[eid]!
 
   if (state === layer.states.dead) {

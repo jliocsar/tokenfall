@@ -11,6 +11,19 @@ Headless Blender 5.2 renders KayKit models into 8-direction sheets with a 2:1 or
 python3 -I tools/sprites/scripts/atlas.py assets/sprites/heroes assets/sprites/heroes-atlas barbarian knight knight_teal mage rogue stranger
 ```
 
+## Skeletons
+
+`horde/*.json` renders the four KayKit Skeletons into `horde-atlas`, sheet per kind in the order of `data/combat.json` `monsters` (minion first: the Death Scene horde uses sheet 0). Two config keys help here:
+
+- `attach`: loose props such as weapons and shields, each hung on a rig bone (`handslot.r`, `handslot.l`).
+- `rename`: renders a clip under another name. Every sheet in an atlas needs the same clip names, so each kind's own attack and each Hero class's own attack are all named `Attack`.
+
+Tints per Depth Tier aren't rendered: the game multiplies by `data/combat.json` `tints`.
+
+```sh
+python3 -I tools/sprites/scripts/atlas.py assets/sprites/horde assets/sprites/horde-atlas skeleton_minion skeleton_warrior skeleton_rogue skeleton_mage
+```
+
 The scripts came from the M0 spike and still assume its folder layout. Check paths at the top of `run_final.sh` before running it.
 
 ## Props

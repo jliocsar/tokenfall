@@ -1,9 +1,14 @@
 import budgets from '@tokenfall/data/budgets.json'
 import angelRing from '@tokenfall/data/effects/angel-ring.json'
 import aura from '@tokenfall/data/effects/aura.json'
+import critFlash from '@tokenfall/data/effects/crit-flash.json'
+import frenzyAura from '@tokenfall/data/effects/frenzy-aura.json'
 import graveDust from '@tokenfall/data/effects/grave-dust.json'
+import healGlow from '@tokenfall/data/effects/heal-glow.json'
+import mageBolt from '@tokenfall/data/effects/mage-bolt.json'
 import minionWisps from '@tokenfall/data/effects/minion-wisps.json'
 import necroRise from '@tokenfall/data/effects/necro-rise.json'
+import slashArc from '@tokenfall/data/effects/slash-arc.json'
 import warpFlare from '@tokenfall/data/effects/warp-flare.json'
 import warpPortal from '@tokenfall/data/effects/warp-portal.json'
 import machine from '@tokenfall/data/hero-states.json'
@@ -38,6 +43,11 @@ export const EFFECT_DEFINITIONS = [
   minionWisps,
   necroRise,
   graveDust,
+  mageBolt,
+  slashArc,
+  critFlash,
+  frenzyAura,
+  healGlow,
 ] as const
 
 export const bootSim = (seed: number, epoch: number, overrides: Partial<Budgets>): Sim => {

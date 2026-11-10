@@ -27,6 +27,14 @@
   "rangedSheets": ["mage"],
   "riseMs": 900,
   "attackMs": 500,
+  "heroAttackMs": 450,
+  "monsterHitMs": 280,
+  "tints": [
+    [212, 220, 255],
+    [196, 232, 188],
+    [236, 214, 168],
+    [255, 112, 92]
+  ],
   "crumbleMs": 900,
   "hitFlashMs": 160,
   "lungeMs": 220,

@@ -34,7 +34,11 @@ wait
 mkdir -p /home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/skeletons/gltf
 cd /home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/skeletons/gltf
 curl -sSfL -o LICENSE.txt https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/main/LICENSE.txt
-curl -sSfL -O https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/main/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb &
+for n in Minion Warrior Rogue Mage; do curl -sSfL -O https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/main/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_$n.glb & done
 curl -sSfL -O https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/main/addons/kaykit_character_pack_skeletons/Characters/gltf/skeleton_texture.png &
+wait
+mkdir -p /home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/skeletons/assets
+cd /home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/skeletons/assets
+for n in Skeleton_Blade Skeleton_Axe Skeleton_Staff Skeleton_Shield_Large_A skeleton_texture; do for x in gltf bin png; do curl -sSfL -O https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/main/addons/kaykit_character_pack_skeletons/Assets/gltf/$n.$x 2>/dev/null & done; done
 wait
 echo done > /home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/.ok

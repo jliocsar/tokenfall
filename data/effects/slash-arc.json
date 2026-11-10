@@ -1,0 +1,16 @@
+{
+  "name": "slash-arc",
+  "shader": "arc",
+  "particles": 24,
+  "lifetime": 0.3,
+  "attached": false,
+  "blend": "add",
+  "params": {
+    "radius": 30,
+    "sweep": 2.2,
+    "rise": 26,
+    "size": 9,
+    "inner": [1, 1, 0.92, 1],
+    "outer": [0.7, 0.8, 1, 0.4]
+  }
+}

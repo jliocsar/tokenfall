@@ -1,0 +1,17 @@
+{
+  "name": "frenzy-aura",
+  "shader": "aura",
+  "particles": 40,
+  "lifetime": 0.8,
+  "attached": true,
+  "loop": true,
+  "blend": "add",
+  "params": {
+    "radius": 24,
+    "rise": 44,
+    "size": 9,
+    "spin": 2.6,
+    "inner": [1, 0.2, 0.12, 1],
+    "outer": [0.55, 0, 0.08, 0]
+  }
+}

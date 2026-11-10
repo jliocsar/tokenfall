@@ -23,13 +23,7 @@ export type HordeLayer = {
   readonly directionToSheet: Uint8Array
 }
 
-const POSE_CLIPS = [
-  'Spawn_Ground_Skeletons',
-  'Idle_Combat',
-  '1H_Melee_Attack_Chop',
-  'Death_C_Skeletons',
-] as const
-
+const POSE_CLIPS = ['Spawn_Ground_Skeletons', 'Idle_Combat', 'Attack', 'Death_C_Skeletons'] as const
 const IDLE_FPS = 6
 const BONE_TINT = 0xd4_dc_ff
 const POSE: Pose = { clip: 0, progress: 0, alpha: 1 }

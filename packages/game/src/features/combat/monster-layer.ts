@@ -25,22 +25,26 @@ export type MonsterLayer = {
   readonly textures: readonly Texture[]
   readonly clips: number
   readonly stateClips: Uint8Array
+  readonly hitClip: number
   readonly stateMs: Float64Array
   readonly frameCounts: readonly number[]
   readonly directionToSheet: Uint8Array
+  readonly kindSheet: Uint8Array
+  readonly tints: Uint32Array
 }
 
 const STATE_CLIPS = [
   'Idle_Combat',
   'Spawn_Ground_Skeletons',
   'Idle_Combat',
-  '1H_Melee_Attack_Chop',
+  'Attack',
   'Death_C_Skeletons',
 ] as const
 
+const HIT_CLIP = 'Hit_A'
+const SHEET_PREFIX = 'skeleton_'
 const IDLE_FPS = 6
 const ALPHA = 255 << 24
-const BONE = 0xff_dc_d4 + ALPHA
 const HIT = 0x80_80_ff + ALPHA
 const CRIT = 0x40_d0_ff + ALPHA
 
@@ -49,6 +53,9 @@ const container = (texture: Texture): ParticleContainer =>
     dynamicProperties: { position: true, vertex: true, uvs: true, color: true, rotation: false },
     texture,
   })
+
+const packed = ([red, green, blue]: readonly number[]): number =>
+  ((blue! << 16) | (green! << 8) | red!) + ALPHA
 
 const build = (sim: Sim, atlas: Atlas, textures: Texture[]): MonsterLayer => {
   const combat = sim.config.combat
@@ -72,11 +79,16 @@ const build = (sim: Sim, atlas: Atlas, textures: Texture[]): MonsterLayer => {
     textures,
     clips: atlas.animations.length,
     stateClips: clipIndices(atlas, STATE_CLIPS),
+    hitClip: clipIndices(atlas, [HIT_CLIP])[0]!,
     stateMs,
     frameCounts: atlas.animations.map((animation) => animation.frames),
     directionToSheet: new Uint8Array(
       world.directions.map((name) => atlas.directions.indexOf(name)),
     ),
+    kindSheet: new Uint8Array(
+      combat.monsters.map((kind) => Math.max(0, atlas.sheets.indexOf(SHEET_PREFIX + kind.name))),
+    ),
+    tints: new Uint32Array(combat.tints.map(packed)),
   }
 }
 
@@ -91,21 +103,44 @@ export const placeMonsters = (layer: MonsterLayer, parent: Container, heroes: Co
   parent.addChildAt(layer.front, parent.getChildIndex(heroes) + 1)
 }
 
-const frameOf = (layer: MonsterLayer, state: number, elapsed: number, now: number): number => {
-  const frames = layer.frameCounts[layer.stateClips[state]!]!
+const hurt = (sim: Sim, slot: number, now: number): boolean =>
+  sim.combat.monsters.state[slot] === MONSTER_IDLE &&
+  now - sim.combat.monsters.hitAt[slot]! < sim.config.combat.monsterHitMs
+
+const clipOf = (layer: MonsterLayer, sim: Sim, slot: number, now: number): number =>
+  hurt(sim, slot, now) ? layer.hitClip : layer.stateClips[sim.combat.monsters.state[slot]!]!
+
+const frameOf = (
+  layer: MonsterLayer,
+  sim: Sim,
+  slot: number,
+  clip: number,
+  now: number,
+): number => {
+  const { monsters } = sim.combat
+  const state = monsters.state[slot]!
+  const frames = layer.frameCounts[clip]!
+
+  if (clip === layer.hitClip) {
+    const elapsed = now - monsters.hitAt[slot]!
+
+    return Math.min(frames - 1, Math.floor((elapsed / sim.config.combat.monsterHitMs) * frames))
+  }
 
   if (state === MONSTER_IDLE) {
-    return Math.floor((now * IDLE_FPS) / 1000) % frames
+    return Math.floor((now * IDLE_FPS) / 1000 + slot * 0.37) % frames
   }
+
+  const elapsed = now - monsters.since[slot]!
 
   return Math.min(frames - 1, Math.floor((elapsed / layer.stateMs[state]!) * frames))
 }
 
-const colorOf = (sim: Sim, slot: number, now: number): number => {
-  const { monsters } = sim.combat
+const colorOf = (layer: MonsterLayer, sim: Sim, slot: number, now: number): number => {
+  const { monsters, rooms } = sim.combat
 
   if (now - monsters.hitAt[slot]! >= sim.config.combat.hitFlashMs) {
-    return BONE
+    return layer.tints[Math.max(0, Math.min(layer.tints.length - 1, rooms.tier))]!
   }
 
   return monsters.hitCrit[slot] === 1 ? CRIT : HIT
@@ -130,13 +165,11 @@ export const syncMonsters = (layer: MonsterLayer, sim: Sim, now: number): void =
   let ahead = 0
 
   for (let slot = 0; slot < monsters.state.length && monsters.active > 0; slot++) {
-    const state = monsters.state[slot]!
-
-    if (state === MONSTER_FREE) {
+    if (monsters.state[slot] === MONSTER_FREE) {
       continue
     }
 
-    const clip = layer.stateClips[state]!
+    const clip = clipOf(layer, sim, slot, now)
     const particle = layer.particles[slot]!
     const x = monsters.x[slot]!
     const y = monsters.y[slot]!
@@ -144,15 +177,15 @@ export const syncMonsters = (layer: MonsterLayer, sim: Sim, now: number): void =
       layer.textures[
         textureIndex(
           layer.clips,
-          0,
+          layer.kindSheet[monsters.kind[slot]!]!,
           clip,
           layer.directionToSheet[monsters.dir[slot]!]!,
-          frameOf(layer, state, now - monsters.since[slot]!, now),
+          frameOf(layer, sim, slot, clip, now),
         )
       ]!
     particle.x = screenX(x, y)
     particle.y = screenY(x, y)
-    particle.color = colorOf(sim, slot, now)
+    particle.color = colorOf(layer, sim, slot, now)
 
     if (inFront(sim, slot)) {
       front[ahead] = particle

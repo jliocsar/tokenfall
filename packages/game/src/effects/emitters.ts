@@ -153,6 +153,15 @@ export const spawnEffectAt = (
   return eid
 }
 
+export const aimEffect = (sim: Sim, eid: number, dx: number, dy: number): void => {
+  const { emitter } = sim.stores
+  const kind = sim.effects[emitter.kind[eid]!]!
+  const base = emitter.slot[eid]! * EMITTER_STRIDE + 4
+  kind.data[base] = dx
+  kind.data[base + 1] = dy
+  kind.dirty = true
+}
+
 export const endEffect = (sim: Sim, eid: number): void => {
   const { emitter } = sim.stores
   const kind = sim.effects[emitter.kind[eid]!]!

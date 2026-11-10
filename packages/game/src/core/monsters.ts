@@ -40,6 +40,9 @@ export type CombatTuning = {
   readonly rangedSheets: readonly string[]
   readonly riseMs: number
   readonly attackMs: number
+  readonly heroAttackMs: number
+  readonly monsterHitMs: number
+  readonly tints: readonly (readonly number[])[]
   readonly crumbleMs: number
   readonly hitFlashMs: number
   readonly lungeMs: number
@@ -102,6 +105,8 @@ export type Combat = {
   readonly strikeAt: Float64Array
   readonly target: Int32Array
   readonly fighters: DenseSet
+  readonly glowOf: Int32Array
+  readonly glowing: DenseSet
   readonly monsters: Monsters
   readonly rooms: Rooms
   readonly counters: CombatCounters
@@ -109,6 +114,7 @@ export type Combat = {
 
 export const NO_TARGET = -1
 export const NO_ROOM = -1
+export const NO_EFFECT = -1
 export const MONSTER_FREE = 0
 export const MONSTER_RISING = 1
 export const MONSTER_IDLE = 2
@@ -132,6 +138,8 @@ export const createCombat = (config: CombatConfig, entities: number, size: numbe
   strikeAt: new Float64Array(entities).fill(Number.NEGATIVE_INFINITY),
   target: new Int32Array(entities).fill(NO_TARGET),
   fighters: createDenseSet(entities),
+  glowOf: new Int32Array(entities).fill(NO_EFFECT),
+  glowing: createDenseSet(entities),
   monsters: {
     kind: new Uint8Array(size),
     room: new Int16Array(size).fill(NO_ROOM),

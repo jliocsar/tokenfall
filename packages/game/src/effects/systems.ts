@@ -12,6 +12,11 @@ export const WARP_FLARE_KIND = 3
 export const MINION_KIND = 4
 export const NECRO_KIND = 5
 export const DUST_KIND = 6
+export const BOLT_KIND = 7
+export const SLASH_KIND = 8
+export const CRIT_KIND = 9
+export const FRENZY_KIND = 10
+export const HEAL_KIND = 11
 export const MAX_WISPS = wisps.particles / wisps.params.trail
 
 export const levelUpBurstSystem: System = {

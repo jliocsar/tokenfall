@@ -9,7 +9,8 @@
     "Walking_A": 8,
     "Hit_A": 4,
     "Death_A": 6,
-    "Lie_StandUp": 6
+    "Lie_StandUp": 6,
+    "Spellcast_Shoot": 6
   },
   "name": "mage",
   "glb": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/kaykit/gltf/Mage.glb",
@@ -18,5 +19,8 @@
   "bone_scale": {
     "head": 0.72
   },
-  "oneshot": ["Death_A", "Lie_StandUp"]
+  "oneshot": ["Death_A", "Lie_StandUp", "Spellcast_Shoot"],
+  "rename": {
+    "Spellcast_Shoot": "Attack"
+  }
 }

@@ -1,0 +1,16 @@
+{
+  "name": "mage-bolt",
+  "shader": "bolt",
+  "particles": 48,
+  "lifetime": 0.55,
+  "attached": false,
+  "blend": "add",
+  "params": {
+    "travel": 0.45,
+    "radius": 20,
+    "rise": 34,
+    "size": 10,
+    "inner": [0.8, 0.7, 1, 1],
+    "outer": [0.35, 0.3, 1, 0.6]
+  }
+}

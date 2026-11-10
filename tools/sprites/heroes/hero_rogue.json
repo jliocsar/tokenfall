@@ -9,7 +9,8 @@
     "Walking_A": 8,
     "Hit_A": 4,
     "Death_A": 6,
-    "Lie_StandUp": 6
+    "Lie_StandUp": 6,
+    "Dualwield_Melee_Attack_Stab": 6
   },
   "name": "rogue",
   "glb": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/kaykit/gltf/Rogue_Hooded.glb",
@@ -18,5 +19,8 @@
   "bone_scale": {
     "head": 0.72
   },
-  "oneshot": ["Death_A", "Lie_StandUp"]
+  "oneshot": ["Death_A", "Lie_StandUp", "Dualwield_Melee_Attack_Stab"],
+  "rename": {
+    "Dualwield_Melee_Attack_Stab": "Attack"
+  }
 }

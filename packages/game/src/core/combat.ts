@@ -1,15 +1,18 @@
+import { aimEffect, endEffect, spawnEffect, spawnEffectAt } from '../effects/emitters.ts'
+import { BOLT_KIND, CRIT_KIND, FRENZY_KIND, HEAL_KIND, SLASH_KIND } from '../effects/systems.ts'
 import { sceneLength } from './death-scene.ts'
 import { roomDistance, startWalk, walkTo } from './delve.ts'
-import { hasMember, removeMember } from './dense-set.ts'
+import { addMember, hasMember, removeMember } from './dense-set.ts'
 import { dungeonSeed, walkable, type DungeonMap } from './dungeon-gen.ts'
 import { cellAt, cellWorld, dungeonAt, roomCenter, slotOf } from './dungeon.ts'
-import { directionOf } from './iso.ts'
+import { directionOf, screenX, screenY } from './iso.ts'
 import {
   MONSTER_ATTACK,
   MONSTER_CRUMBLE,
   MONSTER_FREE,
   MONSTER_IDLE,
   MONSTER_RISING,
+  NO_EFFECT,
   NO_ROOM,
   NO_TARGET,
   intensityTier,
@@ -169,8 +172,24 @@ const freeMonster = (sim: Sim, slot: number): void => {
   monsters.active -= 1
 }
 
+const endGlow = (sim: Sim, eid: number): void => {
+  const { combat } = sim
+  endEffect(sim, combat.glowOf[eid]!)
+  combat.glowOf[eid] = NO_EFFECT
+  removeMember(combat.glowing, eid)
+}
+
+const endGlows = (sim: Sim): void => {
+  const { glowing } = sim.combat
+
+  while (glowing.size > 0) {
+    endGlow(sim, glowing.dense[glowing.size - 1]!)
+  }
+}
+
 export const resetCombat = (sim: Sim): void => {
   const { monsters, rooms } = sim.combat
+  endGlows(sim)
 
   for (let slot = 0; slot < monsters.state.length; slot++) {
     if (monsters.state[slot] !== MONSTER_FREE) {
@@ -304,6 +323,7 @@ const roomCleared = (sim: Sim, room: number, now: number): void => {
 
     if (sim.stores.delve.room[eid] === room) {
       combat.hp[eid] = 1
+      spawnEffect(sim, HEAL_KIND, eid, now)
     }
   }
 }
@@ -342,6 +362,24 @@ export const hitMonster = (
   }
 }
 
+const attackEffects = (sim: Sim, eid: number, slot: number, crit: boolean, now: number): void => {
+  const { monsters } = sim.combat
+  const hx = sim.stores.position.x[eid]!
+  const hy = sim.stores.position.y[eid]!
+  const mx = monsters.x[slot]!
+  const my = monsters.y[slot]!
+  const ranged = sim.config.combat.rangedSheet[sim.stores.hero.sheet[eid]!] === 1
+  const effect = spawnEffect(sim, ranged ? BOLT_KIND : SLASH_KIND, eid, now)
+
+  if (effect !== -1) {
+    aimEffect(sim, effect, screenX(mx, my) - screenX(hx, hy), screenY(mx, my) - screenY(hx, hy))
+  }
+
+  if (crit) {
+    spawnEffectAt(sim, CRIT_KIND, mx, my, now)
+  }
+}
+
 const swing = (sim: Sim, eid: number, slot: number, now: number): void => {
   const { combat } = sim
   const tuning = sim.config.combat
@@ -362,6 +400,7 @@ const swing = (sim: Sim, eid: number, slot: number, now: number): void => {
   combat.swingCrit[eid] = crit ? 1 : 0
   combat.counters.swings += 1
   combat.counters.crits += crit ? 1 : 0
+  attackEffects(sim, eid, slot, crit, now)
   hitMonster(sim, slot, heroDamage(sim, eid) * (crit ? tuning.critMultiplier : 1), crit, eid, now)
 }
 
@@ -433,6 +472,35 @@ const fight = (sim: Sim, eid: number, map: DungeonMap, now: number): void => {
 
   if (targetable(sim, slot, room)) {
     strike(sim, eid, slot, now)
+  }
+}
+
+const glowFrenzy = (sim: Sim, now: number): void => {
+  const { combat } = sim
+  const { fighters, glowing, glowOf } = combat
+  const top = sim.config.combat.tiers.length - 1
+
+  for (let i = glowing.size - 1; i >= 0; i--) {
+    const eid = glowing.dense[i]!
+
+    if (!hasMember(fighters, eid) || lifeless(sim, eid) || intensityTier(sim, eid, now) < top) {
+      endGlow(sim, eid)
+    }
+  }
+
+  for (let i = 0; i < fighters.size; i++) {
+    const eid = fighters.dense[i]!
+
+    if (glowOf[eid] !== NO_EFFECT || lifeless(sim, eid) || intensityTier(sim, eid, now) < top) {
+      continue
+    }
+
+    const effect = spawnEffect(sim, FRENZY_KIND, eid, now)
+
+    if (effect !== -1) {
+      glowOf[eid] = effect
+      addMember(glowing, eid)
+    }
   }
 }
 
@@ -597,6 +665,7 @@ export const combatSystem: System = {
     }
 
     heroesFight(sim, map, now)
+    glowFrenzy(sim, now)
 
     for (let slot = 0; slot < monsters.state.length; slot++) {
       if (monsters.state[slot] !== MONSTER_FREE) {
