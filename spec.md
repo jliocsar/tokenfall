@@ -42,6 +42,21 @@ Status: M0 and M1 done. Benchmarked on your machine (Intel Raptor Lake integrate
 - **Resurrection:** any sighting of a dead Hero's session id, from the `SessionStart` hook or Herdr's `agent.list`, brings it back at its old Level. It stands up from its Grave in a green necro glow and walks back to Camp if the Grave still stands, otherwise it arrives through a Warp Portal at its Camp. A Death gets a Chronicle line only, never an Attention notice.
 - **Hero records** are kept forever.
 
+### Combat
+
+- **The Heroes always win.** Combat is for show: Heroes lose HP and cast spells, but never die to a Monster. Death stays tied to real session ends.
+- **The Party starts the fight.** Packs of skeletons stand idle in their rooms and never chase anyone. A working Party walks up to its room's Pack and hits first. The first hit wakes the whole Pack, and each Monster goes for the nearest Hero.
+- **Tool calls set the pace.** A Hero's intensity is its tool starts over the last 4 s. With none it attacks every 1.5 s, each new start adds a swing, 2 to 4 starts give faster swings and some crits, and 5 or more is a Frenzy, with mostly crits and a crimson aura.
+- **Minions:** a Subagent's tool call sends one wisp to the target and back for a small hit. It never adds crits.
+- **Balance:** a Hero's Level sets its damage and the Depth Tier sets Monster HP. A Pack falls in about 20 s at a normal pace and about 5 s in a Frenzy.
+- **Hero HP** shows only in the open Dungeon, and only while the Hero is hurt. It never drops below 30%, and refills with a heal glow when the room is cleared.
+- **Monsters:** the four KayKit Skeletons (Minion, Warrior, Rogue and Mage), tinted per Depth Tier, with Hell red. Skeleton Mages stand at the edge of their Pack and cast from range. Monsters drop nothing, so Loot Chests keep meaning "done".
+- **Packs:** 2 Monsters plus 1 per Hero in the Party, up to 6, in a seeded mix per room. A cleared Pack rises again from the ground once no Party is in its room, and the Party moves on to the nearest room with a Pack.
+- **Feedback:** damage numbers float up from the struck Monster: white hits, bigger gold crits, small blue wisp hits. HP bars show on the struck Monster and on hurt Heroes.
+- **Leaving mid-fight:** a Hero that stops working warps out as before, and the Pack keeps the HP it lost.
+- **A Death mid-fight:** the Pack backs away while the Horde plays the Death Scene, then steps back in to fight the rest of the Party.
+- **Quiet:** combat writes no Chronicle lines and raises no Attention notices.
+
 ### Characters
 
 - **Personality:** rolled at random from about 8, like Brave, Cunning, Scholarly, Pious, Wild, Stoic, Cheerful and Grim. It sets the Class and the voice of the Hero's Narration.
@@ -174,6 +189,17 @@ The scene is multiplied by a light map of ambient light plus additive lights. A 
 - **Minions:** up to five wisps orbit a Hero, one per Subagent, with "+N" above it for the rest.
 - **The Lead:** a crown on the Hero and in its Roster row, for the Agent whose Herdr tab is labelled `lead`, as the `/team` skill names it.
 
+### Combat model
+
+- **Where:** only in the open Dungeon tier. Opening a tier spawns a Pack in every room, claimed rooms first, and closing it frees them. Unseen tiers run no combat and save nothing.
+- **Intensity:** each Hero keeps a ring of its last 8 tool start times. Its count inside the 4 s window picks a row of `data/combat.json` `tiers` (steady, busy, frenzy), which sets the swing interval and the crit chance. Each start also banks a bonus swing, up to 2, at least 250 ms apart. Minion calls bank up to 4 wisp strikes instead.
+- **Damage:** a hit is the tier's Monster HP times `packShare`, plus up to 50% across the Hero's Depth Tier Level span. A crit does 1.75x. Monster HP per tier is 120, 400, 1200 and 4000, times the kind's factor.
+- **Monsters fight back** at the Hero they target, every 1.8 s with some jitter, for 4% to 9% of its HP, floored at 30%.
+- **Formation:** melee Heroes stand half a tile from their target and Mages a tile and a half back, spread in a loose arc. Skeleton Mages are placed at the Pack's edge.
+- **Room flow:** a cleared room heals its Party, which moves on after 1.5 s to the nearest unclaimed room with a Pack. An empty room refills 8 s later.
+- **A Death mid-fight** holds the room's Pack for the length of the Death Scene. Its Monsters back a tile away from the fallen Hero and drop their targets, then return.
+- **Cost:** O(fighting Heroes + `budgets.monsters`) per frame, plus O(Monsters x fighters) once when a Pack is first struck. A room past the 96-Monster budget stays empty.
+
 ## 4. Town and roster prototype
 
 Built first, on recorded and synthetic data. It needs to answer:
@@ -249,7 +275,7 @@ These rules apply to all game and daemon hot paths, and get checked in review.
 9. Heroes are looked up through an id-to-entity index in O(1), a typed array, never by scanning a query.
 10. Off-screen Heroes are just data. Moving between places is a timestamp, resolved when it comes back into view.
 11. Town movement uses shared flow fields per destination, not per-Hero A*.
-12. Budgets for visible bubbles, lights, Minions and Horde units, with the excess dropped by priority.
+12. Budgets for visible bubbles, lights, Minions, Horde units, Monsters (96), damage numbers (48, the oldest dropped first) and HP bars (128), with the excess dropped by priority.
 13. Entity spawns are spread across frames, so a backfill of hundreds of Heroes doesn't spike one frame.
 14. Hero states are table-driven state machines. Each Hero's state is a `uint8` in a typed array, and the transitions live in a table in `data/`, for example `working` plus `done` becomes `warping-out`. Systems advance states from that table each frame. The runner is a small set of pure functions, and diagrams can be drawn from the table. Multi-step behaviors like "walk to the entrance, then warp in" work the same way, never as callbacks or coroutines. UI state uses Solid signals.
 15. Single-threaded in v1. Systems move to workers only if profiling says so, using `asBuffer` queries. Structural changes stay on the main thread.
@@ -293,7 +319,7 @@ No frame missed a vsync. The CPU bar holds. GPU p99 at 1000 Heroes drifts betwee
 
 - **Stateless GPU particles:** each particle's position, color and size are computed in the vertex shader from its emitter's spawn time, a per-particle seed and the current time. The CPU does no work per particle, and an effect is just one instanced draw.
 - **Composable:** an effect is an entity with components like `Emitter`, `EffectShader`, `Lifetime` and `AttachedTo`. Effect definitions live in `data/effects/`, and the angel ring burst is data, not code.
-- **Effects in v1:** the level-up angel ring burst, the Level 99 Aura, the Warp Portal, the Resurrection rise, the Death Scene, Hero light, Raven arrival and the chest opening.
+- **Effects in v1:** the level-up angel ring burst, the Level 99 Aura, the Warp Portal, the Resurrection rise, the Death Scene, Hero light, Raven arrival and the chest opening. Combat adds the Mage bolt, the slash arc, the crit flash, the Frenzy aura, the heal glow, the wisp dart and the Skeleton Mage's bolt. Aimed effects read their target offset from the emitter's second texel.
 - **Platform:** WebGL2 through Pixi as the baseline, with WebGPU as an option later.
 - **Validation:** effect shaders get a GPU timing budget, measured in M0 on your machine.
 
@@ -380,10 +406,10 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 
 | Need | Pack | State |
 | --- | --- | --- |
-| Heroes | KayKit Adventurers | Rendered and tested |
+| Heroes | KayKit Adventurers | Rendered and tested, with one attack clip per look |
 | Dungeon | KayKit Dungeon Remastered | One room tested, corner gap to fix |
 | Town | KayKit Medieval Hexagon | Not tested, built for hex tiles |
-| Horde | KayKit Skeletons | Minion rendered, its own lazy atlas |
+| Horde and Monsters | KayKit Skeletons | Minion, Warrior, Rogue and Mage rendered with their weapons in one lazy atlas, tinted per Depth Tier in the game |
 | Graves | KayKit Halloween Bits | Three grave props and the crypt stone |
 | UI frames | Kenney Fantasy UI Borders | Not tested, license not confirmed |
 | Fonts | To pick | Must be OFL or CC0 |
@@ -456,7 +482,13 @@ Each one ends with something you can run.
 - Graves keep their slots across a reload, the 31st crumbles the oldest, and Graves expire at 24 hours, in the sim tests.
 - A mass Death of 20 Heroes at Level 99 filled the 48-skeleton cap and dropped the rest, in headless Chrome.
 
-**Not yet seen live:** the Death Scene and necro glow on a real GPU, the `1000-deaths` numbers from `/?measure`, the Aura and level-up ring on a real GPU, a real `/team` lead's crown, and the Dungeon numbers from `/?measure`.
+**Built and tested in M6:**
+
+- A live run on a throwaway Herdr pane: a real Claude session's parallel reads arrived as 6-call bursts, its Hero swung faster and landed crits as 5 rooms fell in its tier, and its Explore Subagent's calls sent wisp strikes. Tool calls made inside a code-mode tool each fired `PreToolUse`.
+- Pack size, budgets, seeds, unseen tiers, clear times at several Levels, the HP floor, leaving and dying mid-fight, damage numbers, wisp strikes and Skeleton Mage bolts, in the sim tests.
+- The 1000-Hero load test with the busiest tier open and tool bursts on.
+
+**Not yet seen live:** the `1000-combat` numbers from `/?measure`, combat effects and damage numbers on a real GPU, the Death Scene and necro glow on a real GPU, the `1000-deaths` numbers from `/?measure`, the Aura and level-up ring on a real GPU, a real `/team` lead's crown, and the Dungeon numbers from `/?measure`.
 
 **Read in Herdr's and Claude's source, docs or local data, but not tested live:**
 

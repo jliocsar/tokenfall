@@ -75,6 +75,8 @@ Things learned from that source that the docs don't say:
 - **A Pixi `Particle`'s `color` is packed ABGR**, not ARGB: `0xAA_BB_GG_RR`. Write raw `color` values as BGR, or set `tint` (which converts) when it isn't per frame (see `features/combat/monster-layer.ts`).
 - **bitECS recycles entity ids**, so the behavior timer serial is never reset on spawn: a stale timer from the old occupant must not fire on the new one.
 - **The sim clock is `now + sim.clockOffset`**: `performance.timeOrigin` for daemon and replay sources, 0 for synthetic. Compare it with wire times like `diedAt`, never raw `now`.
+- **Tool calls made inside a code-mode tool** (one `mcp__codemode__run` running several Reads) each fire their own `PreToolUse` (seen live), so they count toward a Hero's intensity like parallel calls.
+- **Combat marks** (`features/combat/marks.ts`) are two `ParticleContainer`s: HP bars are `Texture.WHITE` particles scaled to size, and damage numbers are digit glyph particles from one bitmap font page. Neither changes text or redraws a Graphics.
 - **The Plannotator Inbox** is a private format. `adapters/inbox/parse.ts` follows its own state rules (spec §8). Read only `url` from `inbox.json`, never the token.
 
 ## How code is written here
