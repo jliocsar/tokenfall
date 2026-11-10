@@ -404,7 +404,7 @@ Each one ends with something you can run.
 
 **M4: Dungeons. Done.** Seeded generator using rot.js, with a seed derived from the Town seed and the Repo, four Depth Tiers, Warp Portals, Minions and the lead's crown. Like Diablo, only one Dungeon is open at a time, showing one tier. It opens on the deepest tier with anyone inside, or on the tier of the Hero you clicked, and the tier strip, stairs or PgUp/PgDn switch tiers. Done when you can watch a Guild at any tier.
 
-**M5: Death and Resurrection.** Built, waiting on your live test. Death Scene, Horde, Graveyard, 24-hour Graves and Resurrection. Done when killing, clearing and resuming a test session all play out correctly.
+**M5: Death and Resurrection. Done.** Death Scene, Horde, Graveyard, 24-hour Graves and Resurrection. Done when killing, clearing and resuming a test session all play out correctly.
 
 **After v1:** prompting from the game with an auth token and Origin checks, then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
 
