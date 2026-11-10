@@ -12,8 +12,9 @@ images = [Image.open(source / f"{name}.png").convert("RGBA") for name in names]
 width = sum(image.width for image in images)
 height = max(image.height for image in images)
 atlas = Image.new("RGBA", (width, height))
-directions = list(sheets[0]["animations"]["Idle"].keys())
-animations = list(sheets[0]["animations"].keys())
+directions = list(next(iter(sheets[0]["animations"].values())).keys())
+FIRST = ["Idle", "Walking_A"]
+animations = sorted(sheets[0]["animations"].keys(), key=lambda name: (FIRST.index(name) if name in FIRST else len(FIRST), name))
 frames = []
 offset = 0
 

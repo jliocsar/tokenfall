@@ -156,8 +156,9 @@ def hero():
             continue
         assign(rig, a)
         f0, f1 = a.frame_range
+        span = max(frames - 1, 1) if act in cfg.get('oneshot', []) else max(frames, 1)
         for fi in range(frames):
-            f = f0 + (f1 - f0) * fi / max(frames, 1)
+            f = f0 + (f1 - f0) * fi / span
             s.frame_set(int(f), subframe=f - int(f))
             for d in cfg['dirs']:
                 rig.rotation_euler = (0, 0, math.radians(45 * d))

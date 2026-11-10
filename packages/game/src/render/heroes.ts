@@ -52,6 +52,7 @@ export type HeroLayer = {
   readonly textures: Texture[]
   readonly directionToSheet: Uint8Array
   readonly frameCounts: readonly number[]
+  readonly clips: number
   readonly query: { readonly dense: ArrayLike<number> }
   readonly states: { readonly dying: number; readonly dead: number; readonly warpIn: number }
   readonly hidden: Uint8Array
@@ -80,8 +81,13 @@ const SPAN_ADOPT = traceId('heroes.adopt')
 const SPAN_SORT = traceId('heroes.sort')
 const SPAN_CULL_PAINT = traceId('heroes.cull-paint')
 
-const textureIndex = (sheet: number, animation: number, direction: number, frame: number): number =>
-  ((sheet * 2 + animation) * DIRECTIONS + direction) * MAX_FRAMES + frame
+export const textureIndex = (
+  clips: number,
+  sheet: number,
+  animation: number,
+  direction: number,
+  frame: number,
+): number => ((sheet * clips + animation) * DIRECTIONS + direction) * MAX_FRAMES + frame
 
 export const loadAtlas = async (
   url: string,
@@ -93,7 +99,7 @@ export const loadAtlas = async (
   return { atlas, source: texture.source }
 }
 
-const buildTextures = (atlas: Atlas, source: TextureSource): Texture[] => {
+export const buildTextures = (atlas: Atlas, source: TextureSource): Texture[] => {
   const [width, height] = atlas.cell
   const textures: Texture[] = []
 
@@ -101,10 +107,11 @@ const buildTextures = (atlas: Atlas, source: TextureSource): Texture[] => {
     for (const [animation, directions] of animations.entries()) {
       for (const [direction, frames] of directions.entries()) {
         for (const [frame, cell] of frames.entries()) {
-          textures[textureIndex(sheet, animation, direction, frame)] = new Texture({
-            source,
-            frame: new Rectangle(cell[0], cell[1], width, height),
-          })
+          textures[textureIndex(atlas.animations.length, sheet, animation, direction, frame)] =
+            new Texture({
+              source,
+              frame: new Rectangle(cell[0], cell[1], width, height),
+            })
         }
       }
     }
@@ -181,6 +188,7 @@ export const createHeroLayer = (
     textures,
     directionToSheet,
     frameCounts: atlas.animations.map((animation) => animation.frames),
+    clips: atlas.animations.length,
     query: registerQuery(sim.world, [sim.heroTag]),
     states: {
       dying: stateId(sim.machine, 'dying'),
@@ -289,7 +297,9 @@ const paint = (layer: HeroLayer, sim: Sim, particle: Particle, eid: number, now:
   const frame = Math.floor((now * fps) / 1000 + eid * 0.37) % frames
   const direction = layer.directionToSheet[sim.stores.motion.dir[eid]!]!
   particle.texture =
-    layer.textures[textureIndex(sim.stores.hero.sheet[eid]!, walking, direction, frame)]!
+    layer.textures[
+      textureIndex(layer.clips, sim.stores.hero.sheet[eid]!, walking, direction, frame)
+    ]!
   const state = sim.stores.behavior.state[eid]!
 
   if (state === layer.states.dead) {

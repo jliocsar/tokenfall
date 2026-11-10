@@ -6,7 +6,10 @@
   "dirs": [0, 1, 2, 3, 4, 5, 6, 7],
   "actions": {
     "Idle": 4,
-    "Walking_A": 8
+    "Walking_A": 8,
+    "Hit_A": 4,
+    "Death_A": 6,
+    "Lie_StandUp": 6
   },
   "name": "stranger",
   "glb": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/kaykit/gltf/Rogue_Hooded.glb",
@@ -19,5 +22,6 @@
   "out": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/out/raw/stranger",
   "bone_scale": {
     "head": 0.72
-  }
+  },
+  "oneshot": ["Death_A", "Lie_StandUp"]
 }

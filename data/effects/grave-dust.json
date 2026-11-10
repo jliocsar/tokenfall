@@ -1,0 +1,16 @@
+{
+  "name": "grave-dust",
+  "shader": "ring-burst",
+  "particles": 64,
+  "lifetime": 0.9,
+  "attached": false,
+  "blend": "normal",
+  "params": {
+    "radius": 30,
+    "rise": 28,
+    "size": 16,
+    "spin": 0.4,
+    "inner": [0.82, 0.79, 0.74, 1],
+    "outer": [0.55, 0.52, 0.5, 0.25]
+  }
+}

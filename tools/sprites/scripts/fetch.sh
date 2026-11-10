@@ -31,4 +31,10 @@ curl -sSfL -O https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Dungeo
 curl -sSfL -O https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0/main/addons/kaykit_dungeon_remastered/Assets/gltf/barrel_small_stack.gltf.glb &
 curl -sSfL -O https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0/main/addons/kaykit_dungeon_remastered/Assets/gltf/chest.glb &
 wait
+mkdir -p /home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/skeletons/gltf
+cd /home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/skeletons/gltf
+curl -sSfL -o LICENSE.txt https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/main/LICENSE.txt
+curl -sSfL -O https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/main/addons/kaykit_character_pack_skeletons/Characters/gltf/Skeleton_Minion.glb &
+curl -sSfL -O https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/main/addons/kaykit_character_pack_skeletons/Characters/gltf/skeleton_texture.png &
+wait
 echo done > /home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/.ok

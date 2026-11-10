@@ -1,0 +1,27 @@
+{
+  "mode": "hero",
+  "cell": 128,
+  "ss": 2,
+  "samples": 8,
+  "dirs": [0, 1, 2, 3, 4, 5, 6, 7],
+  "actions": {
+    "Spawn_Ground_Skeletons": 6,
+    "Idle_Combat": 4,
+    "1H_Melee_Attack_Chop": 6,
+    "Death_C_Skeletons": 6
+  },
+  "oneshot": ["Spawn_Ground_Skeletons", "Death_C_Skeletons"],
+  "name": "skeleton_minion",
+  "glb": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/download/skeletons/gltf/Skeleton_Minion.glb",
+  "hide": [],
+  "out": "/home/jliocsar/Projects/claude-agents-visualizer/tmp/sprites/out/raw/skeleton_minion",
+  "bone_scale": {
+    "head": 0.72
+  },
+  "tint": {
+    "hue": 0.5,
+    "sat": 0.35,
+    "val": 1.1,
+    "skip": ["Cloak", "Eyes"]
+  }
+}

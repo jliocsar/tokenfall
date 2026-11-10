@@ -1,0 +1,16 @@
+{
+  "name": "necro-rise",
+  "shader": "ring-burst",
+  "particles": 128,
+  "lifetime": 2.4,
+  "attached": false,
+  "blend": "add",
+  "params": {
+    "radius": 36,
+    "rise": 70,
+    "size": 10,
+    "spin": 0.9,
+    "inner": [0.65, 1, 0.55, 1],
+    "outer": [0.1, 0.75, 0.3, 0.7]
+  }
+}

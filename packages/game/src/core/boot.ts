@@ -1,7 +1,9 @@
 import budgets from '@tokenfall/data/budgets.json'
 import angelRing from '@tokenfall/data/effects/angel-ring.json'
 import aura from '@tokenfall/data/effects/aura.json'
+import graveDust from '@tokenfall/data/effects/grave-dust.json'
 import minionWisps from '@tokenfall/data/effects/minion-wisps.json'
+import necroRise from '@tokenfall/data/effects/necro-rise.json'
 import warpFlare from '@tokenfall/data/effects/warp-flare.json'
 import warpPortal from '@tokenfall/data/effects/warp-portal.json'
 import machine from '@tokenfall/data/hero-states.json'
@@ -26,7 +28,15 @@ export const HERO_SHEETS = [
   'stranger',
 ] as const
 
-export const EFFECT_DEFINITIONS = [angelRing, aura, warpPortal, warpFlare, minionWisps] as const
+export const EFFECT_DEFINITIONS = [
+  angelRing,
+  aura,
+  warpPortal,
+  warpFlare,
+  minionWisps,
+  necroRise,
+  graveDust,
+] as const
 
 export const bootSim = (seed: number, epoch: number, overrides: Partial<Budgets>): Sim => {
   validateActions(Object.values(machine.onEnter))
