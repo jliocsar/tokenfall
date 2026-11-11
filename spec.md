@@ -438,7 +438,7 @@ Each one ends with something you can run.
 
 **M6: Combat. Done.** Working Heroes always fight Packs of skeletons in the open Dungeon, idle-RPG style, and always win. Their tool calls set the pace, from normal attacks to a Frenzy. Done when a live agent's parallel tool calls visibly speed up its Hero's fight.
 
-**M7: UI pass.** A clean Town (no dev chrome, the Hero card top left), a readable Character Sheet with a bigger font, team Parties nested under their Lead in the Roster, a menu over the selected Hero with Follow, and a prompt box under the terminal, the one write path (ADR 0005). Done when you can steer a live Agent from its sheet.
+**M7: UI pass. Done.** A clean Town (no dev chrome, the Hero card top left), a readable Character Sheet with a bigger font, team Parties nested under their Lead in the Roster, a menu over the selected Hero with Follow, and a prompt box under the terminal, the one write path (ADR 0005). Done when you can steer a live Agent from its sheet.
 
 **After v1:** bosses during Workflows (likely M8), then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
 
