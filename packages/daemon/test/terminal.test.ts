@@ -33,6 +33,7 @@ type Herdr = {
   readonly methods: string[]
   cols: number
   rows: number
+  inner: number | undefined
 }
 
 type Call = {
@@ -44,11 +45,11 @@ type Call = {
 type Spawned = { readonly args: readonly string[]; readonly pid: number }
 
 const PLOTS = 8
-const TUNING = { layoutMs: 60, restartMs: 60 }
+const TUNING = { layoutMs: 60, restartMs: 60, lingerMs: 300, retryMs: 30, scrollbarCols: 0 }
 const SETTLE_MS = 400
 const HELLO = Buffer.from('hello').toString('base64')
 
-const herdr: Herdr = { methods: [], cols: 90, rows: 30 }
+const herdr: Herdr = { methods: [], cols: 90, rows: 30, inner: undefined }
 const folder = mkdtempSync(join(tmpdir(), 'tokenfall-terminal-'))
 const path = join(folder, 'herdr.sock')
 const fake = join(folder, 'herdr')
@@ -68,7 +69,14 @@ if (args[2] === 'control' && fs.existsSync(${JSON.stringify(busyFlag)})) {
   process.exit(0)
 }
 if (args[2] === 'control') {
-  process.stdin.on('data', (chunk) => fs.appendFileSync(${JSON.stringify(typed)}, chunk))
+  process.stdin.on('end', () => process.exit(0))
+  process.stdin.on('data', (chunk) => {
+    fs.appendFileSync(${JSON.stringify(typed)}, chunk)
+    if (String(chunk).includes('terminal.release')) {
+      console.log(JSON.stringify({ type: 'terminal.closed', reason: 'detached' }))
+      process.exit(0)
+    }
+  })
 }
 console.log(JSON.stringify({ type: 'terminal.frame', seq: 1, encoding: 'ansi', width: at('--cols'), height: at('--rows'), full: true, bytes: ${JSON.stringify(HELLO)} }))
 setInterval(() => undefined, 1000)
@@ -81,6 +89,7 @@ const reply = (call: Call): string => {
     id: call.id,
     result: {
       layout: { panes: [{ pane_id: pane, rect: { width: herdr.cols, height: herdr.rows } }] },
+      pane: { scroll: { viewport_rows: herdr.inner ?? herdr.rows } },
     },
   })
 }
@@ -150,6 +159,8 @@ const fakeSocket = (): FakeSocket => {
 
 const settle = (): Promise<void> => Bun.sleep(SETTLE_MS)
 
+const lingered = (): Promise<void> => Bun.sleep(TUNING.lingerMs + SETTLE_MS)
+
 beforeAll(() => {
   process.env['HERDR_SOCKET_PATH'] = path
   process.env[HERDR_ENV] = fake
@@ -172,6 +183,12 @@ beforeAll(() => {
 })
 
 afterAll(() => {
+  for (const run of spawned()) {
+    if (alive(run.pid)) {
+      process.kill(run.pid)
+    }
+  }
+
   server.listener?.stop(true)
   rmSync(folder, { recursive: true, force: true })
 
@@ -320,7 +337,7 @@ const states = (peer: FakeSocket): string[] =>
   peer.sent.flatMap((message) => (message.kind === 'control' ? [message.state] : []))
 
 describe('typing into the terminal', () => {
-  test('focus takes control no larger than the pane, input and scroll reach Herdr, blur releases', async () => {
+  test('focus takes control no larger than the pane, input and scroll reach Herdr, blur releases after the linger', async () => {
     rmSync(log, { force: true })
     rmSync(typed, { force: true })
     herdr.cols = 90
@@ -332,7 +349,7 @@ describe('typing into the terminal', () => {
     run.send({ kind: 'scroll', direction: 'up', lines: 3 })
     await settle()
     run.send({ kind: 'blur' })
-    await settle()
+    await lingered()
     run.stop()
     const runs = spawned()
     const commands = readFileSync(typed, 'utf8')
@@ -437,7 +454,7 @@ describe('resizing while typing', () => {
     run.send({ kind: 'resize', cols: 120, rows: 300 })
     await settle()
     run.send({ kind: 'blur' })
-    await settle()
+    await lingered()
     run.stop()
     const runs = spawned()
     const commands = readFileSync(typed, 'utf8')
@@ -465,5 +482,61 @@ describe('resizing while typing', () => {
     terminals.receive(peers[2]!.socket, JSON.stringify({ kind: 'resize', cols: 80, rows: 5000 }))
 
     expect(peers.map((peer) => peer.closed)).toEqual([1008, 1008, 1008])
+  })
+})
+
+describe('sticky control', () => {
+  test('a quick blur and refocus keep the controller, and keys stop while blurred', async () => {
+    rmSync(log, { force: true })
+    rmSync(typed, { force: true })
+    herdr.cols = 90
+    herdr.rows = 30
+    const run = await watched()
+    run.send({ kind: 'focus', cols: 80, rows: 30 })
+    await settle()
+    run.send({ kind: 'blur' })
+    run.send({ kind: 'input', bytes: Buffer.from('dropped').toString('base64') })
+    run.send({ kind: 'focus', cols: 80, rows: 30 })
+    await settle()
+    run.send({ kind: 'input', bytes: Buffer.from('kept').toString('base64') })
+    await settle()
+    const runs = spawned()
+    run.stop()
+    const commands = readFileSync(typed, 'utf8')
+
+    expect(runs.map((entry) => entry.args[2])).toEqual(['observe', 'control'])
+    expect(states(run.peer)).toEqual(['held', 'held'])
+    expect(commands).toContain(Buffer.from('kept').toString('base64'))
+    expect(commands).not.toContain(Buffer.from('dropped').toString('base64'))
+  })
+
+  test('closing the sheet releases at once and starts nothing new', async () => {
+    rmSync(log, { force: true })
+    rmSync(typed, { force: true })
+    const run = await watched()
+    run.send({ kind: 'focus', cols: 80, rows: 30 })
+    await settle()
+    run.send({ kind: 'unwatch' })
+    await settle()
+    const runs = spawned()
+
+    expect(runs.map((entry) => entry.args[2])).toEqual(['observe', 'control'])
+    expect(readFileSync(typed, 'utf8')).toContain('terminal.release')
+    expect(runs.some((entry) => alive(entry.pid))).toBe(false)
+  })
+
+  test('the pane grid leaves out Herdr borders and the scrollbar column', async () => {
+    rmSync(log, { force: true })
+    herdr.cols = 117
+    herdr.rows = 53
+    herdr.inner = 51
+    const world = freshWorld()
+    const terminals = createTerminals(world, { ...TUNING, scrollbarCols: 1 })
+    terminals.receive(fakeSocket().socket, JSON.stringify({ kind: 'watch', hero: heroOf(world) }))
+    await settle()
+    terminals.stop()
+    herdr.inner = undefined
+
+    expect(spawned()[0]?.args.slice(4)).toEqual(['--cols', '114', '--rows', '51'])
   })
 })

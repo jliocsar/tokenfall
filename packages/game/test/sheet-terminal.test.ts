@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import sheetText from '@tokenfall/data/sheet.json'
 import type { Frame } from '@tokenfall/protocol/terminal'
-import { gridAt, largestFont, type Box } from '../src/features/sheet/font.ts'
+import { gridAt, largestFont, shrinkFor, type Box } from '../src/features/sheet/font.ts'
 import { bufferFrame } from '../src/features/sheet/model.ts'
 
 describe('terminal fit', () => {
@@ -15,6 +15,13 @@ describe('terminal fit', () => {
       sheetText.maxFontPx,
     )
     expect(largestFont(grid, { width: 100, height: 100 }, measure)).toBe(sheetText.minFontPx)
+  })
+
+  test('a grid too wide for the smallest font is scaled down, never up', () => {
+    const cell = { width: 5, height: 10 }
+
+    expect(shrinkFor({ cols: 400, rows: 50 }, { width: 1000, height: 1000 }, cell)).toBe(0.5)
+    expect(shrinkFor({ cols: 100, rows: 50 }, { width: 1000, height: 1000 }, cell)).toBe(1)
   })
 
   test('the typing grid is what fits the room at the typing cell size', () => {

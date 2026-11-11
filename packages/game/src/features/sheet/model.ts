@@ -9,6 +9,7 @@ import type {
   Scroll,
   ScrollDirection,
 } from '@tokenfall/protocol/terminal'
+import sheetText from '@tokenfall/data/sheet.json'
 import { createSignal, type Accessor } from 'solid-js'
 import { heroOfEntity } from '../../core/hero-index.ts'
 import type { Sim } from '../../core/sim.ts'
@@ -32,6 +33,7 @@ type SheetState = {
   hero: string | null
   sim: Sim | undefined
   grid: Grid | undefined
+  asking: ReturnType<typeof setTimeout> | undefined
 }
 
 export type SheetModel = {
@@ -93,9 +95,12 @@ export const createSheet = (): SheetModel => {
     hero: null,
     sim: undefined,
     grid: undefined,
+    asking: undefined,
   }
 
   const reset = (): void => {
+    clearTimeout(state.asking)
+    state.grid = undefined
     state.pending.length = 0
     setTerminal('waiting')
     setTyping('off')
@@ -136,7 +141,10 @@ export const createSheet = (): SheetModel => {
       }
     },
     control: (next) => {
-      if (state.hero !== null) {
+      const waiting = typing() === 'asking' || typing() === 'held'
+
+      if (state.hero !== null && (next !== 'held' || waiting)) {
+        clearTimeout(state.asking)
         setTyping(TYPING_OF[next])
       }
     },
@@ -163,17 +171,24 @@ export const createSheet = (): SheetModel => {
         setTyping('asking')
         state.grid = grid
         state.steer({ kind: 'focus', ...grid })
+        clearTimeout(state.asking)
+        state.asking = setTimeout(() => {
+          if (typing() === 'asking') {
+            state.steer?.({ kind: 'blur' })
+            setTyping('off')
+          }
+        }, sheetText.askTimeoutMs)
       }
     },
     resize: (grid) => {
-      const typed = typing() === 'asking' || typing() === 'held'
-
-      if (typed && grid !== undefined && !sameGrid(state.grid, grid)) {
+      if (state.grid !== undefined && grid !== undefined && !sameGrid(state.grid, grid)) {
         state.grid = grid
         state.steer?.({ kind: 'resize', ...grid })
       }
     },
     blur: () => {
+      clearTimeout(state.asking)
+
       if (typing() === 'asking' || typing() === 'held') {
         state.steer?.({ kind: 'blur' })
         setTyping('off')

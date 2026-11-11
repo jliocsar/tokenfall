@@ -937,7 +937,15 @@
   background: #0b0a10;
 }
 
+.terminal-frame .terminal canvas {
+  flex: none;
+  transform: scale(var(--terminal-shrink, 1));
+}
+
 .terminal-frame .terminal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   height: 100%;
   box-sizing: border-box;

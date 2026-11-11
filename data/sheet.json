@@ -28,7 +28,9 @@
     "busy": "Another client is typing here; watching only"
   },
   "wheelLinePx": 40,
-  "typingGrid": { "fontPx": 14, "minCols": 40, "minRows": 10 },
+  "typingGrid": { "readablePx": 12, "minCols": 40, "minRows": 10 },
+  "settle": { "quietMs": 50, "maxMs": 150, "resizeMs": 150 },
+  "askTimeoutMs": 3000,
   "depth": "Depth",
   "levelShort": "Lv",
   "tokens": "tokens",

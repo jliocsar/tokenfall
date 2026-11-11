@@ -40,7 +40,7 @@ type StreamRecord = {
   readonly reason?: string
 }
 
-type StreamState = { closed: boolean }
+type StreamState = { closed: boolean; stopping: boolean }
 
 const NEWLINE = '\n'
 const RELEASE_GRACE_MS = 500
@@ -104,7 +104,7 @@ export const openStream = (
     stdout: 'pipe',
     stderr: 'ignore',
   })
-  const state: StreamState = { closed: false }
+  const state: StreamState = { closed: false, stopping: false }
 
   const close = (reason: string): void => {
     if (!state.closed) {
@@ -120,7 +120,7 @@ export const openStream = (
       return
     }
 
-    if (record.type === 'terminal.frame' && record.bytes !== undefined) {
+    if (record.type === 'terminal.frame' && record.bytes !== undefined && !state.stopping) {
       handlers.frame({
         cols: record.width ?? size.cols,
         rows: record.height ?? size.rows,
@@ -145,15 +145,19 @@ export const openStream = (
   return {
     mode,
     write: (command) => {
-      if (mode === 'control' && !state.closed) {
+      if (mode === 'control' && !state.closed && !state.stopping) {
         void child.stdin.write(`${JSON.stringify(command)}${NEWLINE}`)
       }
     },
     stop: () => {
-      const releasing = mode === 'control' && !state.closed
-      state.closed = true
+      if (state.stopping || state.closed) {
+        return
+      }
 
-      if (!releasing) {
+      state.stopping = true
+
+      if (mode !== 'control') {
+        state.closed = true
         child.kill()
 
         return

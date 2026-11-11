@@ -21,6 +21,11 @@ export const largestFont = (grid: Grid, room: Box, measure: Measure): number => 
   return sheetText.minFontPx
 }
 
+export const shrinkFor = (grid: Grid, room: Box, cell: Box): number =>
+  cell.width <= 0 || cell.height <= 0
+    ? 1
+    : Math.min(1, room.width / (grid.cols * cell.width), room.height / (grid.rows * cell.height))
+
 export const gridAt = (cell: Box, room: Box): Grid | undefined => {
   if (cell.width <= 0 || cell.height <= 0) {
     return undefined

@@ -36,5 +36,8 @@
     "oxlint": "1.92.0",
     "oxlint-tsgolint": "7.0.2006",
     "typescript": "7.0.2"
+  },
+  "patchedDependencies": {
+    "ghostty-web@0.4.0-next.21.g640db46": "patches/ghostty-web@0.4.0-next.21.g640db46.patch"
   }
 }

@@ -21,7 +21,10 @@
   },
   "terminal": {
     "layoutMs": 2000,
-    "restartMs": 1000
+    "restartMs": 1000,
+    "lingerMs": 10000,
+    "retryMs": 250,
+    "scrollbarCols": 1
   },
   "seen": {
     "pollMs": 3000,

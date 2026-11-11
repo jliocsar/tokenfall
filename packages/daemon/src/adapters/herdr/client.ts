@@ -41,6 +41,7 @@ export type HerdrMessage = {
     readonly tabs?: readonly HerdrTab[]
     readonly read?: { readonly text?: string }
     readonly layout?: { readonly panes?: readonly HerdrLayoutPane[] }
+    readonly pane?: { readonly scroll?: { readonly viewport_rows?: number } }
   }
   readonly error?: { readonly code?: string; readonly message?: string }
 }

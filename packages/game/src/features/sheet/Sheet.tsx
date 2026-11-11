@@ -1,7 +1,6 @@
 import death from '@tokenfall/data/death.json'
 import sheetText from '@tokenfall/data/sheet.json'
 import { threadUrl } from '@tokenfall/protocol/inbox'
-import type { Grid } from '@tokenfall/protocol/terminal'
 import { createEffect, createSignal, onCleanup, Show } from 'solid-js'
 import { NOBODY, type Bridge } from '../../ui/bridge.ts'
 import { closesSheet, releasesTerminal } from '../selection/keys.ts'
@@ -30,14 +29,10 @@ type TerminalProps = {
   readonly name: string
 }
 
-type TerminalRefs = {
-  current: TerminalView | undefined
-  frame: HTMLDivElement | undefined
-}
+type TerminalRefs = { current: TerminalView | undefined; host: HTMLDivElement | undefined }
 
 const ESCAPE = 'Escape'
-const FRAME_PAD_X = 14
-const FRAME_PAD_Y = 10
+const FRAME_STYLE = { background: sheetText.terminal.theme.background }
 
 const inTerminal = (target: EventTarget | null): boolean =>
   target instanceof Element && target.closest('.terminal') !== null
@@ -45,42 +40,23 @@ const inTerminal = (target: EventTarget | null): boolean =>
 const hint = (typing: Typing, name: string): string =>
   sheetText.typing[typing].replace('{name}', name)
 
+const roomOf = (entry: ResizeObserverEntry): Box => {
+  const box = entry.contentBoxSize[0]
+
+  return box === undefined
+    ? { width: entry.contentRect.width, height: entry.contentRect.height }
+    : { width: box.inlineSize, height: box.blockSize }
+}
+
 const Terminal = (props: TerminalProps) => {
-  const view: TerminalRefs = {
-    current: undefined,
-    frame: undefined,
-  }
+  const view: TerminalRefs = { current: undefined, host: undefined }
   const wheel = { rest: 0 }
 
-  const room = (): Box | undefined =>
-    view.frame === undefined
-      ? undefined
-      : {
-          width: view.frame.clientWidth - FRAME_PAD_X,
-          height: view.frame.clientHeight - FRAME_PAD_Y,
-        }
-
-  const grid = (): Grid | undefined => {
-    const box = room()
-
-    return box === undefined ? undefined : view.current?.grid(box)
-  }
-
-  const refit = (): void => {
-    const box = room()
-
-    if (box !== undefined) {
-      view.current?.fit(box)
-    }
-  }
-
-  const relayout = (): void => {
-    refit()
-    props.sheet.resize(grid())
-  }
-
   createEffect(() => {
-    if (props.sheet.typing() === 'busy') {
+    const typing = props.sheet.typing()
+    const focused = view.host?.contains(document.activeElement) === true
+
+    if ((typing === 'off' || typing === 'busy') && focused) {
       view.current?.blur()
     }
   })
@@ -102,27 +78,33 @@ const Terminal = (props: TerminalProps) => {
     }
   }
 
+  const watcher = new ResizeObserver((entries) => {
+    const entry = entries[0]
+
+    if (entry !== undefined) {
+      view.current?.fit(roomOf(entry))
+    }
+  })
+
   const start = async (host: HTMLDivElement): Promise<void> => {
+    view.host = host
     host.addEventListener('wheel', onWheel, { capture: true, passive: false })
-    const mounted = await mountTerminal(host, props.sheet.input)
+    const mounted = await mountTerminal(host, {
+      typed: props.sheet.input,
+      resized: props.sheet.resize,
+    })
     view.current = mounted
     host.addEventListener('focusin', () => {
-      props.sheet.focus(grid())
+      props.sheet.focus(mounted.grid())
     })
     host.addEventListener('focusout', (event) => {
       if (!(event.relatedTarget instanceof Node && host.contains(event.relatedTarget))) {
         props.sheet.blur()
       }
     })
-    props.sheet.listen((frame) => {
-      if (mounted.write(frame)) {
-        refit()
-      }
-    })
-    refit()
+    watcher.observe(host)
+    props.sheet.listen(mounted.push)
   }
-
-  const watcher = new ResizeObserver(relayout)
 
   onCleanup(() => {
     watcher.disconnect()
@@ -134,9 +116,8 @@ const Terminal = (props: TerminalProps) => {
     <>
       <div
         class={`terminal-frame typing-${props.sheet.typing()}`}
+        style={FRAME_STYLE}
         ref={(frame) => {
-          view.frame = frame
-          watcher.observe(frame)
           frame.addEventListener('keydown', (event) => {
             event.stopPropagation()
           })
