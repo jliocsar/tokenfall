@@ -9,14 +9,17 @@ const SHARE = join(process.env['XDG_DATA_HOME'] ?? join(HOME, '.local', 'share')
 const UNIT_DIR = join(process.env['XDG_CONFIG_HOME'] ?? join(HOME, '.config'), 'systemd', 'user')
 const UNIT = 'tokenfall.service'
 
-const unitFile = (bun: string): string => `[Unit]
+const herdrLine = (herdr: string | null): string =>
+  herdr === null ? '' : `Environment=TOKENFALL_HERDR=${herdr}\n`
+
+const unitFile = (bun: string, herdr: string | null): string => `[Unit]
 Description=Tokenfall daemon: your Claude Agents as Heroes, read-only
 After=default.target
 
 [Service]
 ExecStart=${bun} ${join(SHARE, 'daemon.js')}
 Environment=TOKENFALL_DIST=${join(SHARE, 'game')}
-Restart=on-failure
+${herdrLine(herdr)}Restart=on-failure
 RestartSec=3
 
 [Install]
@@ -30,7 +33,13 @@ const install = async (): Promise<void> => {
   await rm(join(SHARE, 'game'), { recursive: true, force: true })
   await $`cp -r ${join(ROOT, 'packages', 'game', 'dist')} ${join(SHARE, 'game')}`
   await mkdir(UNIT_DIR, { recursive: true })
-  await writeFile(join(UNIT_DIR, UNIT), unitFile(process.execPath))
+  const herdr = Bun.which('herdr')
+
+  if (herdr === null) {
+    console.warn('herdr is not on PATH: the Character Sheet terminal will stay empty')
+  }
+
+  await writeFile(join(UNIT_DIR, UNIT), unitFile(process.execPath, herdr))
   await $`systemctl --user daemon-reload`
   await $`systemctl --user enable ${UNIT}`
   await $`systemctl --user restart ${UNIT}`
