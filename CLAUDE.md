@@ -77,6 +77,9 @@ Things learned from that source that the docs don't say:
 - **The sim clock is `now + sim.clockOffset`**: `performance.timeOrigin` for daemon and replay sources, 0 for synthetic. Compare it with wire times like `diedAt`, never raw `now`.
 - **Tool calls made inside a code-mode tool** (one `mcp__codemode__run` running several Reads) each fire their own `PreToolUse` (seen live), so they count toward a Hero's intensity like parallel calls.
 - **Combat marks** (`features/combat/marks.ts`) are two `ParticleContainer`s: HP bars are `Texture.WHITE` particles scaled to size, and damage numbers are digit glyph particles from one bitmap font page. Neither changes text or redraws a Graphics.
+- **wterm measures its row height once,** at `init()`, and `.term-row` sizes itself from `--term-row-height`, so changing `--term-font-size` alone leaves rows at the old height. Set both (see `features/sheet/Sheet.tsx`).
+- **The Sheet's window keydown handler runs in capture phase** and stops every key while a sheet is open, so the camera and shortcuts don't fire. It lets keys through to the prompt box, which stops them itself. Solid delegates `onKeyDown` to the document, so a capture-phase stop on `window` would starve it.
+- **The Hero menu** (`features/selection/`) is a DOM overlay placed once per frame by `follow.ts`. It writes `transform` and `visibility` only when they change. `?debug` (or `?heroes=`, or a measure) brings back the dev links and the fps box.
 - **The Plannotator Inbox** is a private format. `adapters/inbox/parse.ts` follows its own state rules (spec §8). Read only `url` from `inbox.json`, never the token.
 
 ## How code is written here

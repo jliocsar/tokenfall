@@ -74,6 +74,9 @@ Status: M0 and M1 done. Benchmarked on your machine (Intel Raptor Lake integrate
 - **Loot Chests** appear when an Agent finishes. A chest opens only once you've looked at that Agent in Herdr, so the game never marks anything seen itself.
 - **Attention Queue order:** permission Ravens, Inbox Ravens, the Notice Board, then Loot Chests, oldest first within each. One key cycles through it.
 - **Nothing leaves the game:** no phone or desktop notifications.
+- **Hero menu:** selecting a Hero shows framed icon buttons over its head: Character Sheet, its Inbox thread (only when it has one), Follow, and Open its Dungeon (only when it's inside a Dungeon you aren't viewing, with the menu over that entrance). Follow keeps the camera on the Hero, into and out of its Dungeon, until you drag, pan, press Esc, switch tiers or select someone else.
+- **Roster teams:** a Party with a Lead is headed by the Lead's row with "N teammates", and its teammates hang under it on a tree in the Guild's color. Team groups are always open, and Parties without a Lead keep their collapsible row.
+- **Screen layout:** the selected Hero's card sits top left with the Notice Board under it, the Chronicle bottom left, and the Roster on the right. The fake-Hero links and the fps box show only with `?debug`, `?heroes=` or `/?measure`.
 
 ### Feel
 
@@ -131,7 +134,7 @@ v1 is done when you can open the game and:
 
 ### Not in v1
 
-Prompting or starting Agents, the character creator, the software factory, Blender portraits, sound, emotes, gear upgrades, multiple machines, the open-field map for 100+ Hero armies, non-Claude agents, and native builds.
+Starting Agents or sending them keys (typed prompts came in M7), the character creator, the software factory, Blender portraits, sound, emotes, gear upgrades, multiple machines, the open-field map for 100+ Hero armies, non-Claude agents, and native builds.
 
 ## 3. Game model
 
@@ -372,7 +375,8 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 ### Terminal view
 
 - **Source:** the daemon reads `pane.read` with `format: ansi` and `source: visible` every 500 ms for the one Hero a socket watches, and `pane.layout` every 2 s for the size (columns are the pane's width). `revision` is always 0, so the daemon hashes the text and sends a screen only when it changed, and only to the watching socket. Daemon CPU with a Sheet open: under 1%.
-- **Setup:** wterm with a no-op `onData` handler plus `inert`, because wterm echoes keystrokes without one. Columns come from the source pane, with the font size scaled to fit. The font is a bundled JetBrains Mono NL Nerd Font Mono, subset to about 1 MB per weight, loaded only when a Sheet opens.
+- **Setup:** wterm with a no-op `onData` handler plus `inert`, because wterm echoes keystrokes without one. Columns come from the source pane. The font starts at 15 px and A− / A+ in the sheet's header change it (10 to 24 px, remembered in the browser). A pane wider than the sheet scrolls sideways, and the view opens at the bottom. wterm measures its row height only at start, so the sheet sets `--term-row-height` with the font. The font is a bundled JetBrains Mono NL Nerd Font Mono, subset to about 1 MB per weight, loaded only when a Sheet opens.
+- **Prompt box:** under the terminal, the one write path (ADR 0005). Enter sends through the daemon's `sendPrompt` and Herdr's `agent.prompt`, Shift+Enter adds a line, and arrow up recalls the last 20 prompts, kept only in the browser. A prompt sent while the Agent works queues, as Claude Code does. The box is disabled while the Agent is blocked and on synthetic or replay data.
 
 ### bitECS
 
@@ -434,7 +438,9 @@ Each one ends with something you can run.
 
 **M6: Combat. Done.** Working Heroes always fight Packs of skeletons in the open Dungeon, idle-RPG style, and always win. Their tool calls set the pace, from normal attacks to a Frenzy. Done when a live agent's parallel tool calls visibly speed up its Hero's fight.
 
-**After v1:** bosses during Workflows (likely M7), prompting from the game with an auth token and Origin checks, then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
+**M7: UI pass.** A clean Town (no dev chrome, the Hero card top left), a readable Character Sheet with a bigger font, team Parties nested under their Lead in the Roster, a menu over the selected Hero with Follow, and a prompt box under the terminal, the one write path (ADR 0005). Done when you can steer a live Agent from its sheet.
+
+**After v1:** bosses during Workflows (likely M8), then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
 
 ## 11. Verified and not
 
@@ -488,7 +494,13 @@ Each one ends with something you can run.
 - Pack size, budgets, seeds, unseen tiers, clear times at several Levels, the HP floor, leaving and dying mid-fight, damage numbers, wisp strikes and Skeleton Mage bolts, in the sim tests.
 - The 1000-Hero load test with the busiest tier open and tool bursts on.
 
-**Not yet seen live:** the `1000-combat` numbers from `/?measure`, combat effects and damage numbers on a real GPU, the Death Scene and necro glow on a real GPU, the `1000-deaths` numbers from `/?measure`, the Aura and level-up ring on a real GPU, a real `/team` lead's crown, and the Dungeon numbers from `/?measure`.
+**Built and tested in M7:**
+
+- A live run on a throwaway Herdr pane: two prompts typed in the sheet reached a real Claude session, a third sent while it worked queued behind its turn, and the dev daemon's log held none of the text.
+- `agent.prompt` stays off the allowlist, unknown, blocked and paneless Heroes are refused, and the save never holds prompt text, in the daemon tests.
+- Team rows, the sheet font, prompt history, the menu's DOM writes and Follow stopping on pan, in the game tests. The menu, Follow, the team tree and the sheet in headless Chrome.
+
+**Not yet seen live:** the thin scrollbars (headless Chrome hides scrollbars), the prompt box against a blocked Agent, the `1000-combat` numbers from `/?measure`, combat effects and damage numbers on a real GPU, the Death Scene and necro glow on a real GPU, the `1000-deaths` numbers from `/?measure`, the Aura and level-up ring on a real GPU, a real `/team` lead's crown, and the Dungeon numbers from `/?measure`.
 
 **Read in Herdr's and Claude's source, docs or local data, but not tested live:**
 
