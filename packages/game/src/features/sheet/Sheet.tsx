@@ -2,7 +2,7 @@ import death from '@tokenfall/data/death.json'
 import ravens from '@tokenfall/data/ravens.json'
 import sheetText from '@tokenfall/data/sheet.json'
 import { threadUrl } from '@tokenfall/protocol/inbox'
-import { createEffect, createSignal, onCleanup, Show, type Accessor } from 'solid-js'
+import { createEffect, createSignal, onCleanup, Show } from 'solid-js'
 import { guildLabel } from '../../core/groups.ts'
 import { NOBODY, type Bridge } from '../../ui/bridge.ts'
 import { closesSheet, releasesTerminal } from '../selection/keys.ts'
@@ -11,7 +11,6 @@ import type { InboxModel } from '../ravens/model.ts'
 import { deathText, resumeCommand } from '../death/text.ts'
 import type { HeroRow, Roster } from '../roster/model.ts'
 import type { SheetModel, Typing } from './model.ts'
-import { createFontSize, type FontSize } from './font.ts'
 import { mountTerminal, type TerminalView } from './terminal.ts'
 
 type SheetProps = {
@@ -23,13 +22,11 @@ type SheetProps = {
 
 type SheetHeadProps = {
   readonly name: string
-  readonly font: FontSize
   readonly onClose: () => void
 }
 
 type TerminalProps = {
   readonly sheet: SheetModel
-  readonly fontPx: Accessor<number>
   readonly name: string
 }
 
@@ -40,6 +37,8 @@ type TerminalRefs = {
 
 const ESCAPE = 'Escape'
 const PERCENT = 100
+const FRAME_PAD_X = 14
+const FRAME_PAD_Y = 10
 
 const progressOf = (thresholds: Float64Array, level: number, experience: number): number => {
   const floor = thresholds[level - 1] ?? 0
@@ -68,21 +67,16 @@ const Terminal = (props: TerminalProps) => {
   }
   const wheel = { rest: 0 }
 
-  const toBottom = (): void => {
+  const refit = (): void => {
     const frame = view.frame
 
     if (frame !== undefined) {
-      frame.scrollTop = frame.scrollHeight
+      view.current?.fit({
+        width: frame.clientWidth - FRAME_PAD_X,
+        height: frame.clientHeight - FRAME_PAD_Y,
+      })
     }
   }
-
-  createEffect(() => {
-    const px = props.fontPx()
-    view.current?.font(px)
-    requestAnimationFrame(() => {
-      requestAnimationFrame(toBottom)
-    })
-  })
 
   createEffect(() => {
     if (props.sheet.typing() === 'busy') {
@@ -109,7 +103,7 @@ const Terminal = (props: TerminalProps) => {
 
   const start = async (host: HTMLDivElement): Promise<void> => {
     host.addEventListener('wheel', onWheel, { capture: true, passive: false })
-    const mounted = await mountTerminal(host, props.fontPx(), props.sheet.input)
+    const mounted = await mountTerminal(host, props.sheet.input)
     view.current = mounted
     host.addEventListener('focusin', () => {
       props.sheet.focus()
@@ -120,12 +114,17 @@ const Terminal = (props: TerminalProps) => {
       }
     })
     props.sheet.listen((frame) => {
-      mounted.write(frame)
+      if (mounted.write(frame)) {
+        refit()
+      }
     })
-    requestAnimationFrame(toBottom)
+    refit()
   }
 
+  const watcher = new ResizeObserver(refit)
+
   onCleanup(() => {
+    watcher.disconnect()
     props.sheet.listen(undefined)
     view.current?.destroy()
   })
@@ -136,6 +135,7 @@ const Terminal = (props: TerminalProps) => {
         class={`terminal-frame typing-${props.sheet.typing()}`}
         ref={(frame) => {
           view.frame = frame
+          watcher.observe(frame)
           frame.addEventListener('keydown', (event) => {
             event.stopPropagation()
           })
@@ -223,26 +223,6 @@ const Fallen = (props: { readonly hero: HeroRow }) => {
 const SheetHead = (props: SheetHeadProps) => (
   <header class="sheet-head">
     <span class="title">{props.name}</span>
-    <button
-      type="button"
-      class="tool"
-      disabled={props.font.px() <= sheetText.minFontPx}
-      onClick={() => {
-        props.font.step(-1)
-      }}
-    >
-      {sheetText.smaller}
-    </button>
-    <button
-      type="button"
-      class="tool"
-      disabled={props.font.px() >= sheetText.maxFontPx}
-      onClick={() => {
-        props.font.step(1)
-      }}
-    >
-      {sheetText.bigger}
-    </button>
     <button type="button" class="tool close" aria-label={sheetText.close} onClick={props.onClose}>
       ×
     </button>
@@ -251,7 +231,6 @@ const SheetHead = (props: SheetHeadProps) => (
 
 export const Sheet = (props: SheetProps) => {
   const sim = () => props.bridge.sim
-  const font = createFontSize(localStorage)
 
   const row = () => {
     const eid = props.sheet.open()
@@ -284,7 +263,6 @@ export const Sheet = (props: SheetProps) => {
             <section class="sheet panel" role="dialog" aria-label={hero().fullName}>
               <SheetHead
                 name={hero().fullName}
-                font={font}
                 onClose={() => {
                   props.sheet.hide()
                 }}
@@ -346,7 +324,7 @@ export const Sheet = (props: SheetProps) => {
                   when={hero().standing === 'dead'}
                   fallback={
                     <div class="terminal-column">
-                      <Terminal sheet={props.sheet} fontPx={font.px} name={hero().name} />
+                      <Terminal sheet={props.sheet} name={hero().name} />
                     </div>
                   }
                 >

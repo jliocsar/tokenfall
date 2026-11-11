@@ -10,13 +10,9 @@
   "loading": "reading the terminal…",
   "fallen": "This Hero has fallen; its terminal is gone.",
   "noTerminal": "The terminal is only shown on live data.",
-  "smaller": "A−",
-  "bigger": "A+",
   "close": "close",
-  "fontPx": 15,
-  "minFontPx": 10,
+  "minFontPx": 8,
   "maxFontPx": 24,
-  "stepPx": 1,
   "terminal": {
     "fontFamily": "'JetBrainsMono Nerd', ui-monospace, monospace",
     "theme": {

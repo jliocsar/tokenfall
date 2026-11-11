@@ -1,33 +1,14 @@
 import sheetText from '@tokenfall/data/sheet.json'
-import { createSignal, type Accessor } from 'solid-js'
 
-export type FontStorage = Pick<Storage, 'getItem' | 'setItem'>
-
-export type FontSize = {
-  readonly px: Accessor<number>
-  readonly step: (by: number) => void
-}
-
-const FONT_KEY = 'tokenfall.sheet.fontPx'
+export type Box = { readonly width: number; readonly height: number }
 
 export const clampFont = (px: number): number =>
-  Math.min(sheetText.maxFontPx, Math.max(sheetText.minFontPx, Math.round(px)))
+  Math.min(sheetText.maxFontPx, Math.max(sheetText.minFontPx, Math.floor(px)))
 
-export const readFont = (storage: FontStorage): number => {
-  const saved = Number(storage.getItem(FONT_KEY))
+export const fitFont = (px: number, drawn: Box, room: Box): number =>
+  drawn.width <= 0 || drawn.height <= 0
+    ? clampFont(px)
+    : clampFont(px * Math.min(room.width / drawn.width, room.height / drawn.height))
 
-  return saved > 0 ? clampFont(saved) : sheetText.fontPx
-}
-
-export const createFontSize = (storage: FontStorage): FontSize => {
-  const [px, setPx] = createSignal(readFont(storage))
-
-  return {
-    px,
-    step: (by) => {
-      const next = clampFont(px() + by * sheetText.stepPx)
-      setPx(next)
-      storage.setItem(FONT_KEY, String(next))
-    },
-  }
-}
+export const overflows = (drawn: Box, room: Box): boolean =>
+  drawn.width > room.width || drawn.height > room.height
