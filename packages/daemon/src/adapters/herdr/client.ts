@@ -58,6 +58,8 @@ export type HerdrParams = {
   readonly source?: string
   readonly format?: string
   readonly lines?: number
+  readonly target?: string
+  readonly text?: string
 }
 
 export type Line = (raw: string, message: HerdrMessage) => void
@@ -95,6 +97,8 @@ const ALIASES = new Map([
 ])
 
 const REQUEST_TIMEOUT_MS = 5000
+
+export const PROMPT_METHOD = 'agent.prompt'
 
 const ids = { next: 0 }
 
@@ -135,15 +139,17 @@ const open = (onLine: Line): Socket => {
   return socket
 }
 
-const send = (socket: Socket, id: string, method: string, params: HerdrParams): void => {
-  assertAllowed(method)
+const write = (socket: Socket, id: string, method: string, params: HerdrParams): void => {
   socket.write(`${JSON.stringify({ id, method, params })}\n`)
 }
 
-export const request = (method: string, params: HerdrParams): Promise<HerdrMessage> => {
+const send = (socket: Socket, id: string, method: string, params: HerdrParams): void => {
   assertAllowed(method)
+  write(socket, id, method, params)
+}
 
-  return new Promise((resolve, reject) => {
+const call = (method: string, params: HerdrParams): Promise<HerdrMessage> =>
+  new Promise((resolve, reject) => {
     const id = nextId()
     const socket = open((_raw, message) => {
       if (message.id === id) {
@@ -160,9 +166,17 @@ export const request = (method: string, params: HerdrParams): Promise<HerdrMessa
       clearTimeout(timer)
       reject(error)
     })
-    send(socket, id, method, params)
+    write(socket, id, method, params)
   })
+
+export const request = (method: string, params: HerdrParams): Promise<HerdrMessage> => {
+  assertAllowed(method)
+
+  return call(method, params)
 }
+
+export const sendPrompt = (pane: string, text: string): Promise<HerdrMessage> =>
+  call(PROMPT_METHOD, { target: pane, text })
 
 export const subscribe = (
   subscriptions: readonly HerdrSubscription[],

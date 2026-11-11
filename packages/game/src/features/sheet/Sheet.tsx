@@ -11,6 +11,7 @@ import { deathText, resumeCommand } from '../death/text.ts'
 import type { HeroRow, Roster } from '../roster/model.ts'
 import type { SheetModel } from './model.ts'
 import { createFontSize, rowHeightOf, type FontSize } from './font.ts'
+import { PromptBox } from './PromptBox.tsx'
 import { mountTerminal, type TerminalView } from './terminal.ts'
 
 type SheetProps = {
@@ -47,6 +48,9 @@ const progressOf = (thresholds: Float64Array, level: number, experience: number)
 
   return Math.min(1, Math.max(0, (experience - floor) / (next - floor)))
 }
+
+const typing = (event: KeyboardEvent): boolean =>
+  event.target instanceof Element && event.target.closest('.prompt-box') !== null
 
 const formatTokens = (tokens: number): string =>
   new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(tokens)
@@ -212,6 +216,10 @@ export const Sheet = (props: SheetProps) => {
       return
     }
 
+    if (typing(event) && event.key !== ESCAPE) {
+      return
+    }
+
     event.stopImmediatePropagation()
 
     if (event.key === ESCAPE) {
@@ -296,7 +304,17 @@ export const Sheet = (props: SheetProps) => {
                 </div>
                 <Show
                   when={hero().standing === 'dead'}
-                  fallback={<Terminal sheet={props.sheet} fontPx={font.px} />}
+                  fallback={
+                    <div class="terminal-column">
+                      <Terminal sheet={props.sheet} fontPx={font.px} />
+                      <PromptBox
+                        name={hero().name}
+                        live={props.sheet.live}
+                        blocked={hero().blocked}
+                        send={props.sheet.prompt}
+                      />
+                    </div>
+                  }
                 >
                   <Fallen hero={hero()} />
                 </Show>

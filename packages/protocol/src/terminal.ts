@@ -4,7 +4,22 @@ export type Watch = { readonly kind: 'watch'; readonly hero: HeroId }
 
 export type Unwatch = { readonly kind: 'unwatch' }
 
-export type ClientMessage = Watch | Unwatch
+export type Prompt = {
+  readonly kind: 'prompt'
+  readonly hero: HeroId
+  readonly id: number
+  readonly text: string
+}
+
+export type ClientMessage = Watch | Unwatch | Prompt
+
+export type PromptOutcome = (typeof PROMPT_OUTCOMES)[number]
+
+export type PromptResult = {
+  readonly kind: 'prompt.result'
+  readonly id: number
+  readonly outcome: PromptOutcome
+}
 
 export type Screen = {
   readonly kind: 'screen'
@@ -16,3 +31,5 @@ export type Screen = {
 }
 
 export const MAX_HERO_ID = 200
+export const MAX_PROMPT = 16_000
+export const PROMPT_OUTCOMES = ['sent', 'blocked', 'gone', 'refused', 'error'] as const

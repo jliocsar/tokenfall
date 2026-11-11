@@ -1,5 +1,6 @@
 import { decodeTrusted } from '@tokenfall/protocol/json'
 import { MAX_HERO_ID, type ClientMessage, type Screen } from '@tokenfall/protocol/terminal'
+import type { Prompts } from './prompts.ts'
 import { request } from './adapters/herdr/client.ts'
 import type { DaemonTuning } from './config.ts'
 import type { World } from './world.ts'
@@ -15,7 +16,12 @@ export type Terminals = {
   readonly stop: () => void
 }
 
-type Wire = { readonly kind?: string; readonly hero?: string }
+type Wire = {
+  readonly kind?: string
+  readonly hero?: string
+  readonly id?: number
+  readonly text?: string
+}
 
 type Watching = {
   readonly hero: string
@@ -32,6 +38,7 @@ type Context = {
   readonly world: World
   readonly tuning: DaemonTuning['terminal']
   readonly watching: Map<Peer, Watching>
+  readonly prompts: Prompts | undefined
 }
 
 const POLICY_VIOLATION = 1008
@@ -47,9 +54,17 @@ const decode = (raw: string): ClientMessage | undefined => {
 
     const hero = wire?.hero
 
-    return wire?.kind === 'watch' && hero !== undefined && hero.length <= MAX_HERO_ID
-      ? { kind: 'watch', hero }
-      : undefined
+    if (hero === undefined || hero.length > MAX_HERO_ID) {
+      return undefined
+    }
+
+    if (wire?.kind === 'prompt') {
+      return wire.id !== undefined && Number.isSafeInteger(wire.id) && wire.text !== undefined
+        ? { kind: 'prompt', hero, id: wire.id, text: wire.text }
+        : undefined
+    }
+
+    return wire?.kind === 'watch' ? { kind: 'watch', hero } : undefined
   } catch {
     return undefined
   }
@@ -158,8 +173,12 @@ const watch = (context: Context, socket: Peer, hero: string): void => {
   tick()
 }
 
-export const createTerminals = (world: World, tuning: DaemonTuning['terminal']): Terminals => {
-  const context: Context = { world, tuning, watching: new Map() }
+export const createTerminals = (
+  world: World,
+  tuning: DaemonTuning['terminal'],
+  prompts: Prompts | undefined,
+): Terminals => {
+  const context: Context = { world, tuning, watching: new Map(), prompts }
 
   return {
     receive: (socket, raw) => {
@@ -170,6 +189,8 @@ export const createTerminals = (world: World, tuning: DaemonTuning['terminal']):
         socket.close(POLICY_VIOLATION, 'bad message')
       } else if (message.kind === 'unwatch') {
         drop(context, socket)
+      } else if (message.kind === 'prompt') {
+        context.prompts?.submit(socket, message)
       } else {
         watch(context, socket, message.hero)
       }

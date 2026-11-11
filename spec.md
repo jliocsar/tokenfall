@@ -11,7 +11,7 @@ Status: M0 and M1 done. Benchmarked on your machine (Intel Raptor Lake integrate
 ### Scope
 
 - **Platform:** web first. PWA or Tauri later, if it earns it.
-- **Interaction:** read-only in v1. No code path may write to a pane.
+- **Interaction:** read-only, with one exception since M7: the prompt box under a Character Sheet's terminal sends the text you typed to that Agent through Herdr's `agent.prompt` (ADR 0005). No other code path may write to a pane.
 - **Agents:** Claude only, from both `~/.claude` and `~/.claude-work`.
 - **Machines:** local only in v1. Every hero and event carries a machine id from day one, set to `local`.
 - **Sound:** none in v1, but every game event has a stable name so audio can hook in later.
@@ -124,7 +124,7 @@ v1 is done when you can open the game and:
 4. Read Narration in each Hero's own voice.
 5. Watch working Heroes warp into their Guild's Dungeon, deeper as they level.
 6. Get a Raven for every permission prompt and inbox question, and see it clear once answered.
-7. Open a Character Sheet with a read-only terminal.
+7. Open a Character Sheet with its terminal, and type a prompt to steer the Agent.
 8. See the Death Scene, Graves and Resurrections.
 9. Catch up on what you missed from the Chronicle.
 10. Reboot your machine and get the same world back.
@@ -504,7 +504,7 @@ Each one ends with something you can run.
 
 ## 12. Security and privacy
 
-- **Read-only:** enforced by the method allowlist, not by convention.
+- **Read-only:** enforced by the method allowlist, not by convention. The one write, `agent.prompt`, sits outside it behind `sendPrompt`, reached only from a `prompt` message the person typed (ADR 0005). The daemon never stores or logs prompt text.
 - **Server:** binds to `127.0.0.1` and checks Origin plus a per-launch token, because terminal contents are sensitive.
 - **Hook socket:** mode `0600`.
 - **What's stored:** never message content, tool inputs or inbox bodies. SQLite holds identity, Experience, Graves and the Chronicle, under `~/.local/state/tokenfall/`.

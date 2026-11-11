@@ -695,6 +695,58 @@
   font: var(--text-pixel);
 }
 
+.terminal-column {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.terminal-column .terminal-frame {
+  flex: 1;
+}
+
+.prompt-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.prompt-box textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 8px;
+  resize: none;
+  color: var(--ink);
+  background: #14111b;
+  border: 1px solid var(--edge);
+  outline: none;
+  font:
+    15px/20px 'JetBrainsMono Nerd',
+    ui-monospace,
+    monospace;
+}
+
+.prompt-box textarea:focus {
+  border-color: var(--ink-gold);
+}
+
+.prompt-box textarea::placeholder {
+  color: var(--ink-dim);
+}
+
+.prompt-box.disabled textarea {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.prompt-note {
+  color: var(--ink-dim);
+  font: var(--text-pixel);
+}
+
 .terminal-frame {
   position: relative;
   min-width: 0;

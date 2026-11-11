@@ -1,10 +1,11 @@
 import type { ChronicleLine } from '@tokenfall/protocol/chronicle'
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import type { InboxState } from '@tokenfall/protocol/inbox'
-import type { ClientMessage, Screen } from '@tokenfall/protocol/terminal'
+import type { ClientMessage, PromptOutcome, Screen } from '@tokenfall/protocol/terminal'
 import { decodeTrusted } from '@tokenfall/protocol/json'
 import type { ServerMessage } from '@tokenfall/protocol/wire'
 import { createSynthetic } from '@tokenfall/replay/synthetic'
+import type { Prompter } from '../features/sheet/model.ts'
 
 export type Source = {
   readonly label: string
@@ -12,6 +13,7 @@ export type Source = {
   readonly poll: (now: number, out: HeroEvent[]) => void
   readonly close: () => void
   readonly watch?: (hero: string | null) => void
+  readonly prompt?: Prompter
 }
 
 type DaemonState = {
@@ -19,6 +21,8 @@ type DaemonState = {
   closed: boolean
   socket: WebSocket | undefined
   watching: string | null
+  nextPrompt: number
+  readonly prompts: Map<number, (outcome: PromptOutcome) => void>
 }
 
 export type ChronicleSink = (lines: readonly ChronicleLine[]) => void
@@ -43,6 +47,7 @@ export type SyntheticSettings = {
 
 const FEED_EVERY_MS = 100
 const RETRY_MS = 2000
+const PROMPT_TIMEOUT_MS = 10_000
 const TOKEN_META = 'tokenfall-token'
 const HEROES_PER_GUILD = 12
 const WORKSPACES_PER_GUILD = 3
@@ -84,7 +89,7 @@ export const syntheticSource = (settings: SyntheticSettings, now: number): Sourc
 }
 
 const receive = (pending: HeroEvent[], message: ServerMessage): void => {
-  if (message.kind === 'screen') {
+  if (message.kind === 'screen' || message.kind === 'prompt.result') {
     return
   }
 
@@ -130,8 +135,34 @@ export const daemonSource = (url: string, sinks: Sinks): Source => {
     closed: false,
     socket: undefined,
     watching: null,
+    nextPrompt: 0,
+    prompts: new Map(),
   }
   const seed = Promise.withResolvers<number>()
+
+  const prompt: Prompter = (hero, text) => {
+    const socket = state.socket
+
+    if (socket?.readyState !== WebSocket.OPEN) {
+      return Promise.resolve('error')
+    }
+
+    state.nextPrompt += 1
+    const id = state.nextPrompt
+    const answer = Promise.withResolvers<PromptOutcome>()
+    const timer = setTimeout(() => {
+      state.prompts.delete(id)
+      answer.resolve('error')
+    }, PROMPT_TIMEOUT_MS)
+    state.prompts.set(id, (outcome) => {
+      clearTimeout(timer)
+      state.prompts.delete(id)
+      answer.resolve(outcome)
+    })
+    sendTo(socket, { kind: 'prompt', hero, id, text })
+
+    return answer.promise
+  }
 
   const open = (): void => {
     const socket = new WebSocket(url)
@@ -140,6 +171,12 @@ export const daemonSource = (url: string, sinks: Sinks): Source => {
 
       if (message.kind === 'screen') {
         sinks.screen(message)
+
+        return
+      }
+
+      if (message.kind === 'prompt.result') {
+        state.prompts.get(message.id)?.(message.outcome)
 
         return
       }
@@ -191,6 +228,7 @@ export const daemonSource = (url: string, sinks: Sinks): Source => {
       state.watching = hero
       sendTo(state.socket, watchMessage(hero))
     },
+    prompt,
   }
 }
 

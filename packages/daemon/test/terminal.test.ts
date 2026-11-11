@@ -132,7 +132,7 @@ describe('terminal view', () => {
   test('a watch sends the visible screen at the pane size, once per change', async () => {
     herdr.text = 'hello\nworld'
     const world = freshWorld()
-    const terminals = createTerminals(world, TUNING)
+    const terminals = createTerminals(world, TUNING, undefined)
     const fake = fakeSocket()
     const hero = heroOf(world)
     terminals.receive(fake.socket, JSON.stringify({ kind: 'watch', hero }))
@@ -153,7 +153,7 @@ describe('terminal view', () => {
 
   test('only the watching socket gets the screen', async () => {
     const world = freshWorld()
-    const terminals = createTerminals(world, TUNING)
+    const terminals = createTerminals(world, TUNING, undefined)
     const watcher = fakeSocket()
     const bystander = fakeSocket()
     terminals.receive(watcher.socket, JSON.stringify({ kind: 'watch', hero: heroOf(world) }))
@@ -167,7 +167,7 @@ describe('terminal view', () => {
 
   test('unwatch and close stop the polling', async () => {
     const world = freshWorld()
-    const terminals = createTerminals(world, TUNING)
+    const terminals = createTerminals(world, TUNING, undefined)
     const first = fakeSocket()
     const second = fakeSocket()
     terminals.receive(first.socket, JSON.stringify({ kind: 'watch', hero: heroOf(world) }))
@@ -187,7 +187,7 @@ describe('terminal view', () => {
 
   test('a missing Hero gets one fallen screen', async () => {
     const world = freshWorld()
-    const terminals = createTerminals(world, TUNING)
+    const terminals = createTerminals(world, TUNING, undefined)
     const fake = fakeSocket()
     terminals.receive(fake.socket, JSON.stringify({ kind: 'watch', hero: 'nobody' }))
     await settle()
@@ -201,7 +201,7 @@ describe('terminal view', () => {
 
   test('a bad message closes the socket', () => {
     const world = freshWorld()
-    const terminals = createTerminals(world, TUNING)
+    const terminals = createTerminals(world, TUNING, undefined)
     const garbage = fakeSocket()
     const tooLong = fakeSocket()
     terminals.receive(garbage.socket, 'not json')
@@ -213,7 +213,7 @@ describe('terminal view', () => {
 
   test('only read methods reach herdr', async () => {
     const world = freshWorld()
-    const terminals = createTerminals(world, TUNING)
+    const terminals = createTerminals(world, TUNING, undefined)
     terminals.receive(fakeSocket().socket, JSON.stringify({ kind: 'watch', hero: heroOf(world) }))
     await settle()
     terminals.stop()

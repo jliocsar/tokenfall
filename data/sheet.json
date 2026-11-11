@@ -17,5 +17,20 @@
   "minFontPx": 10,
   "maxFontPx": 24,
   "stepPx": 1,
-  "lineHeight": 1.2
+  "lineHeight": 1.2,
+  "prompt": {
+    "placeholder": "Speak to {name}: Enter sends, Shift+Enter adds a line, ↑ brings back an older one",
+    "blocked": "It's waiting on an answer: answer it in Herdr",
+    "notLive": "Prompts can only be sent on live data",
+    "sending": "sending…",
+    "sent": "sent",
+    "outcomes": {
+      "blocked": "It's waiting on an answer: answer it in Herdr",
+      "gone": "That Hero's pane is gone",
+      "refused": "Nothing to send, or too long",
+      "error": "Couldn't reach Herdr"
+    },
+    "maxLines": 5,
+    "history": 20
+  }
 }

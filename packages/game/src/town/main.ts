@@ -556,7 +556,7 @@ const dungeonModel = createDungeonModel({
   },
   leave: leaveDungeonView,
 })
-sheet.connect(sim, source.watch)
+sheet.connect(sim, source.watch, source.prompt)
 const follow = createFollow({
   sim,
   camera,
