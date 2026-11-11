@@ -1,19 +1,34 @@
 import { describe, expect, test } from 'bun:test'
 import sheetText from '@tokenfall/data/sheet.json'
 import type { Frame } from '@tokenfall/protocol/terminal'
-import { fitFont, overflows } from '../src/features/sheet/font.ts'
+import { gridAt, largestFont, type Box } from '../src/features/sheet/font.ts'
 import { bufferFrame } from '../src/features/sheet/model.ts'
 
 describe('terminal fit', () => {
-  test('scales the font so the whole pane fits, within the font range', () => {
-    const room = { width: 800, height: 600 }
+  test('picks the largest font whose cells fit the whole grid in the room', () => {
+    const measure = (px: number): Box => ({ width: Math.ceil(px * 0.6), height: px + 4 })
+    const grid = { cols: 233, rows: 53 }
 
-    expect(fitFont(24, { width: 1600, height: 900 }, room)).toBe(12)
-    expect(fitFont(10, { width: 400, height: 200 }, room)).toBe(20)
-    expect(fitFont(10, { width: 100, height: 50 }, room)).toBe(sheetText.maxFontPx)
-    expect(fitFont(24, { width: 99_999, height: 99_999 }, room)).toBe(sheetText.minFontPx)
-    expect(overflows({ width: 801, height: 10 }, room)).toBe(true)
-    expect(overflows({ width: 800, height: 600 }, room)).toBe(false)
+    expect(largestFont(grid, { width: 1471, height: 876 }, measure)).toBe(10)
+    expect(largestFont({ cols: 163, rows: 51 }, { width: 1471, height: 876 }, measure)).toBe(13)
+    expect(largestFont({ cols: 10, rows: 5 }, { width: 1471, height: 876 }, measure)).toBe(
+      sheetText.maxFontPx,
+    )
+    expect(largestFont(grid, { width: 100, height: 100 }, measure)).toBe(sheetText.minFontPx)
+  })
+
+  test('the typing grid is what fits the room at the typing cell size', () => {
+    const { minCols, minRows } = sheetText.typingGrid
+
+    expect(gridAt({ width: 9, height: 17 }, { width: 1471, height: 876 })).toEqual({
+      cols: 163,
+      rows: 51,
+    })
+    expect(gridAt({ width: 9, height: 17 }, { width: 10, height: 10 })).toEqual({
+      cols: minCols,
+      rows: minRows,
+    })
+    expect(gridAt({ width: 0, height: 0 }, { width: 100, height: 100 })).toBeUndefined()
   })
 })
 

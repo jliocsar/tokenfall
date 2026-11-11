@@ -320,13 +320,13 @@ const states = (peer: FakeSocket): string[] =>
   peer.sent.flatMap((message) => (message.kind === 'control' ? [message.state] : []))
 
 describe('typing into the terminal', () => {
-  test('focus takes control at the pane size, input and scroll reach Herdr, blur releases', async () => {
+  test('focus takes control no larger than the pane, input and scroll reach Herdr, blur releases', async () => {
     rmSync(log, { force: true })
     rmSync(typed, { force: true })
     herdr.cols = 90
     herdr.rows = 30
     const run = await watched()
-    run.send({ kind: 'focus' })
+    run.send({ kind: 'focus', cols: 200, rows: 100 })
     await settle()
     run.send({ kind: 'input', bytes: Buffer.from('hi\r').toString('base64') })
     run.send({ kind: 'scroll', direction: 'up', lines: 3 })
@@ -354,7 +354,7 @@ describe('typing into the terminal', () => {
     rmSync(log, { force: true })
     writeFileSync(busyFlag, '')
     const run = await watched()
-    run.send({ kind: 'focus' })
+    run.send({ kind: 'focus', cols: 200, rows: 100 })
     await settle()
     run.stop()
     rmSync(busyFlag, { force: true })
@@ -369,7 +369,7 @@ describe('typing into the terminal', () => {
     const run = await watched()
     run.send({ kind: 'input', bytes: Buffer.from(secret).toString('base64') })
     await settle()
-    run.send({ kind: 'focus' })
+    run.send({ kind: 'focus', cols: 200, rows: 100 })
     await settle()
     run.send({ kind: 'input', bytes: Buffer.from(secret).toString('base64') })
     await settle()
@@ -422,5 +422,48 @@ describe('herdr allowlist for the terminal view', () => {
         assertAllowed(method)
       }).toThrow('read-only allowlist')
     }
+  })
+})
+
+describe('resizing while typing', () => {
+  test('focus shrinks the pane to the asked grid, resize follows, release observes at the pane size', async () => {
+    rmSync(log, { force: true })
+    rmSync(typed, { force: true })
+    herdr.cols = 233
+    herdr.rows = 53
+    const run = await watched()
+    run.send({ kind: 'focus', cols: 150, rows: 40 })
+    await settle()
+    run.send({ kind: 'resize', cols: 120, rows: 300 })
+    await settle()
+    run.send({ kind: 'blur' })
+    await settle()
+    run.stop()
+    const runs = spawned()
+    const commands = readFileSync(typed, 'utf8')
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => decodeTrusted<{ type: string; cols?: number; rows?: number }>(line))
+
+    expect(runs.map((entry) => entry.args.slice(2))).toEqual([
+      ['observe', 'w1:p1', '--cols', '233', '--rows', '53'],
+      ['control', 'w1:p1', '--cols', '150', '--rows', '40'],
+      ['observe', 'w1:p1', '--cols', '233', '--rows', '53'],
+    ])
+    expect(commands).toEqual([
+      { type: 'terminal.resize', cols: 120, rows: 53 },
+      { type: 'terminal.release' },
+    ])
+  })
+
+  test('a grid out of range closes the socket', () => {
+    const world = freshWorld()
+    const terminals = createTerminals(world, TUNING)
+    const peers = [fakeSocket(), fakeSocket(), fakeSocket()]
+    terminals.receive(peers[0]!.socket, JSON.stringify({ kind: 'focus' }))
+    terminals.receive(peers[1]!.socket, JSON.stringify({ kind: 'focus', cols: 0, rows: 10 }))
+    terminals.receive(peers[2]!.socket, JSON.stringify({ kind: 'resize', cols: 80, rows: 5000 }))
+
+    expect(peers.map((peer) => peer.closed)).toEqual([1008, 1008, 1008])
   })
 })

@@ -36,5 +36,5 @@ export type RecordingHeader = {
 
 export type RecordingLine = RecordingHeader | HeroEvent
 
-export const PROTOCOL_VERSION = 8
+export const PROTOCOL_VERSION = 9
 export const RECORDING_VERSION = 5

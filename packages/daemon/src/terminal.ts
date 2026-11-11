@@ -1,11 +1,13 @@
 import { decodeTrusted } from '@tokenfall/protocol/json'
 import {
+  MAX_GRID,
   MAX_HERO_ID,
   MAX_INPUT,
   MAX_SCROLL,
   type ClientMessage,
   type ControlState,
   type Frame,
+  type Grid,
 } from '@tokenfall/protocol/terminal'
 import { request } from './adapters/herdr/client.ts'
 import { openStream, type Stream, type StreamMode } from './adapters/herdr/stream.ts'
@@ -29,6 +31,8 @@ type Wire = {
   readonly bytes?: string
   readonly direction?: string
   readonly lines?: number
+  readonly cols?: number
+  readonly rows?: number
 }
 
 type Watching = {
@@ -50,8 +54,6 @@ type Context = {
   readonly watching: Map<Peer, Watching>
 }
 
-type Size = { readonly cols: number; readonly rows: number }
-
 const POLICY_VIOLATION = 1008
 const TAKEN = 'already has an attached client'
 
@@ -64,9 +66,19 @@ const decodeScroll = (wire: Wire): ClientMessage | undefined =>
     ? { kind: 'scroll', direction: wire.direction, lines: wire.lines }
     : undefined
 
+const inGrid = (value: number | undefined): value is number =>
+  value !== undefined && Number.isSafeInteger(value) && value > 0 && value <= MAX_GRID
+
+const decodeGrid = (wire: Wire, kind: 'focus' | 'resize'): ClientMessage | undefined =>
+  inGrid(wire.cols) && inGrid(wire.rows) ? { kind, cols: wire.cols, rows: wire.rows } : undefined
+
 const decodeWire = (wire: Wire): ClientMessage | undefined => {
-  if (wire.kind === 'unwatch' || wire.kind === 'focus' || wire.kind === 'blur') {
+  if (wire.kind === 'unwatch' || wire.kind === 'blur') {
     return { kind: wire.kind }
+  }
+
+  if (wire.kind === 'focus' || wire.kind === 'resize') {
+    return decodeGrid(wire, wire.kind)
   }
 
   if (wire.kind === 'input') {
@@ -104,7 +116,7 @@ const tell = (socket: Peer, state: ControlState): void => {
   socket.send(JSON.stringify({ kind: 'control', state }))
 }
 
-const readLayout = async (pane: string): Promise<Size | undefined> => {
+const readLayout = async (pane: string): Promise<Grid | undefined> => {
   const reply = await request('pane.layout', { pane_id: pane })
   const rect = reply.result?.layout?.panes?.find((entry) => entry.pane_id === pane)?.rect
 
@@ -114,6 +126,11 @@ const readLayout = async (pane: string): Promise<Size | undefined> => {
 }
 
 const controlling = (watch: Watching): boolean => watch.stream?.mode === 'control'
+
+const typingGrid = (watch: Watching, asked: Grid): Grid => ({
+  cols: Math.min(asked.cols, watch.cols),
+  rows: Math.min(asked.rows, watch.rows),
+})
 
 const stopStream = (watch: Watching): void => {
   watch.stream?.stop()
@@ -137,32 +154,31 @@ const fall = (watch: Watching): void => {
   }
 }
 
-const startStream = (context: Context, watch: Watching, mode: StreamMode): void => {
+const startStream = (context: Context, watch: Watching, mode: StreamMode, grid: Grid): void => {
   const held = { told: false }
-  watch.stream = openStream(
-    mode,
-    watch.pane,
-    { cols: watch.cols, rows: watch.rows },
-    {
-      frame: (frame) => {
-        if (mode === 'control' && !held.told) {
-          held.told = true
-          tell(watch.socket, 'held')
-        }
+  watch.stream = openStream(mode, watch.pane, grid, {
+    frame: (frame) => {
+      if (mode === 'control' && !held.told) {
+        held.told = true
+        tell(watch.socket, 'held')
+      }
 
-        send(watch.socket, { kind: 'frame', hero: watch.hero, alive: true, ...frame })
-      },
-      closed: (reason) => {
-        watch.stream = undefined
-        watch.restartAt = Date.now() + context.tuning.restartMs
-
-        if (mode === 'control') {
-          tell(watch.socket, reason.includes(TAKEN) ? 'busy' : 'released')
-          startStream(context, watch, 'observe')
-        }
-      },
+      send(watch.socket, { kind: 'frame', hero: watch.hero, alive: true, ...frame })
     },
-  )
+    closed: (reason) => {
+      watch.stream = undefined
+      watch.restartAt = Date.now() + context.tuning.restartMs
+
+      if (mode === 'control') {
+        tell(watch.socket, reason.includes(TAKEN) ? 'busy' : 'released')
+        observeAgain(context, watch)
+      }
+    },
+  })
+}
+
+const observeAgain = (context: Context, watch: Watching): void => {
+  startStream(context, watch, 'observe', { cols: watch.cols, rows: watch.rows })
 }
 
 const refresh = async (context: Context, watch: Watching): Promise<void> => {
@@ -193,7 +209,7 @@ const refresh = async (context: Context, watch: Watching): Promise<void> => {
     watch.pane = record.pane
     watch.cols = size.cols
     watch.rows = size.rows
-    startStream(context, watch, 'observe')
+    observeAgain(context, watch)
   }
 }
 
@@ -240,13 +256,13 @@ const watch = (context: Context, socket: Peer, hero: string): void => {
   tick()
 }
 
-const focus = (context: Context, watching: Watching): void => {
+const focus = (context: Context, watching: Watching, asked: Grid): void => {
   if (controlling(watching) || watching.pane === '' || watching.fallen) {
     return
   }
 
   stopStream(watching)
-  startStream(context, watching, 'control')
+  startStream(context, watching, 'control', typingGrid(watching, asked))
 }
 
 const blur = (context: Context, watching: Watching): void => {
@@ -256,7 +272,7 @@ const blur = (context: Context, watching: Watching): void => {
 
   stopStream(watching)
   tell(watching.socket, 'released')
-  startStream(context, watching, 'observe')
+  observeAgain(context, watching)
 }
 
 const steer = (context: Context, socket: Peer, message: ClientMessage): void => {
@@ -267,7 +283,9 @@ const steer = (context: Context, socket: Peer, message: ClientMessage): void => 
   }
 
   if (message.kind === 'focus') {
-    focus(context, watching)
+    focus(context, watching, message)
+  } else if (message.kind === 'resize') {
+    watching.stream?.write({ type: 'terminal.resize', ...typingGrid(watching, message) })
   } else if (message.kind === 'blur') {
     blur(context, watching)
   } else if (message.kind === 'input') {

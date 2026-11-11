@@ -1,25 +1,28 @@
 import sheetText from '@tokenfall/data/sheet.json'
 import { init, Terminal } from 'ghostty-web'
-import type { Frame } from '@tokenfall/protocol/terminal'
-import { clampFont, fitFont, overflows, type Box } from './font.ts'
+import type { Frame, Grid } from '@tokenfall/protocol/terminal'
+import { gridAt, largestFont, type Box } from './font.ts'
 
 export type TerminalView = {
   readonly write: (frame: Frame) => boolean
   readonly fit: (room: Box) => void
+  readonly grid: (room: Box) => Grid | undefined
   readonly blur: () => void
   readonly destroy: () => void
 }
 
 export type Typed = (bytes: string) => void
 
-type Engine = { ready: Promise<void> | undefined }
+type Engine = {
+  ready: Promise<void> | undefined
+  measuring: CanvasRenderingContext2D | null | undefined
+}
 
 const TERMINAL_FONT = '400 14px "JetBrainsMono Nerd"'
 const FALLBACK_COLS = 80
 const FALLBACK_ROWS = 24
-const FIT_TRIES = 6
 
-const engine: Engine = { ready: undefined }
+const engine: Engine = { ready: undefined, measuring: undefined }
 
 const decodeBytes = (base64: string): Uint8Array => {
   const binary = atob(base64)
@@ -32,34 +35,49 @@ const decodeBytes = (base64: string): Uint8Array => {
   return bytes
 }
 
+const GLYPH_PAD_PX = 2
+const ASCENT_SHARE = 0.8
+const DESCENT_SHARE = 0.2
+const MEASURED_GLYPH = 'M'
+
+const orShare = (measured: number, px: number, share: number): number =>
+  measured === 0 ? px * share : measured
+
+const cellAt = (px: number): Box => {
+  engine.measuring ??= document.createElement('canvas').getContext('2d')
+  const context = engine.measuring
+
+  if (context === null) {
+    return { width: 0, height: 0 }
+  }
+
+  context.font = `${px}px ${sheetText.terminal.fontFamily}`
+  const glyph = context.measureText(MEASURED_GLYPH)
+
+  return {
+    width: Math.ceil(glyph.width),
+    height:
+      Math.ceil(
+        orShare(glyph.actualBoundingBoxAscent, px, ASCENT_SHARE) +
+          orShare(glyph.actualBoundingBoxDescent, px, DESCENT_SHARE),
+      ) + GLYPH_PAD_PX,
+  }
+}
+
 const nextTask = (): Promise<void> =>
   new Promise((resolve) => {
     setTimeout(resolve, 0)
   })
 
-const drawnBox = (element: HTMLElement): Box => {
-  const canvas = element.querySelector('canvas')
-
-  return { width: canvas?.offsetWidth ?? 0, height: canvas?.offsetHeight ?? 0 }
-}
-
-const fitTo = (term: Terminal, element: HTMLElement, room: Box): void => {
+const fitTo = (term: Terminal, grid: Grid, room: Box): void => {
   if (room.width <= 0 || room.height <= 0) {
     return
   }
 
-  for (let tries = 0; tries < FIT_TRIES; tries++) {
-    const px = term.options.fontSize ?? sheetText.maxFontPx
-    const drawn = drawnBox(element)
-    const fitted = overflows(drawn, room)
-      ? clampFont(Math.min(px - 1, fitFont(px, drawn, room)))
-      : fitFont(px, drawn, room)
+  const px = largestFont(grid, room, cellAt)
 
-    if (fitted === px || (fitted > px && tries > 0)) {
-      return
-    }
-
-    term.options.fontSize = fitted
+  if (term.options.fontSize !== px) {
+    term.options.fontSize = px
   }
 }
 
@@ -116,8 +134,9 @@ export const mountTerminal = async (element: HTMLElement, typed: Typed): Promise
       return resized
     },
     fit: (room) => {
-      fitTo(term, element, room)
+      fitTo(term, size, room)
     },
+    grid: (room) => gridAt(cellAt(sheetText.typingGrid.fontPx), room),
     blur: () => {
       term.textarea?.blur()
       term.blur()

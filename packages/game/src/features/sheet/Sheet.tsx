@@ -1,6 +1,7 @@
 import death from '@tokenfall/data/death.json'
 import sheetText from '@tokenfall/data/sheet.json'
 import { threadUrl } from '@tokenfall/protocol/inbox'
+import type { Grid } from '@tokenfall/protocol/terminal'
 import { createEffect, createSignal, onCleanup, Show } from 'solid-js'
 import { NOBODY, type Bridge } from '../../ui/bridge.ts'
 import { closesSheet, releasesTerminal } from '../selection/keys.ts'
@@ -8,6 +9,7 @@ import type { InboxModel } from '../ravens/model.ts'
 import { resumeCommand } from '../death/text.ts'
 import type { HeroRow, Roster } from '../roster/model.ts'
 import { Facts } from './Facts.tsx'
+import type { Box } from './font.ts'
 import type { SheetModel, Typing } from './model.ts'
 import { mountTerminal, type TerminalView } from './terminal.ts'
 
@@ -50,15 +52,31 @@ const Terminal = (props: TerminalProps) => {
   }
   const wheel = { rest: 0 }
 
-  const refit = (): void => {
-    const frame = view.frame
+  const room = (): Box | undefined =>
+    view.frame === undefined
+      ? undefined
+      : {
+          width: view.frame.clientWidth - FRAME_PAD_X,
+          height: view.frame.clientHeight - FRAME_PAD_Y,
+        }
 
-    if (frame !== undefined) {
-      view.current?.fit({
-        width: frame.clientWidth - FRAME_PAD_X,
-        height: frame.clientHeight - FRAME_PAD_Y,
-      })
+  const grid = (): Grid | undefined => {
+    const box = room()
+
+    return box === undefined ? undefined : view.current?.grid(box)
+  }
+
+  const refit = (): void => {
+    const box = room()
+
+    if (box !== undefined) {
+      view.current?.fit(box)
     }
+  }
+
+  const relayout = (): void => {
+    refit()
+    props.sheet.resize(grid())
   }
 
   createEffect(() => {
@@ -89,7 +107,7 @@ const Terminal = (props: TerminalProps) => {
     const mounted = await mountTerminal(host, props.sheet.input)
     view.current = mounted
     host.addEventListener('focusin', () => {
-      props.sheet.focus()
+      props.sheet.focus(grid())
     })
     host.addEventListener('focusout', (event) => {
       if (!(event.relatedTarget instanceof Node && host.contains(event.relatedTarget))) {
@@ -104,7 +122,7 @@ const Terminal = (props: TerminalProps) => {
     refit()
   }
 
-  const watcher = new ResizeObserver(refit)
+  const watcher = new ResizeObserver(relayout)
 
   onCleanup(() => {
     watcher.disconnect()

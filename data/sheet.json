@@ -28,6 +28,7 @@
     "busy": "Another client is typing here; watching only"
   },
   "wheelLinePx": 40,
+  "typingGrid": { "fontPx": 14, "minCols": 40, "minRows": 10 },
   "depth": "Depth",
   "levelShort": "Lv",
   "tokens": "tokens",

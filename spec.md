@@ -376,7 +376,7 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 
 - **Source:** for the one Hero a socket watches, the daemon runs `herdr terminal session observe <pane> --cols C --rows R` at the pane's size from `pane.layout` (re-read every 2 s), and forwards each `terminal.frame` to that socket untouched: base64 ANSI, the first one full, then diffs pushed by Herdr. A size change restarts the observer, and a Hero that leaves gets one fallen frame. Any number of observers may run, and none can write. The `herdr` binary comes from `TOKENFALL_HERDR`, which `install-service` writes into the unit, or else `PATH`.
 - **Setup:** ghostty-web, pinned to an exact `next` build, its WASM loaded once on the first sheet. Frames that arrive before it's ready are kept from the last full frame on. The font fits the whole pane into the sheet, never scrolling: the largest size from 8 to 24 px that shows every column and row, refitted when the pane or the window changes size. The font is a bundled JetBrains Mono NL Nerd Font Mono, subset to about 1 MB per weight, loaded only when a Sheet opens.
-- **Typing (ADR 0006):** the sheet opens unfocused, so Esc closes it. A click in the terminal swaps the observer for `herdr terminal session control` at the pane's own size (never `--takeover`), and then every key goes to the Agent, Esc and Ctrl+C included, and the wheel scrolls its history. Ctrl+], a click outside or closing the sheet releases control and goes back to observing. If another client controls the pane, the sheet says so and keeps watching. Blocked Agents are typeable, so you can answer a permission prompt from the sheet. Synthetic and replay data have no terminal.
+- **Typing (ADR 0006):** the sheet opens unfocused, so Esc closes it. A click in the terminal swaps the observer for `herdr terminal session control` (never `--takeover`), sized to the grid that fits the sheet's frame at `typingGrid.fontPx` and capped at the pane's size, so the Agent reflows to readable text (ADR 0007). A resized window sends `terminal.resize`, and release gives the pane its own size back. and then every key goes to the Agent, Esc and Ctrl+C included, and the wheel scrolls its history. Ctrl+], a click outside or closing the sheet releases control and goes back to observing. If another client controls the pane, the sheet says so and keeps watching. Blocked Agents are typeable, so you can answer a permission prompt from the sheet. Synthetic and replay data have no terminal.
 
 ### bitECS
 
@@ -440,7 +440,7 @@ Each one ends with something you can run.
 
 **M7: UI pass. Done.** A clean Town (no dev chrome, the Hero card top left), a readable Character Sheet with a bigger font, team Parties nested under their Lead in the Roster, a menu over the selected Hero with Follow, and a prompt box under the terminal, the one write path (ADR 0005). Done when you can steer a live Agent from its sheet.
 
-**M8: Live terminal. Done.** The Character Sheet's terminal is the pane: ghostty-web on Herdr's terminal stream, typed into while it has focus (ADR 0006, replacing the prompt box). Also the even head stack, `F` and `C` on the selected Hero, and the zoom kept across levels and reloads. Done when you can answer a live Agent's prompt from its sheet and get back to the Town with Ctrl+], without your Herdr view changing size.
+**M8: Live terminal. Done.** The Character Sheet's terminal is the pane: ghostty-web on Herdr's terminal stream, typed into while it has focus (ADR 0006, replacing the prompt box). Also the even head stack, `F` and `C` on the selected Hero, and the zoom kept across levels and reloads. Done when you can answer a live Agent's prompt from its sheet and get back to the Town with Ctrl+], without your Herdr view changing size. (ADR 0007 later sizes the pane to the sheet while you type.)
 
 **After v1:** bosses during Workflows (likely M9), then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
 
@@ -505,7 +505,7 @@ Each one ends with something you can run.
 **Built and tested in M8:**
 
 - A live run on a throwaway Herdr pane: the sheet drew a real Claude session in ghostty-web, a prompt typed into the terminal got its reply, Esc reached the Agent and left the sheet open, Ctrl+] gave focus back, a second `control` client showed "another client is typing here", and `pane.layout` reported the same size throughout. The dev log held none of the typed text.
-- Observe at the pane's size, restart on resize, kill on unwatch, control on focus, input and scroll reaching Herdr, release on blur, busy falling back to observing, no `--takeover`, and no input in the save, in the daemon tests against a fake `herdr`.
+- Observe at the pane's size, restart on resize, kill on unwatch, control on focus, input and scroll reaching Herdr, release on blur, the typing grid capped at the pane and followed by `terminal.resize`, busy falling back to observing, no `--takeover`, and no input in the save, in the daemon tests against a fake `herdr`.
 - The head stack's order and gaps at three zooms, the F and C routing, the zoom store and its throttle, and frame buffering, in the game tests. The stack, Follow and the zoom across levels in headless Chrome.
 
 **Not yet seen live:** the thin scrollbars (headless Chrome hides scrollbars), typing into a blocked Agent's permission prompt, wheel scrolling through a long history, the `1000-combat` numbers from `/?measure`, combat effects and damage numbers on a real GPU, the Death Scene and necro glow on a real GPU, the `1000-deaths` numbers from `/?measure`, the Aura and level-up ring on a real GPU, a real `/team` lead's crown, and the Dungeon numbers from `/?measure`.
@@ -524,7 +524,7 @@ Each one ends with something you can run.
 
 ## 12. Security and privacy
 
-- **Read-only:** enforced by the method allowlist, not by convention, and the JSON-socket client has no write methods. The one write is `herdr terminal session control`, spawned only from `adapters/herdr/stream.ts`, only while a sheet's terminal has focus, and never with `--takeover` (ADR 0006). Input is ignored unless that socket holds control, capped at 1 MB, and never stored or logged.
+- **Read-only:** enforced by the method allowlist, not by convention, and the JSON-socket client has no write methods. The one write is `herdr terminal session control`, spawned only from `adapters/herdr/stream.ts`, only while a sheet's terminal has focus, and never with `--takeover` (ADR 0006). While held, it sizes the pane to the sheet's typing grid, never larger than the pane (ADR 0007). Input is ignored unless that socket holds control, capped at 1 MB, and never stored or logged.
 - **Server:** binds to `127.0.0.1` and checks Origin plus a per-launch token, because terminal contents are sensitive.
 - **Hook socket:** mode `0600`.
 - **What's stored:** never message content, tool inputs or inbox bodies. SQLite holds identity, Experience, Graves and the Chronicle, under `~/.local/state/tokenfall/`.

@@ -4,7 +4,11 @@ export type Watch = { readonly kind: 'watch'; readonly hero: HeroId }
 
 export type Unwatch = { readonly kind: 'unwatch' }
 
-export type Focus = { readonly kind: 'focus' }
+export type Grid = { readonly cols: number; readonly rows: number }
+
+export type Focus = { readonly kind: 'focus' } & Grid
+
+export type Resize = { readonly kind: 'resize' } & Grid
 
 export type Blur = { readonly kind: 'blur' }
 
@@ -18,7 +22,7 @@ export type Scroll = {
   readonly lines: number
 }
 
-export type ClientMessage = Watch | Unwatch | Focus | Blur | Input | Scroll
+export type ClientMessage = Watch | Unwatch | Focus | Resize | Blur | Input | Scroll
 
 export type Frame = {
   readonly kind: 'frame'
@@ -37,4 +41,5 @@ export type Control = { readonly kind: 'control'; readonly state: ControlState }
 export const MAX_HERO_ID = 200
 export const MAX_INPUT = 1_000_000
 export const MAX_SCROLL = 500
+export const MAX_GRID = 1000
 export const CONTROL_STATES = ['held', 'busy', 'released'] as const

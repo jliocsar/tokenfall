@@ -22,6 +22,7 @@ export type StreamCommand =
       readonly lines: number
       readonly source: 'wheel'
     }
+  | { readonly type: 'terminal.resize'; readonly cols: number; readonly rows: number }
   | { readonly type: 'terminal.release' }
 
 export type Stream = {

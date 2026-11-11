@@ -3,7 +3,9 @@ import type {
   ControlState,
   Focus,
   Frame,
+  Grid,
   Input,
+  Resize,
   Scroll,
   ScrollDirection,
 } from '@tokenfall/protocol/terminal'
@@ -14,7 +16,7 @@ import { NOBODY } from '../../ui/bridge.ts'
 
 export type Watcher = (hero: string | null) => void
 
-export type Steer = (message: Focus | Blur | Input | Scroll) => void
+export type Steer = (message: Focus | Resize | Blur | Input | Scroll) => void
 
 export type FrameListener = (frame: Frame) => void
 
@@ -29,6 +31,7 @@ type SheetState = {
   readonly pending: Frame[]
   hero: string | null
   sim: Sim | undefined
+  grid: Grid | undefined
 }
 
 export type SheetModel = {
@@ -42,7 +45,8 @@ export type SheetModel = {
   readonly control: (state: ControlState) => void
   readonly listen: (listener: FrameListener | undefined) => void
   readonly connect: (sim: Sim, watcher: Watcher | undefined, steer: Steer | undefined) => void
-  readonly focus: () => void
+  readonly focus: (grid: Grid | undefined) => void
+  readonly resize: (grid: Grid | undefined) => void
   readonly blur: () => void
   readonly input: (bytes: string) => void
   readonly scroll: (direction: ScrollDirection, lines: number) => void
@@ -55,6 +59,9 @@ const TYPING_OF = {
   busy: 'busy',
   released: 'off',
 } as const satisfies Record<ControlState, Typing>
+
+const sameGrid = (a: Grid | undefined, b: Grid): boolean =>
+  a !== undefined && a.cols === b.cols && a.rows === b.rows
 
 export const bufferFrame = (pending: Frame[], frame: Frame): void => {
   if (frame.full || pending.length >= PENDING_FRAMES) {
@@ -85,6 +92,7 @@ export const createSheet = (): SheetModel => {
     pending: [],
     hero: null,
     sim: undefined,
+    grid: undefined,
   }
 
   const reset = (): void => {
@@ -146,10 +154,23 @@ export const createSheet = (): SheetModel => {
       state.watcher = watcher
       state.steer = steer
     },
-    focus: () => {
-      if (state.steer !== undefined && (typing() === 'off' || typing() === 'busy')) {
+    focus: (grid) => {
+      if (
+        state.steer !== undefined &&
+        grid !== undefined &&
+        (typing() === 'off' || typing() === 'busy')
+      ) {
         setTyping('asking')
-        state.steer({ kind: 'focus' })
+        state.grid = grid
+        state.steer({ kind: 'focus', ...grid })
+      }
+    },
+    resize: (grid) => {
+      const typed = typing() === 'asking' || typing() === 'held'
+
+      if (typed && grid !== undefined && !sameGrid(state.grid, grid)) {
+        state.grid = grid
+        state.steer?.({ kind: 'resize', ...grid })
       }
     },
     blur: () => {
