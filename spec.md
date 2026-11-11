@@ -440,7 +440,7 @@ Each one ends with something you can run.
 
 **M7: UI pass. Done.** A clean Town (no dev chrome, the Hero card top left), a readable Character Sheet with a bigger font, team Parties nested under their Lead in the Roster, a menu over the selected Hero with Follow, and a prompt box under the terminal, the one write path (ADR 0005). Done when you can steer a live Agent from its sheet.
 
-**M8: Live terminal.** The Character Sheet's terminal is the pane: ghostty-web on Herdr's terminal stream, typed into while it has focus (ADR 0006, replacing the prompt box). Also the even head stack, `F` and `C` on the selected Hero, and the zoom kept across levels and reloads. Done when you can answer a live Agent's prompt from its sheet and get back to the Town with Ctrl+], without your Herdr view changing size.
+**M8: Live terminal. Done.** The Character Sheet's terminal is the pane: ghostty-web on Herdr's terminal stream, typed into while it has focus (ADR 0006, replacing the prompt box). Also the even head stack, `F` and `C` on the selected Hero, and the zoom kept across levels and reloads. Done when you can answer a live Agent's prompt from its sheet and get back to the Town with Ctrl+], without your Herdr view changing size.
 
 **After v1:** bosses during Workflows (likely M9), then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
 
