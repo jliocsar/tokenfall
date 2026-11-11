@@ -11,7 +11,7 @@ Status: M0 and M1 done. Benchmarked on your machine (Intel Raptor Lake integrate
 ### Scope
 
 - **Platform:** web first. PWA or Tauri later, if it earns it.
-- **Interaction:** read-only, with one exception since M7: the prompt box under a Character Sheet's terminal sends the text you typed to that Agent through Herdr's `agent.prompt` (ADR 0005). No other code path may write to a pane.
+- **Interaction:** read-only, with one exception since M8: while a Character Sheet's terminal has focus, the keys you type go to that Agent's pane through `herdr terminal session control` (ADR 0006, which replaced M7's prompt box). No other code path may write to a pane.
 - **Agents:** Claude only, from both `~/.claude` and `~/.claude-work`.
 - **Machines:** local only in v1. Every hero and event carries a machine id from day one, set to `local`.
 - **Sound:** none in v1, but every game event has a stable name so audio can hook in later.
@@ -74,7 +74,7 @@ Status: M0 and M1 done. Benchmarked on your machine (Intel Raptor Lake integrate
 - **Loot Chests** appear when an Agent finishes. A chest opens only once you've looked at that Agent in Herdr, so the game never marks anything seen itself.
 - **Attention Queue order:** permission Ravens, Inbox Ravens, the Notice Board, then Loot Chests, oldest first within each. One key cycles through it.
 - **Nothing leaves the game:** no phone or desktop notifications.
-- **Hero menu:** selecting a Hero shows framed icon buttons over its head: Character Sheet, its Inbox thread (only when it has one), Follow, and Open its Dungeon (only when it's inside a Dungeon you aren't viewing, with the menu over that entrance). Follow keeps the camera on the Hero, into and out of its Dungeon, until you drag, pan, press Esc, switch tiers or select someone else.
+- **Hero menu:** selecting a Hero shows framed icon buttons over its head: Character Sheet, its Inbox thread (only when it has one), Follow, and Open its Dungeon (only when it's inside a Dungeon you aren't viewing, with the menu over that entrance). Follow keeps the camera on the Hero, into and out of its Dungeon, until you drag, pan, press Esc, switch tiers or select someone else. From the head up, the menu, the Hero's Raven and its speech bubble stack in that order with fixed pixel gaps at every zoom (`data/world.json` `stack`); without a menu or a Raven the rest close up.
 - **Roster teams:** a Party with a Lead is headed by the Lead's row with "N teammates", and its teammates hang under it on a tree in the Guild's color. Team groups are always open, and Parties without a Lead keep their collapsible row.
 - **Screen layout:** the selected Hero's card sits top left with the Notice Board under it, the Chronicle bottom left, and the Roster on the right. The fake-Hero links and the fps box show only with `?debug`, `?heroes=` or `/?measure`.
 
@@ -92,9 +92,9 @@ Status: M0 and M1 done. Benchmarked on your machine (Intel Raptor Lake integrate
 - **Repo:** private on GitHub at `jliocsar/tokenfall`.
 - **Paths:** config in `~/.config/tokenfall/`, state in `~/.local/state/tokenfall/`.
 - **Generated art:** rendered sheets are committed, not rebuilt on each machine.
-- **References:** a minimal shallow copy of each dependency's source and docs lives in `references/repos/{tool}`, pinned to the exact version we use, with no git history. One script refreshes them on upgrade, tooling ignores the folder, and `CLAUDE.md` lists them so agents read the real source instead of guessing. This covers bitECS, Pixi, Solid, wterm and rot.js, plus Herdr and Plannotator.
+- **References:** a minimal shallow copy of each dependency's source and docs lives in `references/repos/{tool}`, pinned to the exact version we use, with no git history. One script refreshes them on upgrade, tooling ignores the folder, and `CLAUDE.md` lists them so agents read the real source instead of guessing. This covers bitECS, Pixi, Solid, ghostty-web and rot.js, plus Herdr and Plannotator.
 - **Save migrations:** handled by Claude through a `.claude/skills/migrate-save-files` skill, described in `CLAUDE.md`.
-- **Keybinds:** decided during the build and listed in `packages/game/src/render/camera.ts`. So far: WASD or arrows pan, drag pans, wheel or `+`/`-` zooms. `Q` jumps to the next Hero who needs you and `F` fits the Town. Rotation is still open.
+- **Keybinds:** decided during the build and listed in `packages/game/src/render/camera.ts`. So far: WASD or arrows pan, drag pans, wheel or `+`/`-` zooms. `Q` jumps to the next Hero who needs you. `F` toggles Follow on the selected Hero, and fits the view when nobody is selected. `C` toggles the selected Hero's Character Sheet, and Enter opens it. The camera keeps one Dungeon zoom for every level and Guild, plus the Town zoom, both saved in the browser, and fits only when you press `F`. Rotation is still open.
 
 ### Failure states
 
@@ -113,7 +113,7 @@ Status: M0 and M1 done. Benchmarked on your machine (Intel Raptor Lake integrate
 - **Rendering:** PixiJS 8 on WebGL2.
 - **ECS:** bitECS 0.4, with typed-array component stores. See ADR 0003.
 - **UI:** SolidJS.
-- **Terminal view:** wterm.
+- **Terminal view:** ghostty-web, fed by Herdr's terminal stream.
 - **Toolchain:** Bun, oxlint, oxfmt and TS7, from your `agents-boilerplate`, with no Effect in the game sim.
 - **Math library, when needed:** `math` from pmndrs (MIT, allocation-free functions that write into an `out` argument). We adopt it the first time we need noise for Dungeons, springs for the camera, easing, shapes or color. It doesn't replace our existing iso, level or random code, and hot loops stay scalar over our stores.
 
@@ -127,14 +127,14 @@ v1 is done when you can open the game and:
 4. Read Narration in each Hero's own voice.
 5. Watch working Heroes warp into their Guild's Dungeon, deeper as they level.
 6. Get a Raven for every permission prompt and inbox question, and see it clear once answered.
-7. Open a Character Sheet with its terminal, and type a prompt to steer the Agent.
+7. Open a Character Sheet with its terminal, and type into it to steer the Agent.
 8. See the Death Scene, Graves and Resurrections.
 9. Catch up on what you missed from the Chronicle.
 10. Reboot your machine and get the same world back.
 
 ### Not in v1
 
-Starting Agents or sending them keys (typed prompts came in M7), the character creator, the software factory, Blender portraits, sound, emotes, gear upgrades, multiple machines, the open-field map for 100+ Hero armies, non-Claude agents, and native builds.
+Starting Agents (typing into a pane came in M8), the character creator, the software factory, Blender portraits, sound, emotes, gear upgrades, multiple machines, the open-field map for 100+ Hero armies, non-Claude agents, and native builds.
 
 ## 3. Game model
 
@@ -292,7 +292,7 @@ These rules apply to all game and daemon hot paths, and get checked in review.
 ### Rendering
 
 19. Share atlases to keep batches small, and cull before sorting.
-20. One wterm instance, which exists only while a Character Sheet is open.
+20. One ghostty-web terminal, which exists only while a Character Sheet is open. It redraws every frame while it lives, so closing the sheet disposes it.
 
 ### Performance targets
 
@@ -374,9 +374,9 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 
 ### Terminal view
 
-- **Source:** the daemon reads `pane.read` with `format: ansi` and `source: visible` every 500 ms for the one Hero a socket watches, and `pane.layout` every 2 s for the size (columns are the pane's width). `revision` is always 0, so the daemon hashes the text and sends a screen only when it changed, and only to the watching socket. Daemon CPU with a Sheet open: under 1%.
-- **Setup:** wterm with a no-op `onData` handler plus `inert`, because wterm echoes keystrokes without one. Columns come from the source pane. The font starts at 15 px and A− / A+ in the sheet's header change it (10 to 24 px, remembered in the browser). A pane wider than the sheet scrolls sideways, and the view opens at the bottom. wterm measures its row height only at start, so the sheet sets `--term-row-height` with the font. The font is a bundled JetBrains Mono NL Nerd Font Mono, subset to about 1 MB per weight, loaded only when a Sheet opens.
-- **Prompt box:** under the terminal, the one write path (ADR 0005). Enter sends through the daemon's `sendPrompt` and Herdr's `agent.prompt`, Shift+Enter adds a line, and arrow up recalls the last 20 prompts, kept only in the browser. A prompt sent while the Agent works queues, as Claude Code does. The box is disabled while the Agent is blocked and on synthetic or replay data.
+- **Source:** for the one Hero a socket watches, the daemon runs `herdr terminal session observe <pane> --cols C --rows R` at the pane's size from `pane.layout` (re-read every 2 s), and forwards each `terminal.frame` to that socket untouched: base64 ANSI, the first one full, then diffs pushed by Herdr. A size change restarts the observer, and a Hero that leaves gets one fallen frame. Any number of observers may run, and none can write. The `herdr` binary comes from `TOKENFALL_HERDR`, which `install-service` writes into the unit, or else `PATH`.
+- **Setup:** ghostty-web, pinned to an exact `next` build, its WASM loaded once on the first sheet. Frames that arrive before it's ready are kept from the last full frame on. The font starts at 15 px and A− / A+ in the sheet's header change it live (10 to 24 px, remembered in the browser). A pane taller or wider than the sheet scrolls, and the view opens at the bottom. The font is a bundled JetBrains Mono NL Nerd Font Mono, subset to about 1 MB per weight, loaded only when a Sheet opens.
+- **Typing (ADR 0006):** the sheet opens unfocused, so Esc closes it. A click in the terminal swaps the observer for `herdr terminal session control` at the pane's own size (never `--takeover`), and then every key goes to the Agent, Esc and Ctrl+C included, and the wheel scrolls its history. Ctrl+], a click outside or closing the sheet releases control and goes back to observing. If another client controls the pane, the sheet says so and keeps watching. Blocked Agents are typeable, so you can answer a permission prompt from the sheet. Synthetic and replay data have no terminal.
 
 ### bitECS
 
@@ -396,9 +396,9 @@ Shipped as a plugin, installed in both `~/.claude` and `~/.claude-work` once you
 - **Time limits:** Digger and Uniform give up after `timeLimit` ms and return fewer rooms. We set it to 10 minutes so a slow frame can never change a layout.
 - **Cellular:** has no rooms. We pick cave halls by farthest-point sampling, then assign each floor cell to its nearest hall.
 
-### wterm
+### ghostty-web
 
-0.5.x, Apache-2.0, a Vercel Labs experiment. Isolated in one feature folder so it's easy to replace.
+0.4.0-next.21 (pinned exactly), MIT, by Coder: Ghostty's VT parser compiled to WASM behind an xterm.js-style API, drawn to one canvas. Pre-1.0, with known issues around dispose and resize, OSC 8 links and render errors, so it's isolated in `features/sheet/terminal.ts` and xterm.js is the fallback.
 
 ## 9. Art and UI
 
@@ -440,7 +440,9 @@ Each one ends with something you can run.
 
 **M7: UI pass. Done.** A clean Town (no dev chrome, the Hero card top left), a readable Character Sheet with a bigger font, team Parties nested under their Lead in the Roster, a menu over the selected Hero with Follow, and a prompt box under the terminal, the one write path (ADR 0005). Done when you can steer a live Agent from its sheet.
 
-**After v1:** bosses during Workflows (likely M8), then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
+**M8: Live terminal.** The Character Sheet's terminal is the pane: ghostty-web on Herdr's terminal stream, typed into while it has focus (ADR 0006, replacing the prompt box). Also the even head stack, `F` and `C` on the selected Hero, and the zoom kept across levels and reloads. Done when you can answer a live Agent's prompt from its sheet and get back to the Town with Ctrl+], without your Herdr view changing size.
+
+**After v1:** bosses during Workflows (likely M9), then the character creator and hiring heroes, then the software factory. Also on the list: Blender portraits, sound, multiple machines and the open-field army map.
 
 ## 11. Verified and not
 
@@ -455,7 +457,7 @@ Each one ends with something you can run.
 
 - Live Herdr roster, status events, pane creation and close.
 - An ECS with Pixi in the browser, though that spike used becsy, not bitECS.
-- wterm with real ANSI output.
+- wterm with real ANSI output (replaced by ghostty-web in M8).
 - The sprite pipeline and the light map.
 
 **Built and tested in M2:**
@@ -500,7 +502,13 @@ Each one ends with something you can run.
 - `agent.prompt` stays off the allowlist, unknown, blocked and paneless Heroes are refused, and the save never holds prompt text, in the daemon tests.
 - Team rows, the sheet font, prompt history, the menu's DOM writes and Follow stopping on pan, in the game tests. The menu, Follow, the team tree and the sheet in headless Chrome.
 
-**Not yet seen live:** the thin scrollbars (headless Chrome hides scrollbars), the prompt box against a blocked Agent, the `1000-combat` numbers from `/?measure`, combat effects and damage numbers on a real GPU, the Death Scene and necro glow on a real GPU, the `1000-deaths` numbers from `/?measure`, the Aura and level-up ring on a real GPU, a real `/team` lead's crown, and the Dungeon numbers from `/?measure`.
+**Built and tested in M8:**
+
+- A live run on a throwaway Herdr pane: the sheet drew a real Claude session in ghostty-web, a prompt typed into the terminal got its reply, Esc reached the Agent and left the sheet open, Ctrl+] gave focus back, a second `control` client showed "another client is typing here", and `pane.layout` reported the same size throughout. The dev log held none of the typed text.
+- Observe at the pane's size, restart on resize, kill on unwatch, control on focus, input and scroll reaching Herdr, release on blur, busy falling back to observing, no `--takeover`, and no input in the save, in the daemon tests against a fake `herdr`.
+- The head stack's order and gaps at three zooms, the F and C routing, the zoom store and its throttle, and frame buffering, in the game tests. The stack, Follow and the zoom across levels in headless Chrome.
+
+**Not yet seen live:** the thin scrollbars (headless Chrome hides scrollbars), typing into a blocked Agent's permission prompt, wheel scrolling through a long history, the `1000-combat` numbers from `/?measure`, combat effects and damage numbers on a real GPU, the Death Scene and necro glow on a real GPU, the `1000-deaths` numbers from `/?measure`, the Aura and level-up ring on a real GPU, a real `/team` lead's crown, and the Dungeon numbers from `/?measure`.
 
 **Read in Herdr's and Claude's source, docs or local data, but not tested live:**
 
@@ -516,7 +524,7 @@ Each one ends with something you can run.
 
 ## 12. Security and privacy
 
-- **Read-only:** enforced by the method allowlist, not by convention. The one write, `agent.prompt`, sits outside it behind `sendPrompt`, reached only from a `prompt` message the person typed (ADR 0005). The daemon never stores or logs prompt text.
+- **Read-only:** enforced by the method allowlist, not by convention, and the JSON-socket client has no write methods. The one write is `herdr terminal session control`, spawned only from `adapters/herdr/stream.ts`, only while a sheet's terminal has focus, and never with `--takeover` (ADR 0006). Input is ignored unless that socket holds control, capped at 1 MB, and never stored or logged.
 - **Server:** binds to `127.0.0.1` and checks Origin plus a per-launch token, because terminal contents are sensitive.
 - **Hook socket:** mode `0600`.
 - **What's stored:** never message content, tool inputs or inbox bodies. SQLite holds identity, Experience, Graves and the Chronicle, under `~/.local/state/tokenfall/`.
