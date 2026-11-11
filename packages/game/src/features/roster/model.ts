@@ -43,6 +43,13 @@ export type PartyGroup = {
   readonly workspace: string
   readonly heroes: number[]
   readonly counts: Counts
+  lead: number
+}
+
+export type TeamRow = {
+  readonly eid: number
+  readonly branch: string
+  readonly mates: number
 }
 
 export type GuildGroup = {
@@ -74,6 +81,9 @@ const STANDING_OF_STATUS = [
 ] as const satisfies readonly Standing[]
 
 const BLOCKED = 3
+const NO_LEAD = -1
+const BRANCH = '├ '
+const LAST_BRANCH = '└ '
 const SESSION_MARK = '/session/'
 
 const sessionOf = (id: string): string => {
@@ -183,6 +193,27 @@ const byWait = (rows: Rows) => (a: number, b: number) => {
   return rowA.wait - rowB.wait || rowA.since - rowB.since || byName(rowA.name, rowB.name)
 }
 
+export const leadFirst = (party: PartyGroup, isLead: (eid: number) => boolean): void => {
+  const at = party.heroes.findIndex(isLead)
+
+  if (at !== -1) {
+    const [lead] = party.heroes.splice(at, 1)
+    party.heroes.unshift(lead!)
+    party.lead = lead!
+  }
+}
+
+export const teamRows = (party: PartyGroup): TeamRow[] =>
+  party.heroes.map((eid, i) => {
+    if (i === 0) {
+      return { eid, branch: '', mates: party.heroes.length - 1 }
+    }
+
+    return { eid, branch: i === party.heroes.length - 1 ? LAST_BRANCH : BRANCH, mates: 0 }
+  })
+
+export const isTeam = (party: PartyGroup): boolean => party.lead !== NO_LEAD
+
 const group = (sim: Sim, rows: Rows): GuildGroup[] => {
   const guilds = new Map<number, GuildDraft>()
   const parties = new Map<number, PartyGroup>()
@@ -215,6 +246,7 @@ const group = (sim: Sim, rows: Rows): GuildGroup[] => {
           workspace: sim.groups.partyWorkspace[row.party] ?? '',
           heroes: [],
           counts: emptyCounts(),
+          lead: NO_LEAD,
         })
         .get(row.party)!
 
@@ -232,6 +264,7 @@ const group = (sim: Sim, rows: Rows): GuildGroup[] => {
 
   for (const party of parties.values()) {
     party.heroes.sort(order)
+    leadFirst(party, (eid) => rows.get(eid)?.lead === true)
   }
 
   return [...guilds.values()]

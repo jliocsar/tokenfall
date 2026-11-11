@@ -5,8 +5,16 @@ import type { Bridge } from '../../ui/bridge.ts'
 import { Portrait } from '../../ui/Portrait.tsx'
 import { WAIT_INBOX, WAIT_LOOT } from '../attention/queue.ts'
 import type { NoticeBoard } from '../notices/model.ts'
-import type { Counts, GuildGroup, PartyGroup, Roster } from './model.ts'
+import {
+  isTeam,
+  teamRows,
+  type Counts,
+  type GuildGroup,
+  type PartyGroup,
+  type Roster,
+} from './model.ts'
 import { Crown } from '../crown/Crown.tsx'
+import { guildColor } from '../town/ground.ts'
 
 type Line =
   | { readonly kind: 'heading'; readonly text: string }
@@ -17,7 +25,13 @@ type Line =
       readonly guild: number
       readonly open: boolean
     }
-  | { readonly kind: 'hero'; readonly eid: number; readonly depth: number }
+  | {
+      readonly kind: 'hero'
+      readonly eid: number
+      readonly depth: number
+      readonly branch: string
+      readonly mates: number
+    }
   | { readonly kind: 'board' }
   | { readonly kind: 'fallen'; readonly count: number; readonly open: boolean }
 
@@ -61,19 +75,35 @@ const eidOf = (line: Line): number => (line.kind === 'hero' ? line.eid : -1)
 
 const depthOf = (line: Line): number => (line.kind === 'hero' ? line.depth : 0)
 
-const heroLine = (cache: Map<number, Line>, eid: number, depth: number): Line => {
-  const key = eid * 4 + depth
+const branchOf = (line: Line): string => (line.kind === 'hero' ? line.branch : '')
+
+const matesOf = (line: Line): number => (line.kind === 'hero' ? line.mates : 0)
+
+const heroLine = (
+  cache: Map<string, Line>,
+  eid: number,
+  depth: number,
+  branch = '',
+  mates = 0,
+): Line => {
+  const key = `${eid}:${depth}:${branch}:${mates}`
   const cached = cache.get(key)
 
   if (cached !== undefined) {
     return cached
   }
 
-  const line: Line = { kind: 'hero', eid, depth }
+  const line: Line = { kind: 'hero', eid, depth, branch, mates }
   cache.set(key, line)
 
   return line
 }
+
+const matesText = (mates: number): string => (mates === 1 ? '1 teammate' : `${mates} teammates`)
+
+const LAST = '└ '
+
+const cssColor = (color: number): string => `#${color.toString(16).padStart(6, '0')}`
 
 const groupLine = (line: Line, actions: GroupActions): JSX.Element => {
   const { toggle } = actions
@@ -146,7 +176,7 @@ const attentionLines = (
   out: Line[],
   roster: Roster,
   total: number,
-  heroLines: Map<number, Line>,
+  heroLines: Map<string, Line>,
 ): void => {
   const attention = roster.attention()
   const needs = attention.length + (total > 0 ? 1 : 0)
@@ -177,8 +207,12 @@ export const HeroLine = (props: {
   readonly roster: Roster
   readonly eid: number
   readonly depth: number
+  readonly branch: string
+  readonly mates: number
 }) => {
   const row = () => props.roster.rows[props.eid]
+  const tint = () =>
+    cssColor(guildColor(props.bridge.sim.groups.guildKeys[row()?.guild ?? 0] ?? ''))
 
   return (
     <Show when={row()}>
@@ -192,6 +226,13 @@ export const HeroLine = (props: {
             props.bridge.focus(props.eid)
           }}
         >
+          <Show when={props.branch}>
+            <span
+              class={props.branch === LAST ? 'branch last' : 'branch'}
+              style={{ color: tint() }}
+              aria-hidden="true"
+            />
+          </Show>
           <Portrait
             atlas={props.bridge.portraits}
             sheet={hero().sheet}
@@ -205,7 +246,15 @@ export const HeroLine = (props: {
               </Show>
               {hero().fullName}
             </span>
-            <span class="quest">{hero().quest || hero().className}</span>
+            <span class="quest">
+              <Show when={props.mates > 0}>
+                <span class="mates" style={{ color: tint() }}>
+                  {matesText(props.mates)}
+                </span>
+                {' · '}
+              </Show>
+              {hero().quest || hero().className}
+            </span>
           </span>
           <span class="level">{hero().stranger ? '' : `Lv ${hero().level}`}</span>
           <span class="badge">{hero().standing}</span>
@@ -219,7 +268,7 @@ export const RosterTree = (props: RosterProps) => {
   const [toggled, setToggled] = createSignal<ReadonlySet<string>>(new Set())
   const [scroll, setScroll] = createSignal(0)
   const [height, setHeight] = createSignal(600)
-  const heroLines = new Map<number, Line>()
+  const heroLines = new Map<string, Line>()
 
   const toggle = (key: string): void => {
     setToggled((current) => {
@@ -254,6 +303,14 @@ export const RosterTree = (props: RosterProps) => {
       }
 
       for (const party of guild.parties) {
+        if (isTeam(party)) {
+          for (const team of teamRows(party)) {
+            out.push(heroLine(heroLines, team.eid, 1, team.branch, team.mates))
+          }
+
+          continue
+        }
+
         const partyOpen = !toggled().has(partyKey(party.party))
         out.push({ kind: 'party', group: party, guild: guild.guild, open: partyOpen })
 
@@ -319,6 +376,8 @@ export const RosterTree = (props: RosterProps) => {
                   roster={props.roster}
                   eid={eidOf(item())}
                   depth={depthOf(item())}
+                  branch={branchOf(item())}
+                  mates={matesOf(item())}
                 />
               </Show>
             </div>

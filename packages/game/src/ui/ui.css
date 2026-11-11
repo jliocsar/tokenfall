@@ -141,6 +141,43 @@
   color: var(--ink-dim);
 }
 
+.line .branch {
+  position: relative;
+  flex: none;
+  align-self: stretch;
+  width: 12px;
+  margin-left: 12px;
+  margin-right: -2px;
+}
+
+.line .branch::before,
+.line .branch::after {
+  content: '';
+  position: absolute;
+  left: 0;
+}
+
+.line .branch::before {
+  top: 0;
+  bottom: 0;
+  border-left: 2px solid currentcolor;
+}
+
+.line .branch.last::before {
+  bottom: 50%;
+}
+
+.line .branch::after {
+  top: 50%;
+  width: 100%;
+  border-top: 2px solid currentcolor;
+}
+
+.who .mates {
+  font: var(--text-pixel);
+  font-style: normal;
+}
+
 .line .counts {
   margin-left: auto;
   color: var(--ink-dim);
