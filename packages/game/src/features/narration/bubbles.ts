@@ -8,6 +8,14 @@ import { screenX, screenY } from '../../core/iso.ts'
 import { NO_PLOT } from '../../core/layout.ts'
 import type { Sim } from '../../core/sim.ts'
 import type { Screen } from '../../render/camera.ts'
+import { hasRaven, type Flock } from '../ravens/flock.ts'
+import {
+  createStackOut,
+  entranceBase,
+  headBase,
+  STACK_BUBBLE,
+  stackAbove,
+} from '../selection/stack.ts'
 import { statusLine, toolLine, type Mood } from './lines.ts'
 
 export type Bubble = {
@@ -31,19 +39,23 @@ export type Bubbles = {
   readonly speaker: Speaker
   nextSelected: number
   avoid: Obstacle | undefined
+  flock: Flock | undefined
+  selected: number
 }
 
 type Speaker = { eid: number; inside: boolean; reason: Reason }
 
 type Reason = 'status' | 'tool'
 
-const { bubbles: tuning, entrance, fonts } = world
+const { bubbles: tuning, fonts } = world
 
 const MOODS: readonly Mood[] = ['idle', 'working', 'done', 'blocked', 'idle']
 const NOBODY = -1
 const PADDING = 6
 const TAIL = 6
 const PRIORITY = [3, 2, 1, 0, 4] as const
+
+const lifts = createStackOut()
 
 const createText = (): BitmapText =>
   new BitmapText({
@@ -82,6 +94,8 @@ export const createBubbles = (sim: Sim): Bubbles => {
     speaker: { eid: NOBODY, inside: false, reason: 'status' },
     nextSelected: 0,
     avoid: undefined,
+    flock: undefined,
+    selected: NOBODY,
   }
 }
 
@@ -116,16 +130,32 @@ const toScreen = (screen: Screen, x: number, y: number, lift: number, out: Float
   out[1] = (screenY(x, y) - screen.y) * screen.zoom + screen.height / 2 - lift
 }
 
+const liftOf = (bubbles: Bubbles, sim: Sim, zoom: number, eid: number, inside: boolean): number => {
+  const raven = bubbles.flock !== undefined && hasRaven(bubbles.flock, sim, eid, inside)
+  stackAbove(
+    inside ? entranceBase(zoom) : headBase(zoom),
+    zoom,
+    eid === bubbles.selected,
+    raven,
+    lifts,
+  )
+
+  return lifts[STACK_BUBBLE]!
+}
+
 const anchor = (
+  bubbles: Bubbles,
   sim: Sim,
   screen: Screen,
   eid: number,
   inside: boolean,
   out: Float64Array,
 ): boolean => {
+  const lift = liftOf(bubbles, sim, screen.zoom, eid, inside)
+
   if (!inside) {
     const { x, y } = sim.stores.position
-    toScreen(screen, x[eid]!, y[eid]!, tuning.offsetY * screen.zoom, out)
+    toScreen(screen, x[eid]!, y[eid]!, lift, out)
 
     return true
   }
@@ -136,7 +166,6 @@ const anchor = (
     return false
   }
 
-  const lift = entrance.offsetY * screen.zoom + tuning.aboveBadge
   toScreen(screen, sim.town.entranceX[plot]!, sim.town.entranceY[plot]!, lift, out)
 
   return true
@@ -189,7 +218,7 @@ const speak = (
 ): void => {
   const { eid } = speaker
 
-  if (bubbles.speaking[eid] !== -1 || !anchor(sim, screen, eid, speaker.inside, out)) {
+  if (bubbles.speaking[eid] !== -1 || !anchor(bubbles, sim, screen, eid, speaker.inside, out)) {
     return
   }
 
@@ -245,6 +274,7 @@ export const syncBubbles = (
   const out = sim.scratch
   const { speaker } = bubbles
   const insideOf = (eid: number): boolean => atEntrance(sim, eid)
+  bubbles.selected = selected
 
   if (selected >= 0 && now >= bubbles.nextSelected) {
     bubbles.nextSelected = now + tuning.selectedEveryMs
@@ -286,7 +316,10 @@ export const syncBubbles = (
 
     const age = now - bubble.bornAt
 
-    if (age > tuning.lifeMs || !anchor(sim, screen, bubble.eid, insideOf(bubble.eid), out)) {
+    if (
+      age > tuning.lifeMs ||
+      !anchor(bubbles, sim, screen, bubble.eid, insideOf(bubble.eid), out)
+    ) {
       release(bubbles, bubble)
       continue
     }
@@ -296,8 +329,7 @@ export const syncBubbles = (
       continue
     }
 
-    const raise = bubble.eid === selected ? tuning.aboveMenu : 0
-    bubble.box.position.set(Math.round(out[0]!), Math.round(out[1]! - raise))
+    bubble.box.position.set(Math.round(out[0]!), Math.round(out[1]!))
     bubble.box.alpha = Math.min(1, (tuning.lifeMs - age) / tuning.fadeMs)
     active += 1
   }

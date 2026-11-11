@@ -1,5 +1,3 @@
-import menuTuning from '@tokenfall/data/menu.json'
-import world from '@tokenfall/data/world.json'
 import { NO_PLOT } from '../../core/layout.ts'
 import { seenInDungeon, tierInside } from '../../core/dungeon.ts'
 import { stateFlags } from '../../core/fsm.ts'
@@ -10,6 +8,7 @@ import type { View } from '../../render/heroes.ts'
 import { NOBODY } from '../../ui/bridge.ts'
 import type { DungeonView } from '../dungeon/view.ts'
 import { hideMenu, noteFollowing, placeMenu, type MenuActions, type MenuModel } from './menu.ts'
+import { createStackOut, entranceBase, headBase, STACK_MENU, stackAbove } from './stack.ts'
 
 export type FollowDeps = {
   readonly sim: Sim
@@ -39,6 +38,13 @@ const HEAD = 40
 export const createFollow = (deps: FollowDeps): Follow => {
   const { sim, camera, view, menu, dungeon, hidden, inside } = deps
   const gone = stateFlags(sim.machine, ['dying', 'dead'])
+  const lifts = createStackOut()
+
+  const liftOf = (base: number): number => {
+    stackAbove(base, camera.zoom, true, false, lifts)
+
+    return lifts[STACK_MENU]!
+  }
 
   const viewingTierOf = (eid: number): boolean => {
     const { open } = dungeon
@@ -80,8 +86,12 @@ export const createFollow = (deps: FollowDeps): Follow => {
       return
     }
 
-    const lift = world.entrance.offsetY * camera.zoom + world.bubbles.aboveBadge
-    place(sim.town.entranceX[plot]!, sim.town.entranceY[plot]!, lift, true)
+    place(
+      sim.town.entranceX[plot]!,
+      sim.town.entranceY[plot]!,
+      liftOf(entranceBase(camera.zoom)),
+      true,
+    )
   }
 
   const track = (eid: number): void => {
@@ -144,11 +154,11 @@ export const createFollow = (deps: FollowDeps): Follow => {
       const { x, y } = sim.stores.position
 
       if (seenInDungeon(sim, eid)) {
-        place(x[eid]!, y[eid]!, menuTuning.lift * camera.zoom + menuTuning.gap, false)
+        place(x[eid]!, y[eid]!, liftOf(headBase(camera.zoom)), false)
       } else if (inside[state] === 1) {
         atEntrance(eid)
       } else if (dungeon.open === undefined) {
-        place(x[eid]!, y[eid]!, menuTuning.lift * camera.zoom + menuTuning.gap, false)
+        place(x[eid]!, y[eid]!, liftOf(headBase(camera.zoom)), false)
       } else {
         hideMenu(menu)
       }

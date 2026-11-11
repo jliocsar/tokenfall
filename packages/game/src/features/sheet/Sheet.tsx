@@ -5,6 +5,7 @@ import { threadUrl } from '@tokenfall/protocol/inbox'
 import { createEffect, createSignal, onCleanup, Show, type Accessor } from 'solid-js'
 import { guildLabel } from '../../core/groups.ts'
 import { NOBODY, type Bridge } from '../../ui/bridge.ts'
+import { closesSheet } from '../selection/keys.ts'
 import { Portrait } from '../../ui/Portrait.tsx'
 import type { InboxModel } from '../ravens/model.ts'
 import { deathText, resumeCommand } from '../death/text.ts'
@@ -222,7 +223,7 @@ export const Sheet = (props: SheetProps) => {
 
     event.stopImmediatePropagation()
 
-    if (event.key === ESCAPE) {
+    if (event.key === ESCAPE || closesSheet(event)) {
       props.sheet.hide()
     }
   }

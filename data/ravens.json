@@ -7,8 +7,6 @@
   "openInbox": "open in Inbox",
   "flock": {
     "radius": 30,
-    "height": 120,
-    "entranceLift": 190,
     "speed": 1.4,
     "flapFps": 12,
     "scale": 2.2,

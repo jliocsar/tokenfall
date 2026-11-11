@@ -1,10 +1,18 @@
 import { Particle, ParticleContainer, type Texture } from 'pixi.js'
 import tuning from '@tokenfall/data/ravens.json'
 import { atEntrance } from '../../core/dungeon.ts'
+import { hasMember } from '../../core/dense-set.ts'
 import { screenX, screenY } from '../../core/iso.ts'
 import { NO_PLOT } from '../../core/layout.ts'
 import type { Sim } from '../../core/sim.ts'
 import type { HeroLayer } from '../../render/heroes.ts'
+import {
+  createStackOut,
+  entranceBase,
+  headBase,
+  STACK_RAVEN,
+  stackAbove,
+} from '../selection/stack.ts'
 
 export type Flock = {
   readonly container: ParticleContainer
@@ -21,6 +29,9 @@ const { flock: bird } = tuning
 const OCTANT = Math.PI / 4
 const GOLDEN = 2.399_963
 const NO_OWNER = -1
+const NO_GUILD = -1
+
+const lifts = createStackOut()
 
 const octant = (dx: number, dy: number): number =>
   (Math.round(Math.atan2(dy, dx) / OCTANT) + bird.directions) % bird.directions
@@ -90,10 +101,29 @@ const place = (
   particle.alpha = 1
 }
 
-export const syncFlock = (flock: Flock, sim: Sim, now: number): void => {
+const ravenLift = (base: number, zoom: number, menu: boolean): number => {
+  stackAbove(base, zoom, menu, true, lifts)
+
+  return lifts[STACK_RAVEN]! / zoom
+}
+
+export const hasRaven = (flock: Flock, sim: Sim, eid: number, inside: boolean): boolean =>
+  inside
+    ? flock.stamp[sim.stores.hero.guild[eid]!] === flock.frame
+    : hasMember(sim.waiting, eid) && !atEntrance(sim, eid)
+
+export const syncFlock = (
+  flock: Flock,
+  sim: Sim,
+  now: number,
+  selected: number,
+  zoom: number,
+): void => {
   const { waiting, town } = sim
   const { position, hero } = sim.stores
   const previous = flock.used
+  const selectedGuild =
+    selected >= 0 && atEntrance(sim, selected) ? hero.guild[selected]! : NO_GUILD
   flock.frame += 1
   flock.used = 0
 
@@ -103,7 +133,8 @@ export const syncFlock = (flock: Flock, sim: Sim, now: number): void => {
     if (!atEntrance(sim, eid)) {
       const x = position.x[eid]!
       const y = position.y[eid]!
-      place(flock, flock.used, eid, screenX(x, y), screenY(x, y) - bird.height, now)
+      const lift = ravenLift(headBase(zoom), zoom, eid === selected)
+      place(flock, flock.used, eid, screenX(x, y), screenY(x, y) - lift, now)
       flock.owner[flock.used] = eid
       flock.used += 1
       continue
@@ -119,7 +150,8 @@ export const syncFlock = (flock: Flock, sim: Sim, now: number): void => {
     flock.stamp[guild] = flock.frame
     const ex = town.entranceX[plot]!
     const ey = town.entranceY[plot]!
-    place(flock, flock.used, guild, screenX(ex, ey), screenY(ex, ey) - bird.entranceLift, now)
+    const lift = ravenLift(entranceBase(zoom), zoom, guild === selectedGuild)
+    place(flock, flock.used, guild, screenX(ex, ey), screenY(ex, ey) - lift, now)
     flock.owner[flock.used] = NO_OWNER
     flock.used += 1
   }

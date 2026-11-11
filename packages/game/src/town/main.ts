@@ -41,7 +41,6 @@ import { createTownLayer, syncTown, townBounds } from '../features/town/ground.t
 import { townProps } from '../features/town/props.ts'
 import {
   attachCamera,
-  fitCamera,
   glideTo,
   KEYBINDS,
   updateCamera,
@@ -52,6 +51,9 @@ import { createHeroLayer, loadAtlas, setProps, syncHeroes, type View } from '../
 import { createBridge, NOBODY } from '../ui/bridge.ts'
 import { createMenu } from '../features/selection/menu.ts'
 import { createFollow } from '../features/selection/follow.ts'
+import { routeKey } from '../features/selection/keys.ts'
+import { createFitter } from '../features/town/fit.ts'
+import { noteZoom, readZoom } from '../features/town/zoom.ts'
 import { DEATH_CAUSES } from '@tokenfall/protocol/hero'
 import death from '@tokenfall/data/death.json'
 import { sceneLength } from '../core/death-scene.ts'
@@ -88,13 +90,7 @@ import { guildLabel } from '../core/groups.ts'
 import { NONE } from '../core/hero-index.ts'
 import { entranceSpot, NO_PLOT } from '../core/layout.ts'
 import { createDungeonModel } from '../features/dungeon/model.ts'
-import {
-  createDungeonView,
-  hideDungeon,
-  showTier,
-  stairsUnder,
-  tierCorners,
-} from '../features/dungeon/view.ts'
+import { createDungeonView, hideDungeon, showTier, stairsUnder } from '../features/dungeon/view.ts'
 import { setAmbient, TOWN_AMBIENT } from '../features/light/light.ts'
 import { groundX, groundY } from '../core/iso.ts'
 import { createCrowns, syncCrowns } from '../features/crown/crowns.ts'
@@ -253,6 +249,7 @@ if (flock !== undefined) {
 const light = createLightLayer(sim, app.screen.width, app.screen.height)
 const heroLight = lightSystem(light, heroes)
 const bubbles = createBubbles(sim)
+bubbles.flock = flock
 const badges = createBadges(sim)
 const boardBadge = createBoardBadge()
 bubbles.avoid = (x, y, halfWidth, halfHeight) => overlapsBadge(badges, x, y, halfWidth, halfHeight)
@@ -358,22 +355,6 @@ const refreshTierStrip = (): void => {
   }
 }
 
-const fitDungeon = (): void => {
-  const { open } = dungeonView
-
-  if (open === undefined) {
-    return
-  }
-
-  fitCamera(
-    camera,
-    tierCorners(sim, open.guild, open.tier),
-    app.screen.width - ROSTER_SPACE,
-    app.screen.height,
-  )
-  camera.x += ROSTER_SPACE / 2 / camera.zoom
-}
-
 const hideTown = (): void => {
   scene.townX = camera.x
   scene.townY = camera.y
@@ -441,7 +422,7 @@ const openDungeon = (guild: number, tier: number): void => {
   dungeonModel.show(guildLabel(sim.groups.guildKeys[guild] ?? ''), tier)
   countTiers(guild)
   dungeonModel.setCounts(scene.counts)
-  fitDungeon()
+  fit.dungeon(true)
 }
 
 const leaveDungeonView = (): void => {
@@ -557,6 +538,24 @@ const dungeonModel = createDungeonModel({
   leave: leaveDungeonView,
 })
 sheet.connect(sim, source.watch, source.prompt)
+const zoomMemory = readZoom(localStorage)
+const fit = createFitter({
+  sim,
+  camera,
+  dungeon: dungeonView,
+  screen: app.screen,
+  roster: ROSTER_SPACE,
+  zoom: zoomMemory,
+})
+
+const fitView = (keepZoom: boolean): void => {
+  if (dungeonView.open === undefined) {
+    fit.town(keepZoom)
+  } else {
+    fit.dungeon(keepZoom)
+  }
+}
+
 const follow = createFollow({
   sim,
   camera,
@@ -658,38 +657,20 @@ camera.onClick = (pointerX, pointerY) => {
   bridge.select(picked)
 }
 
-const fitTown = (): void => {
-  const bounds = townBounds(sim)
-  const corners = [
-    [bounds.minX, bounds.minY],
-    [bounds.maxX, bounds.minY],
-    [bounds.maxX, bounds.maxY],
-    [bounds.minX, bounds.maxY],
-  ] as const
-  const xs = corners.map(([x, y]) => screenX(x, y))
-  const ys = corners.map(([x, y]) => screenY(x, y))
-  fitCamera(
-    camera,
-    {
-      left: Math.min(...xs),
-      right: Math.max(...xs),
-      top: Math.min(...ys),
-      bottom: Math.max(...ys),
-    },
-    app.screen.width - ROSTER_SPACE,
-    app.screen.height,
-  )
-  camera.x += ROSTER_SPACE / 2 / camera.zoom
+const heroKey = (event: KeyboardEvent): void => {
+  const action = routeKey(event, bridge.selected())
+
+  if (action === 'fit') {
+    fitView(false)
+  } else if (action === 'follow') {
+    follow.actions.follow(camera.follow === bridge.selected() ? NOBODY : bridge.selected())
+  } else if (action === 'sheet') {
+    sheet.show(bridge.selected())
+  }
 }
 
 window.addEventListener('keydown', (event) => {
-  if (KEYBINDS.fit.some((key) => key === event.key)) {
-    if (dungeonView.open === undefined) {
-      fitTown()
-    } else {
-      fitDungeon()
-    }
-  }
+  heroKey(event)
 
   if (event.key === TIER_KEYS.leave) {
     if (camera.follow === undefined) {
@@ -702,10 +683,6 @@ window.addEventListener('keydown', (event) => {
   if (event.key === TIER_KEYS.up || event.key === TIER_KEYS.down) {
     event.preventDefault()
     stepTier(event.key === TIER_KEYS.up ? -1 : 1)
-  }
-
-  if (KEYBINDS.sheet.some((key) => key === event.key) && bridge.selected() !== NOBODY) {
-    sheet.show(bridge.selected())
   }
 
   if (KEYBINDS.attention.some((key) => key === event.key)) {
@@ -860,7 +837,7 @@ const paintHud = (now: number): void => {
     `${loop.fps.toFixed(0)} fps`,
     `${heroCount(sim.index)} heroes · ${sim.groups.guildKeys.length} guilds · ${sim.groups.partyWorkspace.length} parties`,
     `town seed ${sim.town.seed} · ${source.label}`,
-    `[q] next who needs you  [f] fit  wasd/drag pan  wheel zoom  click an entrance to go in`,
+    `[q] next who needs you  [f] fit/follow  [c] sheet  wasd/drag pan  wheel zoom  click an entrance to go in`,
     ...(measure === undefined ? [] : [measureLabel(measure), loop.report]),
   ].join('\n')
 }
@@ -890,7 +867,17 @@ const syncAttention = (now: number): void => {
   }
 
   if (flock !== undefined) {
-    syncFlock(flock, sim, now)
+    syncFlock(flock, sim, now, bridge.selected(), camera.zoom)
+  }
+}
+
+const settleCamera = (now: number): void => {
+  if (loop.fitted) {
+    noteZoom(zoomMemory, dungeonView.open !== undefined, camera.zoom, now)
+  } else if (now - started > FIT_AFTER_MS) {
+    loop.fitted = true
+    fit.town(true)
+    openRequestedDungeon()
   }
 }
 
@@ -923,11 +910,7 @@ const frame = (now: number): void => {
 
   heroLight.run(sim, now, dt)
 
-  if (!loop.fitted && now - started > FIT_AFTER_MS) {
-    loop.fitted = true
-    fitTown()
-    openRequestedDungeon()
-  }
+  settleCamera(now)
 
   follow.follow()
   updateCamera(camera, world, app.screen.width, app.screen.height, dt, view)
@@ -949,6 +932,7 @@ const frame = (now: number): void => {
   screen.x = camera.x
   screen.y = camera.y
   screen.zoom = camera.zoom
+
   const overlaid = !off.has('overlay')
   overlay.visible = overlaid
 

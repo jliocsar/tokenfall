@@ -1,6 +1,4 @@
 {
-  "lift": 100,
-  "gap": 6,
   "sheet": { "icon": "", "label": "Character Sheet" },
   "inbox": { "icon": "", "label": "Inbox thread" },
   "follow": { "icon": "", "label": "Follow" },

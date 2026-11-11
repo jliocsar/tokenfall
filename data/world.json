@@ -12,11 +12,18 @@
     "selectedEveryMs": 6000,
     "maxWidth": 220,
     "fontSize": 16,
-    "offsetY": 96,
     "reserveRight": 380,
     "gap": 6,
-    "aboveBadge": 44,
-    "aboveMenu": 38
+    "aboveBadge": 44
+  },
+  "stack": {
+    "head": 60,
+    "gap": 6,
+    "menu": 30,
+    "raven": 54
+  },
+  "zoom": {
+    "saveEveryMs": 500
   },
   "entrance": {
     "everyMs": 250,

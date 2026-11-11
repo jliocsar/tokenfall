@@ -37,9 +37,10 @@ export const KEYBINDS = {
   attention: ['q', 'Q'],
   fit: ['f', 'F'],
   sheet: ['Enter'],
+  character: ['c', 'C'],
 } as const
 
-const clampZoom = (zoom: number): number => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
+export const clampZoom = (zoom: number): number => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom))
 
 const matches = (keys: readonly string[], key: string): boolean => keys.includes(key)
 
