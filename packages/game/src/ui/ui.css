@@ -707,44 +707,28 @@
   flex: 1;
 }
 
-.prompt-box {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.prompt-box textarea {
-  box-sizing: border-box;
-  width: 100%;
-  min-height: 34px;
-  padding: 6px 8px;
-  resize: none;
-  color: var(--ink);
-  background: #14111b;
-  border: 1px solid var(--edge);
-  outline: none;
-  font:
-    15px/20px 'JetBrainsMono Nerd',
-    ui-monospace,
-    monospace;
-}
-
-.prompt-box textarea:focus {
-  border-color: var(--ink-gold);
-}
-
-.prompt-box textarea::placeholder {
-  color: var(--ink-dim);
-}
-
-.prompt-box.disabled textarea {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.prompt-note {
+.typing-hint {
   color: var(--ink-dim);
   font: var(--text-pixel);
+}
+
+.typing-hint.typing-held {
+  color: var(--ink-gold);
+}
+
+.typing-hint.typing-busy {
+  color: var(--raven);
+}
+
+.terminal-frame.typing-held,
+.terminal-frame.typing-asking {
+  border-color: var(--ink-gold);
+  box-shadow: 0 0 0 1px var(--ink-gold);
+}
+
+.terminal-frame .terminal:focus,
+.terminal-frame .terminal:focus-within {
+  outline: none;
 }
 
 .terminal-frame {

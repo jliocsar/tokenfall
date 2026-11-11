@@ -1,8 +1,14 @@
 import { decodeTrusted } from '@tokenfall/protocol/json'
-import { MAX_HERO_ID, type ClientMessage, type Frame } from '@tokenfall/protocol/terminal'
-import type { Prompts } from './prompts.ts'
+import {
+  MAX_HERO_ID,
+  MAX_INPUT,
+  MAX_SCROLL,
+  type ClientMessage,
+  type ControlState,
+  type Frame,
+} from '@tokenfall/protocol/terminal'
 import { request } from './adapters/herdr/client.ts'
-import { openStream, type Stream } from './adapters/herdr/stream.ts'
+import { openStream, type Stream, type StreamMode } from './adapters/herdr/stream.ts'
 import type { DaemonTuning } from './config.ts'
 import type { World } from './world.ts'
 
@@ -20,8 +26,9 @@ export type Terminals = {
 type Wire = {
   readonly kind?: string
   readonly hero?: string
-  readonly id?: number
-  readonly text?: string
+  readonly bytes?: string
+  readonly direction?: string
+  readonly lines?: number
 }
 
 type Watching = {
@@ -41,41 +48,60 @@ type Context = {
   readonly world: World
   readonly tuning: DaemonTuning['terminal']
   readonly watching: Map<Peer, Watching>
-  readonly prompts: Prompts | undefined
 }
 
 type Size = { readonly cols: number; readonly rows: number }
 
 const POLICY_VIOLATION = 1008
+const TAKEN = 'already has an attached client'
+
+const decodeScroll = (wire: Wire): ClientMessage | undefined =>
+  (wire.direction === 'up' || wire.direction === 'down') &&
+  wire.lines !== undefined &&
+  Number.isSafeInteger(wire.lines) &&
+  wire.lines > 0 &&
+  wire.lines <= MAX_SCROLL
+    ? { kind: 'scroll', direction: wire.direction, lines: wire.lines }
+    : undefined
+
+const decodeWire = (wire: Wire): ClientMessage | undefined => {
+  if (wire.kind === 'unwatch' || wire.kind === 'focus' || wire.kind === 'blur') {
+    return { kind: wire.kind }
+  }
+
+  if (wire.kind === 'input') {
+    return wire.bytes !== undefined && wire.bytes.length > 0 && wire.bytes.length <= MAX_INPUT
+      ? { kind: 'input', bytes: wire.bytes }
+      : undefined
+  }
+
+  if (wire.kind === 'scroll') {
+    return decodeScroll(wire)
+  }
+
+  const hero = wire.hero
+
+  return wire.kind === 'watch' && hero !== undefined && hero.length <= MAX_HERO_ID
+    ? { kind: 'watch', hero }
+    : undefined
+}
 
 const decode = (raw: string): ClientMessage | undefined => {
   try {
     const wire = decodeTrusted<Wire | null>(raw)
 
-    if (wire?.kind === 'unwatch') {
-      return { kind: 'unwatch' }
-    }
-
-    const hero = wire?.hero
-
-    if (hero === undefined || hero.length > MAX_HERO_ID) {
-      return undefined
-    }
-
-    if (wire?.kind === 'prompt') {
-      return wire.id !== undefined && Number.isSafeInteger(wire.id) && wire.text !== undefined
-        ? { kind: 'prompt', hero, id: wire.id, text: wire.text }
-        : undefined
-    }
-
-    return wire?.kind === 'watch' ? { kind: 'watch', hero } : undefined
+    return wire === null ? undefined : decodeWire(wire)
   } catch {
     return undefined
   }
 }
 
-const send = (socket: Peer, frame: Frame): void => {
-  socket.send(JSON.stringify(frame))
+const send = (socket: Peer, message: Frame): void => {
+  socket.send(JSON.stringify(message))
+}
+
+const tell = (socket: Peer, state: ControlState): void => {
+  socket.send(JSON.stringify({ kind: 'control', state }))
 }
 
 const readLayout = async (pane: string): Promise<Size | undefined> => {
@@ -86,6 +112,8 @@ const readLayout = async (pane: string): Promise<Size | undefined> => {
     ? undefined
     : { cols: rect.width, rows: rect.height }
 }
+
+const controlling = (watch: Watching): boolean => watch.stream?.mode === 'control'
 
 const stopStream = (watch: Watching): void => {
   watch.stream?.stop()
@@ -109,18 +137,29 @@ const fall = (watch: Watching): void => {
   }
 }
 
-const startStream = (context: Context, watch: Watching): void => {
+const startStream = (context: Context, watch: Watching, mode: StreamMode): void => {
+  const held = { told: false }
   watch.stream = openStream(
-    'observe',
+    mode,
     watch.pane,
     { cols: watch.cols, rows: watch.rows },
     {
       frame: (frame) => {
+        if (mode === 'control' && !held.told) {
+          held.told = true
+          tell(watch.socket, 'held')
+        }
+
         send(watch.socket, { kind: 'frame', hero: watch.hero, alive: true, ...frame })
       },
-      closed: () => {
+      closed: (reason) => {
         watch.stream = undefined
         watch.restartAt = Date.now() + context.tuning.restartMs
+
+        if (mode === 'control') {
+          tell(watch.socket, reason.includes(TAKEN) ? 'busy' : 'released')
+          startStream(context, watch, 'observe')
+        }
       },
     },
   )
@@ -136,9 +175,14 @@ const refresh = async (context: Context, watch: Watching): Promise<void> => {
   }
 
   watch.fallen = false
+
+  if (controlling(watch)) {
+    return
+  }
+
   const size = await readLayout(record.pane)
 
-  if (size === undefined || context.watching.get(watch.socket) !== watch) {
+  if (size === undefined || context.watching.get(watch.socket) !== watch || controlling(watch)) {
     return
   }
 
@@ -149,7 +193,7 @@ const refresh = async (context: Context, watch: Watching): Promise<void> => {
     watch.pane = record.pane
     watch.cols = size.cols
     watch.rows = size.rows
-    startStream(context, watch)
+    startStream(context, watch, 'observe')
   }
 }
 
@@ -196,12 +240,50 @@ const watch = (context: Context, socket: Peer, hero: string): void => {
   tick()
 }
 
-export const createTerminals = (
-  world: World,
-  tuning: DaemonTuning['terminal'],
-  prompts: Prompts | undefined,
-): Terminals => {
-  const context: Context = { world, tuning, watching: new Map(), prompts }
+const focus = (context: Context, watching: Watching): void => {
+  if (controlling(watching) || watching.pane === '' || watching.fallen) {
+    return
+  }
+
+  stopStream(watching)
+  startStream(context, watching, 'control')
+}
+
+const blur = (context: Context, watching: Watching): void => {
+  if (!controlling(watching)) {
+    return
+  }
+
+  stopStream(watching)
+  tell(watching.socket, 'released')
+  startStream(context, watching, 'observe')
+}
+
+const steer = (context: Context, socket: Peer, message: ClientMessage): void => {
+  const watching = context.watching.get(socket)
+
+  if (watching === undefined) {
+    return
+  }
+
+  if (message.kind === 'focus') {
+    focus(context, watching)
+  } else if (message.kind === 'blur') {
+    blur(context, watching)
+  } else if (message.kind === 'input') {
+    watching.stream?.write({ type: 'terminal.input', bytes: message.bytes })
+  } else if (message.kind === 'scroll') {
+    watching.stream?.write({
+      type: 'terminal.scroll',
+      direction: message.direction,
+      lines: message.lines,
+      source: 'wheel',
+    })
+  }
+}
+
+export const createTerminals = (world: World, tuning: DaemonTuning['terminal']): Terminals => {
+  const context: Context = { world, tuning, watching: new Map() }
 
   return {
     receive: (socket, raw) => {
@@ -212,10 +294,10 @@ export const createTerminals = (
         socket.close(POLICY_VIOLATION, 'bad message')
       } else if (message.kind === 'unwatch') {
         drop(context, socket)
-      } else if (message.kind === 'prompt') {
-        context.prompts?.submit(socket, message)
-      } else {
+      } else if (message.kind === 'watch') {
         watch(context, socket, message.hero)
+      } else {
+        steer(context, socket, message)
       }
     },
     drop: (socket) => {

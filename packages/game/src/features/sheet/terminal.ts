@@ -5,8 +5,11 @@ import type { Frame } from '@tokenfall/protocol/terminal'
 export type TerminalView = {
   readonly write: (frame: Frame) => void
   readonly font: (px: number) => void
+  readonly blur: () => void
   readonly destroy: () => void
 }
+
+export type Typed = (bytes: string) => void
 
 type Engine = { ready: Promise<void> | undefined }
 
@@ -27,9 +30,26 @@ const decodeBytes = (base64: string): Uint8Array => {
   return bytes
 }
 
+const nextTask = (): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, 0)
+  })
+
+const encodeText = (text: string): string => {
+  const bytes = new TextEncoder().encode(text)
+  let binary = ''
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+
+  return btoa(binary)
+}
+
 export const mountTerminal = async (
   element: HTMLElement,
   fontPx: number,
+  typed: Typed,
 ): Promise<TerminalView> => {
   await document.fonts.load(TERMINAL_FONT).catch(() => [])
   engine.ready ??= init()
@@ -41,12 +61,15 @@ export const mountTerminal = async (
     fontFamily: sheetText.terminal.fontFamily,
     theme: sheetText.terminal.theme,
     cursorBlink: false,
-    disableStdin: true,
     smoothScrollDuration: 0,
   })
   term.open(element)
+  await nextTask()
   term.blur()
   term.textarea?.blur()
+  term.onData((data) => {
+    typed(encodeText(data))
+  })
   const size = { cols: FALLBACK_COLS, rows: FALLBACK_ROWS }
 
   return {
@@ -69,6 +92,10 @@ export const mountTerminal = async (
     },
     font: (px) => {
       term.options.fontSize = px
+    },
+    blur: () => {
+      term.textarea?.blur()
+      term.blur()
     },
     destroy: () => {
       term.dispose()

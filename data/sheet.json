@@ -25,19 +25,11 @@
       "cursor": "#d9b26a"
     }
   },
-  "prompt": {
-    "placeholder": "Speak to {name}: Enter sends, Shift+Enter adds a line, ↑ brings back an older one",
-    "blocked": "It's waiting on an answer: answer it in Herdr",
-    "notLive": "Prompts can only be sent on live data",
-    "sending": "sending…",
-    "sent": "sent",
-    "outcomes": {
-      "blocked": "It's waiting on an answer: answer it in Herdr",
-      "gone": "That Hero's pane is gone",
-      "refused": "Nothing to send, or too long",
-      "error": "Couldn't reach Herdr"
-    },
-    "maxLines": 5,
-    "history": 20
-  }
+  "typing": {
+    "off": "Click the terminal to type into {name}",
+    "asking": "Connecting to {name}…",
+    "held": "Typing into {name} · Ctrl+] or click outside to stop",
+    "busy": "Another client is typing here; watching only"
+  },
+  "wheelLinePx": 40
 }

@@ -1,5 +1,7 @@
 # One write path: a prompt the person typed
 
+Superseded by ADR 0006 (M8): the prompt box and `agent.prompt` are gone, and the sheet's terminal takes keys through Herdr's terminal control.
+
 Tokenfall was read-only. Its daemon could call only Herdr's read methods, and an allowlist enforced that. From M7 there is one exception: the prompt box under a Character Sheet's terminal sends the text the person typed to that Hero's pane through Herdr's `agent.prompt`.
 
 The exception is kept as narrow as it can be:

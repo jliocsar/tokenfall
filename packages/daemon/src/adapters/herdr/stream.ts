@@ -1,6 +1,6 @@
 import { decodeTrusted } from '@tokenfall/protocol/json'
 
-export type StreamMode = 'observe'
+export type StreamMode = 'observe' | 'control'
 
 export type StreamFrame = {
   readonly cols: number
@@ -14,8 +14,19 @@ export type StreamHandlers = {
   readonly closed: (reason: string) => void
 }
 
+export type StreamCommand =
+  | { readonly type: 'terminal.input'; readonly bytes: string }
+  | {
+      readonly type: 'terminal.scroll'
+      readonly direction: 'up' | 'down'
+      readonly lines: number
+      readonly source: 'wheel'
+    }
+  | { readonly type: 'terminal.release' }
+
 export type Stream = {
   readonly mode: StreamMode
+  readonly write: (command: StreamCommand) => void
   readonly stop: () => void
 }
 
@@ -31,6 +42,7 @@ type StreamRecord = {
 type StreamState = { closed: boolean }
 
 const NEWLINE = '\n'
+const RELEASE_GRACE_MS = 500
 
 export const HERDR_ENV = 'TOKENFALL_HERDR'
 export const EXITED = 'exited'
@@ -87,7 +99,7 @@ export const openStream = (
   handlers: StreamHandlers,
 ): Stream => {
   const child = Bun.spawn(streamArgs(herdrBinary(process.env), mode, pane, size.cols, size.rows), {
-    stdin: 'ignore',
+    stdin: 'pipe',
     stdout: 'pipe',
     stderr: 'ignore',
   })
@@ -131,9 +143,26 @@ export const openStream = (
 
   return {
     mode,
+    write: (command) => {
+      if (mode === 'control' && !state.closed) {
+        void child.stdin.write(`${JSON.stringify(command)}${NEWLINE}`)
+      }
+    },
     stop: () => {
+      const releasing = mode === 'control' && !state.closed
       state.closed = true
-      child.kill()
+
+      if (!releasing) {
+        child.kill()
+
+        return
+      }
+
+      void child.stdin.write(`${JSON.stringify({ type: 'terminal.release' })}${NEWLINE}`)
+      void child.stdin.end()
+      setTimeout(() => {
+        child.kill()
+      }, RELEASE_GRACE_MS).unref()
     },
   }
 }

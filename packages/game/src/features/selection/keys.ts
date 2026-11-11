@@ -5,6 +5,7 @@ export type HeroKey = 'follow' | 'fit' | 'sheet' | 'none'
 export type KeyPress = Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'altKey'>
 
 const NOBODY = -1
+const RELEASE_CODE = 'BracketRight'
 
 const bound = (keys: readonly string[], key: string): boolean => keys.includes(key)
 
@@ -31,3 +32,6 @@ export const routeKey = (press: KeyPress, selected: number): HeroKey => {
 
 export const closesSheet = (press: KeyPress): boolean =>
   !modified(press) && bound(KEYBINDS.character, press.key)
+
+export const releasesTerminal = (press: Pick<KeyboardEvent, 'code' | 'ctrlKey'>): boolean =>
+  press.ctrlKey && press.code === RELEASE_CODE

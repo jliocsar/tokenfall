@@ -1,6 +1,6 @@
 # Tokenfall
 
-An isometric idle RPG that shows the Claude Agents running in Herdr as Heroes. Read-only, with one exception: the Character Sheet's prompt box sends the text the person typed through Herdr's `agent.prompt` (ADR 0005). No other code path may write to a pane.
+An isometric idle RPG that shows the Claude Agents running in Herdr as Heroes. Read-only, with one exception: while the Character Sheet's terminal has focus, the keys the person types go to that pane through `herdr terminal session control` (ADR 0006). No other code path may write to a pane.
 
 ## Source of truth
 
@@ -99,7 +99,7 @@ The daemon saves to `~/.local/state/tokenfall/tokenfall.sqlite` (`tokenfall-dev/
 
 ## Don't
 
-- Write to a Herdr pane, or call any Herdr method outside `events.subscribe`, `agent.list`, `pane.read`, `pane.get`, `pane.list`, `pane.layout` and `tab.list`. The one exception is `agent.prompt` through `sendPrompt`, for a prompt the person typed (ADR 0005). Don't add callers or other write methods without a new ADR.
+- Write to a Herdr pane, or call any Herdr method outside `events.subscribe`, `agent.list`, `pane.read`, `pane.get`, `pane.list`, `pane.layout` and `tab.list`. The one exception is `herdr terminal session control` in `adapters/herdr/stream.ts`, held only while the sheet's terminal has focus and never with `--takeover` (ADR 0006). Don't add callers or other write paths without a new ADR.
 - Create Herdr panes except throwaway ones you close yourself, with `--no-focus`. Never touch the user's panes.
 - `pkill bun` or kill by name: other Bun servers run on this machine. Kill the PID listening on our port.
 - Edit `~/.claude*/settings.json` hooks. Hooks ship only through `plugin/`.

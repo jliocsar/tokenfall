@@ -200,6 +200,7 @@ const pickSource = (): Source => {
           noticeBoard.update(state)
         },
         frame: sheet.receive,
+        control: sheet.control,
       })
 }
 
@@ -537,7 +538,7 @@ const dungeonModel = createDungeonModel({
   },
   leave: leaveDungeonView,
 })
-sheet.connect(sim, source.watch, source.prompt)
+sheet.connect(sim, source.watch, source.steer)
 const zoomMemory = readZoom(localStorage)
 const fit = createFitter({
   sim,

@@ -5,14 +5,13 @@ import { threadUrl } from '@tokenfall/protocol/inbox'
 import { createEffect, createSignal, onCleanup, Show, type Accessor } from 'solid-js'
 import { guildLabel } from '../../core/groups.ts'
 import { NOBODY, type Bridge } from '../../ui/bridge.ts'
-import { closesSheet } from '../selection/keys.ts'
+import { closesSheet, releasesTerminal } from '../selection/keys.ts'
 import { Portrait } from '../../ui/Portrait.tsx'
 import type { InboxModel } from '../ravens/model.ts'
 import { deathText, resumeCommand } from '../death/text.ts'
 import type { HeroRow, Roster } from '../roster/model.ts'
-import type { SheetModel } from './model.ts'
+import type { SheetModel, Typing } from './model.ts'
 import { createFontSize, type FontSize } from './font.ts'
-import { PromptBox } from './PromptBox.tsx'
 import { mountTerminal, type TerminalView } from './terminal.ts'
 
 type SheetProps = {
@@ -28,7 +27,11 @@ type SheetHeadProps = {
   readonly onClose: () => void
 }
 
-type TerminalProps = { readonly sheet: SheetModel; readonly fontPx: Accessor<number> }
+type TerminalProps = {
+  readonly sheet: SheetModel
+  readonly fontPx: Accessor<number>
+  readonly name: string
+}
 
 type TerminalRefs = {
   current: TerminalView | undefined
@@ -49,8 +52,11 @@ const progressOf = (thresholds: Float64Array, level: number, experience: number)
   return Math.min(1, Math.max(0, (experience - floor) / (next - floor)))
 }
 
-const typing = (event: KeyboardEvent): boolean =>
-  event.target instanceof Element && event.target.closest('.prompt-box') !== null
+const inTerminal = (target: EventTarget | null): boolean =>
+  target instanceof Element && target.closest('.terminal') !== null
+
+const hint = (typing: Typing, name: string): string =>
+  sheetText.typing[typing].replace('{name}', name)
 
 const formatTokens = (tokens: number): string =>
   new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(tokens)
@@ -60,6 +66,7 @@ const Terminal = (props: TerminalProps) => {
     current: undefined,
     frame: undefined,
   }
+  const wheel = { rest: 0 }
 
   const toBottom = (): void => {
     const frame = view.frame
@@ -77,9 +84,41 @@ const Terminal = (props: TerminalProps) => {
     })
   })
 
+  createEffect(() => {
+    if (props.sheet.typing() === 'busy') {
+      view.current?.blur()
+    }
+  })
+
+  const onWheel = (event: WheelEvent): void => {
+    event.stopPropagation()
+
+    if (props.sheet.typing() !== 'held') {
+      return
+    }
+
+    event.preventDefault()
+    wheel.rest += event.deltaY / sheetText.wheelLinePx
+    const lines = Math.trunc(wheel.rest)
+
+    if (lines !== 0) {
+      wheel.rest -= lines
+      props.sheet.scroll(lines < 0 ? 'up' : 'down', Math.abs(lines))
+    }
+  }
+
   const start = async (host: HTMLDivElement): Promise<void> => {
-    const mounted = await mountTerminal(host, props.fontPx())
+    host.addEventListener('wheel', onWheel, { capture: true, passive: false })
+    const mounted = await mountTerminal(host, props.fontPx(), props.sheet.input)
     view.current = mounted
+    host.addEventListener('focusin', () => {
+      props.sheet.focus()
+    })
+    host.addEventListener('focusout', (event) => {
+      if (!(event.relatedTarget instanceof Node && host.contains(event.relatedTarget))) {
+        props.sheet.blur()
+      }
+    })
     props.sheet.listen((frame) => {
       mounted.write(frame)
     })
@@ -92,31 +131,67 @@ const Terminal = (props: TerminalProps) => {
   })
 
   return (
-    <div
-      class="terminal-frame"
-      ref={(frame) => {
-        view.frame = frame
-      }}
-    >
+    <>
       <div
-        class="terminal"
-        inert
-        ref={(host) => {
-          void start(host)
+        class={`terminal-frame typing-${props.sheet.typing()}`}
+        ref={(frame) => {
+          view.frame = frame
+          frame.addEventListener('keydown', (event) => {
+            event.stopPropagation()
+          })
         }}
-      />
-      <Show when={!props.sheet.live}>
-        <div class="terminal-note">{sheetText.noTerminal}</div>
+      >
+        <div
+          class="terminal"
+          ref={(host) => {
+            void start(host)
+          }}
+        />
+        <Show when={!props.sheet.live}>
+          <div class="terminal-note">{sheetText.noTerminal}</div>
+        </Show>
+        <Show when={props.sheet.live && props.sheet.terminal() === 'waiting'}>
+          <div class="terminal-note">{sheetText.loading}</div>
+        </Show>
+        <Show when={props.sheet.terminal() === 'fallen'}>
+          <div class="terminal-note">{sheetText.fallen}</div>
+        </Show>
+      </div>
+      <Show when={props.sheet.live && props.sheet.terminal() === 'alive'}>
+        <div class={`typing-hint typing-${props.sheet.typing()}`}>
+          {hint(props.sheet.typing(), props.name)}
+        </div>
       </Show>
-      <Show when={props.sheet.live && props.sheet.terminal() === 'waiting'}>
-        <div class="terminal-note">{sheetText.loading}</div>
-      </Show>
-      <Show when={props.sheet.terminal() === 'fallen'}>
-        <div class="terminal-note">{sheetText.fallen}</div>
-      </Show>
-    </div>
+    </>
   )
 }
+
+const sheetKeys =
+  (sheet: SheetModel) =>
+  (event: KeyboardEvent): void => {
+    if (sheet.open() === NOBODY) {
+      return
+    }
+
+    if (inTerminal(event.target)) {
+      if (releasesTerminal(event)) {
+        event.preventDefault()
+        event.stopImmediatePropagation()
+
+        if (event.target instanceof HTMLElement) {
+          event.target.blur()
+        }
+      }
+
+      return
+    }
+
+    event.stopImmediatePropagation()
+
+    if (event.key === ESCAPE || closesSheet(event)) {
+      sheet.hide()
+    }
+  }
 
 const Fallen = (props: { readonly hero: HeroRow }) => {
   const [copied, setCopied] = createSignal(false)
@@ -190,21 +265,7 @@ export const Sheet = (props: SheetProps) => {
     return url === null || thread === '' ? undefined : threadUrl(url, thread)
   }
 
-  const onKey = (event: KeyboardEvent): void => {
-    if (props.sheet.open() === NOBODY) {
-      return
-    }
-
-    if (typing(event) && event.key !== ESCAPE) {
-      return
-    }
-
-    event.stopImmediatePropagation()
-
-    if (event.key === ESCAPE || closesSheet(event)) {
-      props.sheet.hide()
-    }
-  }
+  const onKey = sheetKeys(props.sheet)
 
   window.addEventListener('keydown', onKey, { capture: true })
   onCleanup(() => {
@@ -285,13 +346,7 @@ export const Sheet = (props: SheetProps) => {
                   when={hero().standing === 'dead'}
                   fallback={
                     <div class="terminal-column">
-                      <Terminal sheet={props.sheet} fontPx={font.px} />
-                      <PromptBox
-                        name={hero().name}
-                        live={props.sheet.live}
-                        blocked={hero().blocked}
-                        send={props.sheet.prompt}
-                      />
+                      <Terminal sheet={props.sheet} fontPx={font.px} name={hero().name} />
                     </div>
                   }
                 >

@@ -2,7 +2,7 @@ import type { ChronicleLine } from './chronicle.ts'
 import type { HeroEvent } from './events.ts'
 import type { HeroInfo } from './hero.ts'
 import type { InboxState } from './inbox.ts'
-import type { Frame, PromptResult } from './terminal.ts'
+import type { Control, Frame } from './terminal.ts'
 
 export type Snapshot = {
   readonly kind: 'snapshot'
@@ -24,7 +24,7 @@ export type Delta = {
   readonly inbox?: InboxState
 }
 
-export type ServerMessage = Snapshot | Delta | Frame | PromptResult
+export type ServerMessage = Snapshot | Delta | Frame | Control
 
 export type RecordingHeader = {
   readonly kind: 'recording'
@@ -36,5 +36,5 @@ export type RecordingHeader = {
 
 export type RecordingLine = RecordingHeader | HeroEvent
 
-export const PROTOCOL_VERSION = 7
+export const PROTOCOL_VERSION = 8
 export const RECORDING_VERSION = 5

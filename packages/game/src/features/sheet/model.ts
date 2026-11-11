@@ -1,4 +1,12 @@
-import type { Frame, PromptOutcome } from '@tokenfall/protocol/terminal'
+import type {
+  Blur,
+  ControlState,
+  Focus,
+  Frame,
+  Input,
+  Scroll,
+  ScrollDirection,
+} from '@tokenfall/protocol/terminal'
 import { createSignal, type Accessor } from 'solid-js'
 import { heroOfEntity } from '../../core/hero-index.ts'
 import type { Sim } from '../../core/sim.ts'
@@ -6,15 +14,17 @@ import { NOBODY } from '../../ui/bridge.ts'
 
 export type Watcher = (hero: string | null) => void
 
-export type Prompter = (hero: string, text: string) => Promise<PromptOutcome>
+export type Steer = (message: Focus | Blur | Input | Scroll) => void
 
 export type FrameListener = (frame: Frame) => void
 
 export type TerminalState = 'waiting' | 'alive' | 'fallen'
 
+export type Typing = 'off' | 'asking' | 'held' | 'busy'
+
 type SheetState = {
   watcher: Watcher | undefined
-  prompter: Prompter | undefined
+  steer: Steer | undefined
   listener: FrameListener | undefined
   readonly pending: Frame[]
   hero: string | null
@@ -24,16 +34,27 @@ type SheetState = {
 export type SheetModel = {
   readonly open: Accessor<number>
   readonly terminal: Accessor<TerminalState>
+  readonly typing: Accessor<Typing>
   readonly live: boolean
   readonly show: (eid: number) => void
   readonly hide: () => void
   readonly receive: (frame: Frame) => void
+  readonly control: (state: ControlState) => void
   readonly listen: (listener: FrameListener | undefined) => void
-  readonly connect: (sim: Sim, watcher: Watcher | undefined, prompter: Prompter | undefined) => void
-  readonly prompt: (text: string) => Promise<PromptOutcome>
+  readonly connect: (sim: Sim, watcher: Watcher | undefined, steer: Steer | undefined) => void
+  readonly focus: () => void
+  readonly blur: () => void
+  readonly input: (bytes: string) => void
+  readonly scroll: (direction: ScrollDirection, lines: number) => void
 }
 
 const PENDING_FRAMES = 256
+
+const TYPING_OF = {
+  held: 'held',
+  busy: 'busy',
+  released: 'off',
+} as const satisfies Record<ControlState, Typing>
 
 export const bufferFrame = (pending: Frame[], frame: Frame): void => {
   if (frame.full || pending.length >= PENDING_FRAMES) {
@@ -56,18 +77,26 @@ const deliver = (state: SheetState, frame: Frame): void => {
 export const createSheet = (): SheetModel => {
   const [open, setOpen] = createSignal(NOBODY)
   const [terminal, setTerminal] = createSignal<TerminalState>('waiting')
+  const [typing, setTyping] = createSignal<Typing>('off')
   const state: SheetState = {
     watcher: undefined,
-    prompter: undefined,
+    steer: undefined,
     listener: undefined,
     pending: [],
     hero: null,
     sim: undefined,
   }
 
+  const reset = (): void => {
+    state.pending.length = 0
+    setTerminal('waiting')
+    setTyping('off')
+  }
+
   return {
     open,
     terminal,
+    typing,
     get live() {
       return state.watcher !== undefined
     },
@@ -77,16 +106,14 @@ export const createSheet = (): SheetModel => {
       }
 
       state.hero = heroOfEntity(state.sim.index, eid)
-      state.pending.length = 0
-      setTerminal('waiting')
+      reset()
       setOpen(eid)
       state.watcher?.(state.hero)
     },
     hide: () => {
       state.hero = null
-      state.pending.length = 0
+      reset()
       setOpen(NOBODY)
-      setTerminal('waiting')
       state.watcher?.(null)
     },
     receive: (frame) => {
@@ -100,6 +127,11 @@ export const createSheet = (): SheetModel => {
         deliver(state, frame)
       }
     },
+    control: (next) => {
+      if (state.hero !== null) {
+        setTyping(TYPING_OF[next])
+      }
+    },
     listen: (listener) => {
       state.listener = listener
 
@@ -109,14 +141,32 @@ export const createSheet = (): SheetModel => {
 
       state.pending.length = 0
     },
-    connect: (sim, watcher, prompter) => {
+    connect: (sim, watcher, steer) => {
       state.sim = sim
       state.watcher = watcher
-      state.prompter = prompter
+      state.steer = steer
     },
-    prompt: (text) =>
-      state.prompter === undefined || state.hero === null
-        ? Promise.resolve('error')
-        : state.prompter(state.hero, text),
+    focus: () => {
+      if (state.steer !== undefined && (typing() === 'off' || typing() === 'busy')) {
+        setTyping('asking')
+        state.steer({ kind: 'focus' })
+      }
+    },
+    blur: () => {
+      if (typing() === 'asking' || typing() === 'held') {
+        state.steer?.({ kind: 'blur' })
+        setTyping('off')
+      }
+    },
+    input: (bytes) => {
+      if (typing() === 'asking' || typing() === 'held') {
+        state.steer?.({ kind: 'input', bytes })
+      }
+    },
+    scroll: (direction, lines) => {
+      if (typing() === 'held') {
+        state.steer?.({ kind: 'scroll', direction, lines })
+      }
+    },
   }
 }
