@@ -4,7 +4,7 @@ import type { PortraitAtlas } from './bridge.ts'
 type PortraitProps = {
   readonly atlas: PortraitAtlas
   readonly sheet: number
-  readonly size: 'small' | 'large'
+  readonly size: 'small' | 'large' | 'sheet'
   readonly status?: string
 }
 

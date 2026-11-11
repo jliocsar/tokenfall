@@ -27,5 +27,28 @@
     "held": "Typing into {name} · Ctrl+] or click outside to stop",
     "busy": "Another client is typing here; watching only"
   },
-  "wheelLinePx": 40
+  "wheelLinePx": 40,
+  "depth": "Depth",
+  "levelShort": "Lv",
+  "tokens": "tokens",
+  "toNext": "{percent}% to Lv {level}",
+  "maxLevel": "the highest Level",
+  "floors": "floors {from}–{to}",
+  "openInbox": "Open in Inbox",
+  "icons": {
+    "quest": "",
+    "guild": "",
+    "party": "",
+    "minions": "󰊠",
+    "depth": "",
+    "inbox": "",
+    "standing": {
+      "raven": "",
+      "loot": "󰜦",
+      "working": "",
+      "idle": "",
+      "unknown": "",
+      "dead": "󰚌"
+    }
+  }
 }

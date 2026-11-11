@@ -624,75 +624,272 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(200px, 260px) 1fr;
+  grid-template-columns: 300px 1fr;
   gap: 12px;
 }
 
 .sheet-facts {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 14px;
   min-width: 0;
   overflow: auto;
+  padding-right: 4px;
+  font: 16px/1.25 var(--font-read);
 }
 
-.sheet-facts .name {
-  color: var(--ink-gold);
-  font-size: 24px;
-  font-weight: 700;
+.sheet-facts .nf {
+  font-family: 'JetBrainsMono Nerd', ui-monospace, monospace;
+  font-style: normal;
+  font-weight: 400;
 }
 
-.sheet-facts .meta,
-.sheet-facts .xp-label {
-  color: var(--ink-dim);
-  font: var(--text-pixel);
+.facts-portrait {
+  position: relative;
+  flex: none;
+  margin-bottom: 4px;
 }
 
-.sheet-facts .xp {
-  height: 8px;
-  border: 1px solid var(--edge);
-  background: rgb(0 0 0 / 0.4);
+.portrait-frame {
+  border: 14px solid transparent;
+  border-image: var(--frame-window) 16 fill / 16px stretch;
+  image-rendering: pixelated;
 }
 
-.sheet-facts .xp-fill {
-  height: 100%;
-  background: var(--ink-gold);
-}
-
-.sheet-facts .badge {
-  align-self: flex-start;
-}
-
-.sheet-facts dl {
+.portrait-stage {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 10px;
-  margin: 4px 0;
+  place-items: end center;
+  height: 212px;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 70%, #3a2f2a 0%, #1d1924 70%);
 }
 
-.sheet-facts dt {
+.portrait-stage .portrait {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.level-ring {
+  position: absolute;
+  right: 2px;
+  bottom: -14px;
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 3px var(--backdrop),
+    0 4px 10px rgb(0 0 0 / 0.6);
+}
+
+.level-core {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid #5a4a30;
+  border-radius: 50%;
+  background: #1a1520;
+  line-height: 1;
+}
+
+.level-core .key {
   color: var(--ink-dim);
-  font: var(--text-pixel);
+  font: 700 11px/1 var(--font-pixel);
+  letter-spacing: 1px;
 }
 
-.sheet-facts dd {
-  margin: 0;
-  font: var(--text-small);
+.level-core .value {
+  color: var(--ink-gold);
+  font: 700 26px/1 var(--font-pixel);
+  margin-top: -2px;
+}
+
+.name-plate {
+  padding: 4px 70px 0 2px;
+}
+
+.name-plate .hero-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-gold);
+  font: 700 30px/1 var(--font-read);
   overflow-wrap: anywhere;
 }
 
-.sheet-facts .waiting {
-  color: var(--raven);
-  font: var(--text-small);
+.name-plate .hero-name .crown {
+  flex: none;
+  width: 22px;
+  height: 17px;
 }
 
-.sheet-facts .waiting.wait-3 {
-  color: var(--loot);
+.name-plate .epithet {
+  margin-top: 2px;
+  color: var(--ink);
+  font: italic 17px/1.2 var(--font-read);
 }
 
-.sheet-facts .inbox-link {
+.name-plate .class-line {
+  margin-top: 6px;
+  color: var(--ink-dim);
+  font: 600 14px/1.3 var(--font-read);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.sheet-facts .experience .bar {
+  position: relative;
+  height: 14px;
+  border: 1px solid var(--edge);
+  background: #0b0910;
+  box-shadow: inset 0 0 0 1px #000;
+}
+
+.sheet-facts .experience .fill {
+  position: absolute;
+  inset: 1px auto 1px 1px;
+  background: linear-gradient(#f3d58f, #c9973e 60%, #a8772b);
+}
+
+.sheet-facts .experience .bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 29px, rgb(0 0 0 / 0.45) 29px 30px);
+}
+
+.sheet-facts .experience .row {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  color: var(--ink-dim);
+  font: 16px/1 var(--font-pixel);
+}
+
+.sheet-facts .experience .row b {
   color: var(--ink-gold);
-  font: var(--text-pixel);
+  font-weight: 700;
+}
+
+.standing-chip {
+  --tone: var(--unknown);
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--tone) 55%, transparent);
+  background: color-mix(in srgb, var(--tone) 10%, transparent);
+  color: var(--tone);
+}
+
+.standing-chip.standing-raven {
+  --tone: var(--raven);
+}
+
+.standing-chip.standing-raven.wait-3 {
+  --tone: var(--loot);
+}
+
+.standing-chip.standing-loot {
+  --tone: var(--loot);
+}
+
+.standing-chip.standing-working {
+  --tone: var(--working);
+}
+
+.standing-chip.standing-idle {
+  --tone: var(--idle);
+}
+
+.standing-chip.standing-dead {
+  --tone: var(--dead);
+}
+
+.standing-chip .nf {
+  flex: none;
+  font-size: 22px;
+}
+
+.standing-chip .title {
+  font: 700 16px/1 var(--font-pixel);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.standing-chip .detail {
+  margin-top: 2px;
+  color: var(--ink);
+  font: italic 15px/1.2 var(--font-read);
+}
+
+.sheet-facts .stats {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid #2c2535;
+}
+
+.sheet-facts .stat {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  gap: 0 8px;
+  align-items: start;
+  padding: 8px 2px;
+  border-bottom: 1px solid #2c2535;
+}
+
+.sheet-facts .stat .nf {
+  color: var(--ink-gold);
+  font-size: 18px;
+  line-height: 22px;
+  text-align: center;
+}
+
+.sheet-facts .stat .key {
+  color: var(--ink-dim);
+  font: 700 13px/1 var(--font-pixel);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.sheet-facts .stat .value {
+  margin-top: 3px;
+  color: var(--ink);
+  font: 17px/1.25 var(--font-read);
+  overflow-wrap: anywhere;
+}
+
+.sheet-facts .stat .value.number {
+  font: 700 18px/1 var(--font-pixel);
+}
+
+.sheet-facts .stat .value small {
+  color: var(--ink-dim);
+  font: italic 14px var(--font-read);
+}
+
+.panel .inbox-button {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--edge);
+  background: #2a2333;
+  box-shadow: inset 0 1px 0 rgb(255 240 210 / 0.08);
+  color: var(--ink-gold);
+  font: 700 16px/1 var(--font-pixel);
+  text-decoration: none;
+}
+
+.panel .inbox-button:hover {
+  background: #342b40;
 }
 
 .terminal-column {
@@ -874,11 +1071,6 @@
   fill: #f2c14e;
   stroke: #5a3d10;
   stroke-width: 1;
-}
-
-.sheet-facts .died {
-  color: var(--ink-dim);
-  font: var(--text-small);
 }
 
 .fallen-frame {

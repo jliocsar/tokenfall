@@ -1,4 +1,14 @@
 {
-  "small": { "crop": [48, 50, 32, 32], "scale": 1 },
-  "large": { "crop": [42, 46, 44, 44], "scale": 2 }
+  "small": {
+    "crop": [48, 50, 32, 32],
+    "scale": 1
+  },
+  "large": {
+    "crop": [42, 46, 44, 44],
+    "scale": 2
+  },
+  "sheet": {
+    "crop": [34, 46, 60, 52],
+    "scale": 4
+  }
 }
