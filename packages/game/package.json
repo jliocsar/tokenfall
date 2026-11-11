@@ -14,8 +14,8 @@
     "@tokenfall/data": "workspace:*",
     "@tokenfall/protocol": "workspace:*",
     "@tokenfall/replay": "workspace:*",
-    "@wterm/dom": "0.5.9",
     "bitecs": "0.4.0",
+    "ghostty-web": "0.4.0-next.21.g640db46",
     "pixi.js": "8.22.0",
     "rot-js": "2.2.1",
     "solid-js": "1.9.16"

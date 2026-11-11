@@ -1,7 +1,7 @@
 import type { ChronicleLine } from '@tokenfall/protocol/chronicle'
 import type { HeroEvent } from '@tokenfall/protocol/events'
 import type { InboxState } from '@tokenfall/protocol/inbox'
-import type { ClientMessage, PromptOutcome, Screen } from '@tokenfall/protocol/terminal'
+import type { ClientMessage, Frame, PromptOutcome } from '@tokenfall/protocol/terminal'
 import { decodeTrusted } from '@tokenfall/protocol/json'
 import type { ServerMessage } from '@tokenfall/protocol/wire'
 import { createSynthetic } from '@tokenfall/replay/synthetic'
@@ -29,12 +29,12 @@ export type ChronicleSink = (lines: readonly ChronicleLine[]) => void
 
 export type InboxSink = (state: InboxState) => void
 
-export type ScreenSink = (screen: Screen) => void
+export type FrameSink = (frame: Frame) => void
 
 export type Sinks = {
   readonly chronicle: ChronicleSink
   readonly inbox: InboxSink
-  readonly screen: ScreenSink
+  readonly frame: FrameSink
 }
 
 export type SyntheticSettings = {
@@ -89,7 +89,7 @@ export const syntheticSource = (settings: SyntheticSettings, now: number): Sourc
 }
 
 const receive = (pending: HeroEvent[], message: ServerMessage): void => {
-  if (message.kind === 'screen' || message.kind === 'prompt.result') {
+  if (message.kind === 'frame' || message.kind === 'prompt.result') {
     return
   }
 
@@ -169,8 +169,8 @@ export const daemonSource = (url: string, sinks: Sinks): Source => {
     socket.addEventListener('message', (event: MessageEvent<string>) => {
       const message = decodeTrusted<ServerMessage>(event.data)
 
-      if (message.kind === 'screen') {
-        sinks.screen(message)
+      if (message.kind === 'frame') {
+        sinks.frame(message)
 
         return
       }

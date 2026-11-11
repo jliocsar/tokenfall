@@ -11,7 +11,7 @@ import type { InboxModel } from '../ravens/model.ts'
 import { deathText, resumeCommand } from '../death/text.ts'
 import type { HeroRow, Roster } from '../roster/model.ts'
 import type { SheetModel } from './model.ts'
-import { createFontSize, rowHeightOf, type FontSize } from './font.ts'
+import { createFontSize, type FontSize } from './font.ts'
 import { PromptBox } from './PromptBox.tsx'
 import { mountTerminal, type TerminalView } from './terminal.ts'
 
@@ -32,7 +32,6 @@ type TerminalProps = { readonly sheet: SheetModel; readonly fontPx: Accessor<num
 
 type TerminalRefs = {
   current: TerminalView | undefined
-  host: HTMLDivElement | undefined
   frame: HTMLDivElement | undefined
 }
 
@@ -59,17 +58,7 @@ const formatTokens = (tokens: number): string =>
 const Terminal = (props: TerminalProps) => {
   const view: TerminalRefs = {
     current: undefined,
-    host: undefined,
     frame: undefined,
-  }
-
-  const size = (px: number): void => {
-    const host = view.host
-
-    if (host !== undefined && view.current !== undefined) {
-      host.style.setProperty('--term-font-size', `${px}px`)
-      host.style.setProperty('--term-row-height', `${rowHeightOf(px)}px`)
-    }
   }
 
   const toBottom = (): void => {
@@ -81,34 +70,24 @@ const Terminal = (props: TerminalProps) => {
   }
 
   createEffect(() => {
-    size(props.fontPx())
+    const px = props.fontPx()
+    view.current?.font(px)
     requestAnimationFrame(() => {
       requestAnimationFrame(toBottom)
     })
   })
 
-  createEffect(() => {
-    const screen = props.sheet.screen()
-
-    if (screen?.alive === true && view.current !== undefined) {
-      view.current.paint(screen)
-    }
-  })
-
   const start = async (host: HTMLDivElement): Promise<void> => {
-    const mounted = await mountTerminal(host)
+    const mounted = await mountTerminal(host, props.fontPx())
     view.current = mounted
-    size(props.fontPx())
-    const screen = props.sheet.screen()
-
-    if (screen?.alive === true) {
-      mounted.paint(screen)
-    }
-
+    props.sheet.listen((frame) => {
+      mounted.write(frame)
+    })
     requestAnimationFrame(toBottom)
   }
 
   onCleanup(() => {
+    props.sheet.listen(undefined)
     view.current?.destroy()
   })
 
@@ -123,17 +102,16 @@ const Terminal = (props: TerminalProps) => {
         class="terminal"
         inert
         ref={(host) => {
-          view.host = host
           void start(host)
         }}
       />
       <Show when={!props.sheet.live}>
         <div class="terminal-note">{sheetText.noTerminal}</div>
       </Show>
-      <Show when={props.sheet.live && props.sheet.screen() === undefined}>
+      <Show when={props.sheet.live && props.sheet.terminal() === 'waiting'}>
         <div class="terminal-note">{sheetText.loading}</div>
       </Show>
-      <Show when={props.sheet.screen()?.alive === false}>
+      <Show when={props.sheet.terminal() === 'fallen'}>
         <div class="terminal-note">{sheetText.fallen}</div>
       </Show>
     </div>

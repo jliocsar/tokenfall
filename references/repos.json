@@ -18,10 +18,10 @@
     "keep": ["packages/solid/src", "packages/solid/store/src", "packages/solid/web/src", "README.md", "LICENSE"]
   },
   {
-    "name": "wterm",
-    "url": "https://github.com/vercel-labs/wterm",
-    "ref": "v0.5.9",
-    "keep": ["packages", "docs", "README.md", "LICENSE"]
+    "name": "ghostty-web",
+    "url": "https://github.com/coder/ghostty-web",
+    "ref": "640db4617c69a73ccebce437cebc598c7f73cdb7",
+    "keep": ["lib", "docs", "README.md", "AGENTS.md", "LICENSE"]
   },
   {
     "name": "rot",

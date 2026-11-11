@@ -13,6 +13,7 @@ type Reference = {
 const ROOT = join(import.meta.dir, '..', '..')
 const TARGET = join(ROOT, 'references', 'repos')
 const DROP = ['node_modules', '__tests__', 'test', 'tests', '*.png', '*.jpg', '*.gif', '*.mp4', '*.webm', '*.webp', '*.jpeg', '*.woff', '*.woff2', '*.ttf']
+const COMMIT = /^[0-9a-f]{40}$/u
 
 const exists = (path: string): Promise<boolean> =>
   stat(path).then(
@@ -22,7 +23,15 @@ const exists = (path: string): Promise<boolean> =>
 
 const refresh = async (reference: Reference): Promise<void> => {
   const scratch = await mkdtemp(join(ROOT, 'tmp', `ref-${reference.name}-`))
-  await $`git -c advice.detachedHead=false clone --quiet --depth 1 --filter=blob:none --branch ${reference.ref} ${reference.url} ${scratch}`
+
+  if (COMMIT.test(reference.ref)) {
+    await $`git -C ${scratch} init --quiet`
+    await $`git -C ${scratch} fetch --quiet --depth 1 --filter=blob:none ${reference.url} ${reference.ref}`
+    await $`git -c advice.detachedHead=false -C ${scratch} checkout --quiet FETCH_HEAD`
+  } else {
+    await $`git -c advice.detachedHead=false clone --quiet --depth 1 --filter=blob:none --branch ${reference.ref} ${reference.url} ${scratch}`
+  }
+
   const destination = join(TARGET, reference.name)
   await rm(destination, { recursive: true, force: true })
   await mkdir(destination, { recursive: true })

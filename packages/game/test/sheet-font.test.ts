@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import sheetText from '@tokenfall/data/sheet.json'
 import { createRoot } from 'solid-js'
-import { clampFont, createFontSize, readFont, rowHeightOf } from '../src/features/sheet/font.ts'
+import type { Frame } from '@tokenfall/protocol/terminal'
+import { clampFont, createFontSize, readFont } from '../src/features/sheet/font.ts'
+import { bufferFrame } from '../src/features/sheet/model.ts'
 
 const memory = (): Storage => {
   const values = new Map<string, string>()
@@ -50,8 +52,27 @@ describe('sheet font', () => {
 
     expect(readFont(storage)).toBe(sheetText.maxFontPx)
   })
+})
 
-  test('rows grow with the font', () => {
-    expect(rowHeightOf(20)).toBeGreaterThan(rowHeightOf(sheetText.minFontPx))
+const frame = (full: boolean, bytes: string): Frame => ({
+  kind: 'frame',
+  hero: 'h',
+  alive: true,
+  cols: 80,
+  rows: 24,
+  full,
+  bytes,
+})
+
+describe('frames before the terminal mounts', () => {
+  test('keep from the last full frame on, and drop diffs with no full frame', () => {
+    const pending: Frame[] = []
+    bufferFrame(pending, frame(false, 'lost'))
+    bufferFrame(pending, frame(true, 'a'))
+    bufferFrame(pending, frame(false, 'b'))
+    bufferFrame(pending, frame(true, 'c'))
+    bufferFrame(pending, frame(false, 'd'))
+
+    expect(pending.map((entry) => entry.bytes)).toEqual(['c', 'd'])
   })
 })

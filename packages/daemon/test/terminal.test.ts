@@ -1,18 +1,19 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { UnixSocketListener } from 'bun'
 import { decodeTrusted } from '@tokenfall/protocol/json'
-import type { Screen } from '@tokenfall/protocol/terminal'
+import type { Frame } from '@tokenfall/protocol/terminal'
 import { ALLOWED_METHODS, assertAllowed } from '../src/adapters/herdr/client.ts'
+import { HERDR_ENV } from '../src/adapters/herdr/stream.ts'
 import { migrate, openDatabase } from '../src/store/db.ts'
 import { MIGRATIONS } from '../src/store/migrations/index.ts'
 import { createTerminals, type Peer } from '../src/terminal.ts'
 import { createWorld, observe, type World } from '../src/world.ts'
 
 type FakeSocket = {
-  readonly sent: Screen[]
+  readonly sent: Frame[]
   closed: number | undefined
   readonly socket: Peer
 }
@@ -21,7 +22,8 @@ type Listening = { listener: UnixSocketListener<undefined> | undefined }
 
 type Herdr = {
   readonly methods: string[]
-  text: string
+  cols: number
+  rows: number
 }
 
 type Call = {
@@ -30,29 +32,59 @@ type Call = {
   readonly params?: { readonly pane_id?: string }
 }
 
-const PLOTS = 8
-const TUNING = { pollMs: 20, layoutMs: 1000 }
-const SETTLE_MS = 120
-const COLS = 90
-const ROWS = 30
+type Spawned = { readonly args: readonly string[]; readonly pid: number }
 
-const herdr: Herdr = { methods: [], text: 'hello\nworld' }
+const PLOTS = 8
+const TUNING = { layoutMs: 60, restartMs: 60 }
+const SETTLE_MS = 400
+const HELLO = Buffer.from('hello').toString('base64')
+
+const herdr: Herdr = { methods: [], cols: 90, rows: 30 }
 const folder = mkdtempSync(join(tmpdir(), 'tokenfall-terminal-'))
 const path = join(folder, 'herdr.sock')
-const previous = process.env['HERDR_SOCKET_PATH']
+const fake = join(folder, 'herdr')
+const log = join(folder, 'spawned.log')
+const previous = { socket: process.env['HERDR_SOCKET_PATH'], herdr: process.env[HERDR_ENV] }
 const server: Listening = { listener: undefined }
+
+const FAKE_HERDR = `#!${process.execPath}
+const args = process.argv.slice(2)
+require('node:fs').appendFileSync(${JSON.stringify(log)}, JSON.stringify({ args, pid: process.pid }) + '\\n')
+const at = (flag) => Number(args[args.indexOf(flag) + 1])
+console.log(JSON.stringify({ type: 'terminal.frame', seq: 1, encoding: 'ansi', width: at('--cols'), height: at('--rows'), full: true, bytes: ${JSON.stringify(HELLO)} }))
+setInterval(() => undefined, 1000)
+`
 
 const reply = (call: Call): string => {
   const pane = call.params?.pane_id ?? ''
 
-  if (call.method === 'pane.layout') {
-    return JSON.stringify({
-      id: call.id,
-      result: { layout: { panes: [{ pane_id: pane, rect: { width: COLS, height: ROWS } }] } },
-    })
-  }
+  return JSON.stringify({
+    id: call.id,
+    result: {
+      layout: { panes: [{ pane_id: pane, rect: { width: herdr.cols, height: herdr.rows } }] },
+    },
+  })
+}
 
-  return JSON.stringify({ id: call.id, result: { read: { text: herdr.text } } })
+const spawned = (): Spawned[] => {
+  try {
+    return readFileSync(log, 'utf8')
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => decodeTrusted<Spawned>(line))
+  } catch {
+    return []
+  }
+}
+
+const alive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch {
+    return false
+  }
 }
 
 const freshWorld = (): World => {
@@ -79,28 +111,31 @@ const freshWorld = (): World => {
 const heroOf = (world: World): string => [...world.live.keys()][0] ?? ''
 
 const fakeSocket = (): FakeSocket => {
-  const fake: FakeSocket = {
+  const peer: FakeSocket = {
     sent: [],
     closed: undefined,
     socket: {
       send: (raw: string) => {
-        fake.sent.push(decodeTrusted<Screen>(raw))
+        peer.sent.push(decodeTrusted<Frame>(raw))
 
         return 0
       },
       close: (code: number) => {
-        fake.closed = code
+        peer.closed = code
       },
     },
   }
 
-  return fake
+  return peer
 }
 
 const settle = (): Promise<void> => Bun.sleep(SETTLE_MS)
 
 beforeAll(() => {
   process.env['HERDR_SOCKET_PATH'] = path
+  process.env[HERDR_ENV] = fake
+  writeFileSync(fake, FAKE_HERDR)
+  chmodSync(fake, 0o755)
   server.listener = Bun.listen({
     unix: path,
     socket: {
@@ -121,51 +156,72 @@ afterAll(() => {
   server.listener?.stop(true)
   rmSync(folder, { recursive: true, force: true })
 
-  if (previous === undefined) {
-    delete process.env['HERDR_SOCKET_PATH']
-  } else {
-    process.env['HERDR_SOCKET_PATH'] = previous
+  for (const [key, value] of [
+    ['HERDR_SOCKET_PATH', previous.socket],
+    [HERDR_ENV, previous.herdr],
+  ] as const) {
+    if (value === undefined) {
+      delete process.env[key]
+    } else {
+      process.env[key] = value
+    }
   }
 })
 
 describe('terminal view', () => {
-  test('a watch sends the visible screen at the pane size, once per change', async () => {
-    herdr.text = 'hello\nworld'
+  test('a watch observes the pane at its own size and forwards the frames', async () => {
+    rmSync(log, { force: true })
+    herdr.cols = 90
+    herdr.rows = 30
     const world = freshWorld()
     const terminals = createTerminals(world, TUNING, undefined)
-    const fake = fakeSocket()
+    const peer = fakeSocket()
     const hero = heroOf(world)
-    terminals.receive(fake.socket, JSON.stringify({ kind: 'watch', hero }))
+    terminals.receive(peer.socket, JSON.stringify({ kind: 'watch', hero }))
     await settle()
-
-    expect(fake.sent).toEqual([
-      { kind: 'screen', hero, alive: true, cols: COLS, rows: 2, text: 'hello\nworld' },
-    ])
-
-    herdr.text = 'hello\nthere'
-    await settle()
-
-    expect(fake.sent.length).toBe(2)
-    expect(fake.sent[1]?.text).toBe('hello\nthere')
-
     terminals.stop()
+
+    expect(spawned()[0]?.args).toEqual([
+      'terminal',
+      'session',
+      'observe',
+      'w1:p1',
+      '--cols',
+      '90',
+      '--rows',
+      '30',
+    ])
+    expect(peer.sent[0]).toEqual({
+      kind: 'frame',
+      hero,
+      alive: true,
+      cols: 90,
+      rows: 30,
+      full: true,
+      bytes: HELLO,
+    })
   })
 
-  test('only the watching socket gets the screen', async () => {
+  test('a resized pane restarts the observer at the new size', async () => {
+    rmSync(log, { force: true })
+    herdr.cols = 90
+    herdr.rows = 30
     const world = freshWorld()
     const terminals = createTerminals(world, TUNING, undefined)
-    const watcher = fakeSocket()
-    const bystander = fakeSocket()
-    terminals.receive(watcher.socket, JSON.stringify({ kind: 'watch', hero: heroOf(world) }))
+    terminals.receive(fakeSocket().socket, JSON.stringify({ kind: 'watch', hero: heroOf(world) }))
     await settle()
-
-    expect(watcher.sent.length).toBe(1)
-    expect(bystander.sent.length).toBe(0)
-
+    herdr.cols = 120
+    await settle()
     terminals.stop()
+    const runs = spawned()
+
+    expect(runs.length).toBe(2)
+    expect(runs[1]?.args).toContain('120')
+    expect(alive(runs[0]?.pid ?? 0)).toBe(false)
   })
 
-  test('unwatch and close stop the polling', async () => {
+  test('unwatch and close stop the observer', async () => {
+    rmSync(log, { force: true })
     const world = freshWorld()
     const terminals = createTerminals(world, TUNING, undefined)
     const first = fakeSocket()
@@ -176,27 +232,23 @@ describe('terminal view', () => {
     terminals.receive(first.socket, JSON.stringify({ kind: 'unwatch' }))
     terminals.drop(second.socket)
     await settle()
-    const calls = herdr.methods.length
-    herdr.text = 'changed after the close'
-    await settle()
+    const runs = spawned()
 
-    expect(herdr.methods.length).toBe(calls)
-    expect(first.sent.length).toBe(1)
-    expect(second.sent.length).toBe(1)
+    expect(runs.length).toBe(2)
+    expect(runs.some((run) => alive(run.pid))).toBe(false)
   })
 
-  test('a missing Hero gets one fallen screen', async () => {
+  test('a missing Hero gets one fallen frame', async () => {
     const world = freshWorld()
     const terminals = createTerminals(world, TUNING, undefined)
-    const fake = fakeSocket()
-    terminals.receive(fake.socket, JSON.stringify({ kind: 'watch', hero: 'nobody' }))
+    const peer = fakeSocket()
+    terminals.receive(peer.socket, JSON.stringify({ kind: 'watch', hero: 'nobody' }))
     await settle()
-
-    expect(fake.sent).toEqual([
-      { kind: 'screen', hero: 'nobody', alive: false, cols: 0, rows: 0, text: '' },
-    ])
-
     terminals.stop()
+
+    expect(peer.sent).toEqual([
+      { kind: 'frame', hero: 'nobody', alive: false, cols: 0, rows: 0, full: true, bytes: '' },
+    ])
   })
 
   test('a bad message closes the socket', () => {
@@ -211,7 +263,8 @@ describe('terminal view', () => {
     expect(tooLong.closed).toBe(1008)
   })
 
-  test('only read methods reach herdr', async () => {
+  test('only read methods reach the herdr socket, and the CLI only observes', async () => {
+    rmSync(log, { force: true })
     const world = freshWorld()
     const terminals = createTerminals(world, TUNING, undefined)
     terminals.receive(fakeSocket().socket, JSON.stringify({ kind: 'watch', hero: heroOf(world) }))
@@ -220,6 +273,8 @@ describe('terminal view', () => {
 
     expect(herdr.methods.every((method) => ALLOWED_METHODS.has(method))).toBe(true)
     expect(herdr.methods).toContain('pane.layout')
+    expect(spawned().every((run) => run.args[2] === 'observe')).toBe(true)
+    expect(spawned().some((run) => run.args.includes('--takeover'))).toBe(false)
   })
 })
 

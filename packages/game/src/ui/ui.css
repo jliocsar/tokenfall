@@ -757,8 +757,6 @@
 }
 
 .terminal-frame .terminal {
-  --term-font-family: 'JetBrainsMono Nerd', ui-monospace, monospace;
-  --term-bg: #0b0a10;
   width: max-content;
   min-width: 100%;
   min-height: 100%;

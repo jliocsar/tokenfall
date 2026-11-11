@@ -199,7 +199,7 @@ const pickSource = (): Source => {
           inbox.set(state)
           noticeBoard.update(state)
         },
-        screen: sheet.receive,
+        frame: sheet.receive,
       })
 }
 

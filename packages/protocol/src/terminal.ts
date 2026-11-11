@@ -21,13 +21,14 @@ export type PromptResult = {
   readonly outcome: PromptOutcome
 }
 
-export type Screen = {
-  readonly kind: 'screen'
+export type Frame = {
+  readonly kind: 'frame'
   readonly hero: HeroId
   readonly alive: boolean
   readonly cols: number
   readonly rows: number
-  readonly text: string
+  readonly full: boolean
+  readonly bytes: string
 }
 
 export const MAX_HERO_ID = 200

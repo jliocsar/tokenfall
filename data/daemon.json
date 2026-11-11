@@ -20,8 +20,8 @@
     "scanMs": 10000
   },
   "terminal": {
-    "pollMs": 500,
-    "layoutMs": 2000
+    "layoutMs": 2000,
+    "restartMs": 1000
   },
   "seen": {
     "pollMs": 3000,

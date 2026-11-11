@@ -1,73 +1,77 @@
-import '@wterm/dom/src/terminal.css'
-import { WTerm } from '@wterm/dom'
-import type { Screen } from '@tokenfall/protocol/terminal'
+import sheetText from '@tokenfall/data/sheet.json'
+import { init, Terminal } from 'ghostty-web'
+import type { Frame } from '@tokenfall/protocol/terminal'
 
 export type TerminalView = {
-  readonly paint: (screen: Screen) => void
+  readonly write: (frame: Frame) => void
+  readonly font: (px: number) => void
   readonly destroy: () => void
 }
 
+type Engine = { ready: Promise<void> | undefined }
+
 const TERMINAL_FONT = '400 14px "JetBrainsMono Nerd"'
-const HOME_AND_CLEAR = '\u001B[H\u001B[2J'
 const FALLBACK_COLS = 80
 const FALLBACK_ROWS = 24
-const ESC = 27
-const FINAL_LOW = 64
-const FINAL_HIGH = 126
-const NEWLINE = 10
 
-const widest = (text: string): number => {
-  let best = 0
-  let width = 0
-  let escaping = false
+const engine: Engine = { ready: undefined }
 
-  for (let i = 0; i < text.length; i++) {
-    const code = text.charCodeAt(i)
+const decodeBytes = (base64: string): Uint8Array => {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
 
-    if (code === NEWLINE) {
-      best = Math.max(best, width)
-      width = 0
-    } else if (code === ESC) {
-      escaping = true
-      i += 1
-    } else if (escaping) {
-      escaping = code < FINAL_LOW || code > FINAL_HIGH
-    } else {
-      width += 1
-    }
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i)
   }
 
-  return Math.max(best, width)
+  return bytes
 }
 
-export const mountTerminal = async (element: HTMLElement): Promise<TerminalView> => {
+export const mountTerminal = async (
+  element: HTMLElement,
+  fontPx: number,
+): Promise<TerminalView> => {
   await document.fonts.load(TERMINAL_FONT).catch(() => [])
-  const term = new WTerm(element, {
+  engine.ready ??= init()
+  await engine.ready
+  const term = new Terminal({
     cols: FALLBACK_COLS,
     rows: FALLBACK_ROWS,
-    autoResize: false,
-    scrollbackLines: 0,
+    fontSize: fontPx,
+    fontFamily: sheetText.terminal.fontFamily,
+    theme: sheetText.terminal.theme,
     cursorBlink: false,
-    onData: () => undefined,
+    disableStdin: true,
+    smoothScrollDuration: 0,
   })
-  await term.init()
+  term.open(element)
+  term.blur()
+  term.textarea?.blur()
   const size = { cols: FALLBACK_COLS, rows: FALLBACK_ROWS }
 
   return {
-    paint: (screen) => {
-      const cols = screen.cols > 0 ? screen.cols : Math.max(1, widest(screen.text))
-      const rows = Math.max(1, screen.rows)
-
-      if (cols !== size.cols || rows !== size.rows) {
-        size.cols = cols
-        size.rows = rows
-        term.resize(cols, rows)
+    write: (frame) => {
+      if (
+        frame.cols > 0 &&
+        frame.rows > 0 &&
+        (frame.cols !== size.cols || frame.rows !== size.rows)
+      ) {
+        size.cols = frame.cols
+        size.rows = frame.rows
+        term.resize(frame.cols, frame.rows)
       }
 
-      term.write(HOME_AND_CLEAR + screen.text.replace(/\n$/u, '').replaceAll('\n', '\r\n'))
+      const bytes = decodeBytes(frame.bytes)
+
+      if (bytes.length > 0) {
+        term.write(bytes)
+      }
+    },
+    font: (px) => {
+      term.options.fontSize = px
     },
     destroy: () => {
-      term.destroy()
+      term.dispose()
     },
   }
 }

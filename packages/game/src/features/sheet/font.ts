@@ -19,8 +19,6 @@ export const readFont = (storage: FontStorage): number => {
   return saved > 0 ? clampFont(saved) : sheetText.fontPx
 }
 
-export const rowHeightOf = (px: number): number => Math.ceil(px * sheetText.lineHeight)
-
 export const createFontSize = (storage: FontStorage): FontSize => {
   const [px, setPx] = createSignal(readFont(storage))
 
