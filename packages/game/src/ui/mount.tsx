@@ -15,6 +15,8 @@ import type { Bridge } from './bridge.ts'
 import { DevPanel } from './DevPanel.tsx'
 import type { DungeonModel } from '../features/dungeon/model.ts'
 import { TierStrip } from '../features/dungeon/TierStrip.tsx'
+import { FollowChip, HeroMenu } from '../features/selection/HeroMenu.tsx'
+import type { MenuActions, MenuModel } from '../features/selection/menu.ts'
 import './skins/dusk.css'
 import './ui.css'
 
@@ -29,10 +31,12 @@ export type UiModels = {
   readonly board: NoticeBoard
   readonly onBoard: () => void
   readonly dungeon: DungeonModel
+  readonly menu: MenuModel
+  readonly actions: MenuActions
 }
 
 export const mountUi = (bridge: Bridge, mode: UiMode, models: UiModels, root: HTMLElement): Ui => {
-  const { chronicle, inbox, sheet, board, onBoard, dungeon } = models
+  const { chronicle, inbox, sheet, board, onBoard, dungeon, menu, actions } = models
   const roster = createRoot(() => createRoster(bridge.sim))
   render(
     () => (
@@ -40,7 +44,9 @@ export const mountUi = (bridge: Bridge, mode: UiMode, models: UiModels, root: HT
         <Show when={mode.debug}>
           <DevPanel bridge={bridge} source={mode.source} />
         </Show>
+        <HeroMenu bridge={bridge} roster={roster} inbox={inbox} menu={menu} actions={actions} />
         <Banner inbox={inbox} />
+        <FollowChip roster={roster} menu={menu} />
         <TierStrip model={dungeon} />
         <Sheet bridge={bridge} roster={roster} inbox={inbox} sheet={sheet} />
         <aside class="roster panel">

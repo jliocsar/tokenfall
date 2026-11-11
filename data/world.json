@@ -15,7 +15,8 @@
     "offsetY": 96,
     "reserveRight": 380,
     "gap": 6,
-    "aboveBadge": 44
+    "aboveBadge": 44,
+    "aboveMenu": 38
   },
   "entrance": {
     "everyMs": 250,

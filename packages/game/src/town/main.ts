@@ -50,6 +50,8 @@ import {
 } from '../render/camera.ts'
 import { createHeroLayer, loadAtlas, setProps, syncHeroes, type View } from '../render/heroes.ts'
 import { createBridge, NOBODY } from '../ui/bridge.ts'
+import { createMenu } from '../features/selection/menu.ts'
+import { createFollow } from '../features/selection/follow.ts'
 import { DEATH_CAUSES } from '@tokenfall/protocol/hero'
 import death from '@tokenfall/data/death.json'
 import { sceneLength } from '../core/death-scene.ts'
@@ -216,6 +218,7 @@ const town = createTownLayer()
 const heroes = createHeroLayer(sim, atlas, texture, ['succeeding'])
 const dungeonView = createDungeonView(heroes.textures[0]!, heroes.propTextures)
 const inside = stateFlags(sim.machine, ['warping-in', 'delving'])
+const menu = createMenu()
 const scene = {
   townX: 0,
   townY: 0,
@@ -472,6 +475,7 @@ const stepTier = (delta: number): void => {
   }
 
   const tier = Math.min(dungeonTuning.tiers.length - 1, Math.max(0, open.tier + delta))
+  camera.follow = undefined
 
   if (tier !== open.tier) {
     openDungeon(open.guild, tier)
@@ -553,10 +557,36 @@ const dungeonModel = createDungeonModel({
   leave: leaveDungeonView,
 })
 sheet.connect(sim, source.watch)
+const follow = createFollow({
+  sim,
+  camera,
+  view,
+  menu,
+  dungeon: dungeonView,
+  hidden: heroes.hidden,
+  inside,
+  selected: bridge.selected,
+  sheetOpen: sheet.open,
+  screen: app.screen,
+  openDungeon,
+  leaveDungeon: leaveDungeonView,
+  showSheet: sheet.show,
+  focus: focusHero,
+})
+
 const ui = mountUi(
   bridge,
   { source: source.label, debug: settings.debug },
-  { chronicle, inbox, sheet, board: noticeBoard, onBoard: focusBoard, dungeon: dungeonModel },
+  {
+    chronicle,
+    inbox,
+    sheet,
+    board: noticeBoard,
+    onBoard: focusBoard,
+    dungeon: dungeonModel,
+    menu,
+    actions: follow.actions,
+  },
   element('ui'),
 )
 
@@ -619,6 +649,7 @@ camera.onClick = (pointerX, pointerY) => {
   const guild = badge >= 0 ? badge : entranceAt(worldX, worldY)
 
   if (picked === NOBODY && guild >= 0) {
+    camera.follow = undefined
     openDungeon(guild, deepestTier(guild))
 
     return
@@ -661,7 +692,11 @@ window.addEventListener('keydown', (event) => {
   }
 
   if (event.key === TIER_KEYS.leave) {
-    leaveDungeonView()
+    if (camera.follow === undefined) {
+      leaveDungeonView()
+    } else {
+      camera.follow = undefined
+    }
   }
 
   if (event.key === TIER_KEYS.up || event.key === TIER_KEYS.down) {
@@ -894,6 +929,7 @@ const frame = (now: number): void => {
     openRequestedDungeon()
   }
 
+  follow.follow()
   updateCamera(camera, world, app.screen.width, app.screen.height, dt, view)
   glow.position.copyFrom(world.position)
   glow.scale.copyFrom(world.scale)
@@ -902,6 +938,7 @@ const frame = (now: number): void => {
   syncMonsterView(now)
   deathWave(now)
   syncSelectionMarker(marker, sim, bridge.selected())
+  follow.menu()
   syncAttention(now)
 
   syncEffects(effects, sim, now)

@@ -337,6 +337,75 @@
   font: var(--text-pixel);
   pointer-events: none;
 }
+.hero-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 4px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.menu-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  box-sizing: border-box;
+  padding: 0;
+  color: var(--ink);
+  background: #1d1924;
+  border: 1px solid var(--edge);
+  box-shadow:
+    inset 0 1px 0 rgb(255 240 210 / 0.08),
+    0 2px 0 rgb(0 0 0 / 0.5);
+  font:
+    16px/1 'JetBrainsMono Nerd',
+    ui-monospace,
+    monospace;
+  text-decoration: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.menu-button:hover,
+.menu-button.active {
+  color: var(--ink-gold);
+  border-color: var(--ink-gold);
+}
+
+.menu-button::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  font: var(--text-pixel);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.menu-button:hover::after {
+  opacity: 1;
+}
+
+.follow-chip {
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  color: var(--ink-gold);
+  font: var(--text-pixel);
+  pointer-events: none;
+}
+
 .hud {
   right: 356px;
   bottom: 8px;

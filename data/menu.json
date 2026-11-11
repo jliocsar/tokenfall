@@ -1,0 +1,10 @@
+{
+  "lift": 100,
+  "gap": 6,
+  "sheet": { "icon": "", "label": "Character Sheet" },
+  "inbox": { "icon": "", "label": "Inbox thread" },
+  "follow": { "icon": "", "label": "Follow" },
+  "unfollow": { "icon": "", "label": "Stop following" },
+  "dungeon": { "icon": "", "label": "Open its Dungeon" },
+  "following": "following {name} · Esc stops"
+}

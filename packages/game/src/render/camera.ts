@@ -16,6 +16,7 @@ export type Camera = {
   readonly keys: Set<string>
   targetX?: number | undefined
   targetY?: number | undefined
+  follow?: number | undefined
   onClick?: ((pointerX: number, pointerY: number) => void) | undefined
 }
 
@@ -70,6 +71,7 @@ export const attachCamera = (canvas: HTMLCanvasElement, camera: Camera): void =>
     if (drag.travel > CLICK_SLOP) {
       camera.targetX = undefined
       camera.targetY = undefined
+      camera.follow = undefined
     }
 
     camera.x -= (event.clientX - drag.x) / camera.zoom
@@ -116,6 +118,7 @@ export const updateCamera = (
   if (panX !== 0 || panY !== 0) {
     camera.targetX = undefined
     camera.targetY = undefined
+    camera.follow = undefined
   }
 
   if (camera.targetX !== undefined && camera.targetY !== undefined) {

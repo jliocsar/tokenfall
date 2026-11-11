@@ -296,7 +296,8 @@ export const syncBubbles = (
       continue
     }
 
-    bubble.box.position.set(Math.round(out[0]!), Math.round(out[1]!))
+    const raise = bubble.eid === selected ? tuning.aboveMenu : 0
+    bubble.box.position.set(Math.round(out[0]!), Math.round(out[1]! - raise))
     bubble.box.alpha = Math.min(1, (tuning.lifeMs - age) / tuning.fadeMs)
     active += 1
   }
