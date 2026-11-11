@@ -118,6 +118,7 @@ type Settings = {
   readonly dungeon: number | undefined
   readonly deaths: boolean
   readonly combat: boolean
+  readonly debug: boolean
 }
 
 type HordeView = { layer: HordeLayer | undefined; loading: boolean }
@@ -150,6 +151,7 @@ const readSettings = (): Settings => {
     dungeon: params.has('dungeon') ? Number(params.get('dungeon') ?? 0) : undefined,
     deaths: params.has('deaths'),
     combat: params.has('combat') || plan?.combat === true,
+    debug: params.has('debug') || params.has('heroes') || plan !== undefined,
   }
 }
 
@@ -266,6 +268,7 @@ const view: View = { left: 0, top: 0, right: 0, bottom: 0 }
 const profile = createProfile(SIM_SYSTEMS)
 const events: HeroEvent[] = []
 const hud = element('hud')
+hud.hidden = !settings.debug
 const loop = {
   last: started,
   nextHud: 0,
@@ -552,7 +555,7 @@ const dungeonModel = createDungeonModel({
 sheet.connect(sim, source.watch)
 const ui = mountUi(
   bridge,
-  source.label,
+  { source: source.label, debug: settings.debug },
   { chronicle, inbox, sheet, board: noticeBoard, onBoard: focusBoard, dungeon: dungeonModel },
   element('ui'),
 )
@@ -812,6 +815,12 @@ const furnishTown = (): void => {
 }
 
 const paintHud = (now: number): void => {
+  loop.nextHud = now + HUD_EVERY_MS
+
+  if (!settings.debug) {
+    return
+  }
+
   hud.textContent = [
     `${loop.fps.toFixed(0)} fps`,
     `${heroCount(sim.index)} heroes · ${sim.groups.guildKeys.length} guilds · ${sim.groups.partyWorkspace.length} parties`,
@@ -819,7 +828,6 @@ const paintHud = (now: number): void => {
     `[q] next who needs you  [f] fit  wasd/drag pan  wheel zoom  click an entrance to go in`,
     ...(measure === undefined ? [] : [measureLabel(measure), loop.report]),
   ].join('\n')
-  loop.nextHud = now + HUD_EVERY_MS
 }
 
 const report = (text: string): void => {

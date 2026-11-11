@@ -10,6 +10,12 @@
   "loading": "reading the terminal…",
   "fallen": "This Hero has fallen; its terminal is gone.",
   "noTerminal": "The terminal is only shown on live data.",
-  "minFontPx": 6,
-  "maxFontPx": 14
+  "smaller": "A−",
+  "bigger": "A+",
+  "close": "close",
+  "fontPx": 15,
+  "minFontPx": 10,
+  "maxFontPx": 24,
+  "stepPx": 1,
+  "lineHeight": 1.2
 }

@@ -86,6 +86,14 @@
   position: relative;
 }
 
+.roster-scroll,
+.notice-board,
+.sheet-facts,
+.terminal-frame {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--ink-gold) 45%, var(--edge)) rgb(0 0 0 / 0.25);
+}
+
 .roster-track {
   position: relative;
 }
@@ -293,8 +301,8 @@
   pointer-events: none;
 }
 .hud {
-  top: 8px;
-  left: 8px;
+  right: 356px;
+  bottom: 8px;
   padding: 2px 4px;
   font: var(--text-pixel);
   white-space: pre;
@@ -319,8 +327,22 @@
   pointer-events: none;
 }
 
+.dock-top-left {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  max-height: calc(100vh - 16px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.dock-top-left > .panel,
 .dock-left > .panel {
   position: relative;
+  top: auto;
   left: auto;
   bottom: auto;
   pointer-events: auto;
@@ -438,22 +460,66 @@
 
 .sheet {
   position: relative;
-  display: grid;
-  grid-template-columns: minmax(220px, 1fr) 2fr;
-  gap: 16px;
-  width: 80vw;
-  height: 80vh;
-  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 96vw;
+  height: 92vh;
+  padding: 4px 8px 8px;
 }
 
-.sheet .close {
-  position: absolute;
-  top: -6px;
-  right: -4px;
-  background: none;
-  border: none;
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: #1d1924;
+  border: 1px solid var(--edge);
+}
+
+.sheet-head .title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-gold);
+  font-size: 20px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sheet-head .tool {
+  min-width: 30px;
+  height: 26px;
+  padding: 0 6px;
+  background: #2a2333;
+  border: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 rgb(255 240 210 / 0.08);
   cursor: pointer;
-  font-size: 18px;
+  font: var(--text-pixel);
+}
+
+.sheet-head .tool:hover:not(:disabled) {
+  border-color: var(--ink-gold);
+  color: var(--ink-gold);
+}
+
+.sheet-head .tool:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sheet-head .close {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) 1fr;
+  gap: 12px;
 }
 
 .sheet-facts {
@@ -526,7 +592,8 @@
 .terminal-frame {
   position: relative;
   min-width: 0;
-  overflow: hidden;
+  min-height: 0;
+  overflow: auto;
   border: 1px solid var(--edge);
   background: #0b0a10;
 }
@@ -534,10 +601,13 @@
 .terminal-frame .terminal {
   --term-font-family: 'JetBrainsMono Nerd', ui-monospace, monospace;
   --term-bg: #0b0a10;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  padding: 0;
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  overflow: visible;
+  padding: 4px 6px;
+  border-radius: 0;
   box-shadow: none;
 }
 

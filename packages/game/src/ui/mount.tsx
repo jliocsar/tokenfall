@@ -1,4 +1,4 @@
-import { createRoot } from 'solid-js'
+import { createRoot, Show } from 'solid-js'
 import { render } from 'solid-js/web'
 import { Chronicle } from '../features/chronicle/Chronicle.tsx'
 import type { ChronicleModel } from '../features/chronicle/model.ts'
@@ -20,6 +20,8 @@ import './ui.css'
 
 export type Ui = { readonly roster: Roster }
 
+export type UiMode = { readonly source: string; readonly debug: boolean }
+
 export type UiModels = {
   readonly chronicle: ChronicleModel
   readonly inbox: InboxModel
@@ -29,27 +31,26 @@ export type UiModels = {
   readonly dungeon: DungeonModel
 }
 
-export const mountUi = (
-  bridge: Bridge,
-  source: string,
-  models: UiModels,
-  root: HTMLElement,
-): Ui => {
+export const mountUi = (bridge: Bridge, mode: UiMode, models: UiModels, root: HTMLElement): Ui => {
   const { chronicle, inbox, sheet, board, onBoard, dungeon } = models
   const roster = createRoot(() => createRoster(bridge.sim))
   render(
     () => (
       <>
-        <DevPanel bridge={bridge} source={source} />
+        <Show when={mode.debug}>
+          <DevPanel bridge={bridge} source={mode.source} />
+        </Show>
         <Banner inbox={inbox} />
         <TierStrip model={dungeon} />
-        <NoticeList board={board} inbox={inbox} />
         <Sheet bridge={bridge} roster={roster} inbox={inbox} sheet={sheet} />
         <aside class="roster panel">
           <RosterTree bridge={bridge} roster={roster} board={board} onBoard={onBoard} />
         </aside>
-        <div class="dock-left">
+        <div class="dock-top-left">
           <HeroCard bridge={bridge} roster={roster} inbox={inbox} sheet={sheet} />
+          <NoticeList board={board} inbox={inbox} />
+        </div>
+        <div class="dock-left">
           <Chronicle bridge={bridge} model={chronicle} />
         </div>
       </>

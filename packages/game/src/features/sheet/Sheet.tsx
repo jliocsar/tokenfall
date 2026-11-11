@@ -2,7 +2,7 @@ import death from '@tokenfall/data/death.json'
 import ravens from '@tokenfall/data/ravens.json'
 import sheetText from '@tokenfall/data/sheet.json'
 import { threadUrl } from '@tokenfall/protocol/inbox'
-import { createEffect, createSignal, onCleanup, Show } from 'solid-js'
+import { createEffect, createSignal, onCleanup, Show, type Accessor } from 'solid-js'
 import { guildLabel } from '../../core/groups.ts'
 import { NOBODY, type Bridge } from '../../ui/bridge.ts'
 import { Portrait } from '../../ui/Portrait.tsx'
@@ -10,6 +10,7 @@ import type { InboxModel } from '../ravens/model.ts'
 import { deathText, resumeCommand } from '../death/text.ts'
 import type { HeroRow, Roster } from '../roster/model.ts'
 import type { SheetModel } from './model.ts'
+import { createFontSize, rowHeightOf, type FontSize } from './font.ts'
 import { mountTerminal, type TerminalView } from './terminal.ts'
 
 type SheetProps = {
@@ -19,12 +20,21 @@ type SheetProps = {
   readonly sheet: SheetModel
 }
 
-type TerminalProps = { readonly sheet: SheetModel }
+type SheetHeadProps = {
+  readonly name: string
+  readonly font: FontSize
+  readonly onClose: () => void
+}
 
-type TerminalRefs = { current: TerminalView | undefined; host: HTMLDivElement | undefined }
+type TerminalProps = { readonly sheet: SheetModel; readonly fontPx: Accessor<number> }
+
+type TerminalRefs = {
+  current: TerminalView | undefined
+  host: HTMLDivElement | undefined
+  frame: HTMLDivElement | undefined
+}
 
 const ESCAPE = 'Escape'
-const CHAR_WIDTH = 0.6
 const PERCENT = 100
 
 const progressOf = (thresholds: Float64Array, level: number, experience: number): number => {
@@ -45,25 +55,37 @@ const Terminal = (props: TerminalProps) => {
   const view: TerminalRefs = {
     current: undefined,
     host: undefined,
+    frame: undefined,
   }
 
-  const fit = (cols: number): void => {
+  const size = (px: number): void => {
     const host = view.host
 
-    if (host !== undefined && cols > 0) {
-      const size = Math.max(
-        sheetText.minFontPx,
-        Math.min(sheetText.maxFontPx, host.clientWidth / (cols * CHAR_WIDTH)),
-      )
-      host.style.setProperty('--term-font-size', `${size.toFixed(1)}px`)
+    if (host !== undefined && view.current !== undefined) {
+      host.style.setProperty('--term-font-size', `${px}px`)
+      host.style.setProperty('--term-row-height', `${rowHeightOf(px)}px`)
     }
   }
+
+  const toBottom = (): void => {
+    const frame = view.frame
+
+    if (frame !== undefined) {
+      frame.scrollTop = frame.scrollHeight
+    }
+  }
+
+  createEffect(() => {
+    size(props.fontPx())
+    requestAnimationFrame(() => {
+      requestAnimationFrame(toBottom)
+    })
+  })
 
   createEffect(() => {
     const screen = props.sheet.screen()
 
     if (screen?.alive === true && view.current !== undefined) {
-      fit(screen.cols)
       view.current.paint(screen)
     }
   })
@@ -71,12 +93,14 @@ const Terminal = (props: TerminalProps) => {
   const start = async (host: HTMLDivElement): Promise<void> => {
     const mounted = await mountTerminal(host)
     view.current = mounted
+    size(props.fontPx())
     const screen = props.sheet.screen()
 
     if (screen?.alive === true) {
-      fit(screen.cols)
       mounted.paint(screen)
     }
+
+    requestAnimationFrame(toBottom)
   }
 
   onCleanup(() => {
@@ -84,7 +108,12 @@ const Terminal = (props: TerminalProps) => {
   })
 
   return (
-    <div class="terminal-frame">
+    <div
+      class="terminal-frame"
+      ref={(frame) => {
+        view.frame = frame
+      }}
+    >
       <div
         class="terminal"
         inert
@@ -133,8 +162,38 @@ const Fallen = (props: { readonly hero: HeroRow }) => {
   )
 }
 
+const SheetHead = (props: SheetHeadProps) => (
+  <header class="sheet-head">
+    <span class="title">{props.name}</span>
+    <button
+      type="button"
+      class="tool"
+      disabled={props.font.px() <= sheetText.minFontPx}
+      onClick={() => {
+        props.font.step(-1)
+      }}
+    >
+      {sheetText.smaller}
+    </button>
+    <button
+      type="button"
+      class="tool"
+      disabled={props.font.px() >= sheetText.maxFontPx}
+      onClick={() => {
+        props.font.step(1)
+      }}
+    >
+      {sheetText.bigger}
+    </button>
+    <button type="button" class="tool close" aria-label={sheetText.close} onClick={props.onClose}>
+      ×
+    </button>
+  </header>
+)
+
 export const Sheet = (props: SheetProps) => {
   const sim = () => props.bridge.sim
+  const font = createFontSize(localStorage)
 
   const row = () => {
     const eid = props.sheet.open()
@@ -175,64 +234,73 @@ export const Sheet = (props: SheetProps) => {
         return (
           <div class="sheet-backdrop">
             <section class="sheet panel" role="dialog" aria-label={hero().fullName}>
-              <button
-                type="button"
-                class="close"
-                onClick={() => {
+              <SheetHead
+                name={hero().fullName}
+                font={font}
+                onClose={() => {
                   props.sheet.hide()
                 }}
-              >
-                ×
-              </button>
-              <div class="sheet-facts">
-                <Portrait
-                  atlas={props.bridge.portraits}
-                  sheet={hero().sheet}
-                  size="large"
-                  status={hero().standing}
-                />
-                <div class="name">{hero().fullName}</div>
-                <div class="meta">
-                  {hero().stranger
-                    ? sheetText.stranger
-                    : `Lv ${hero().level} ${hero().className} · ${hero().personality}`}
-                </div>
-                <div class="xp" title={`${formatTokens(experience())} tokens`}>
-                  <div class="xp-fill" style={{ width: `${(progress() * PERCENT).toFixed(1)}%` }} />
-                </div>
-                <div class="xp-label">
-                  {`${formatTokens(experience())} ${sheetText.experience}`}
-                </div>
-                <div class={`badge standing-${hero().standing}`}>{hero().standing}</div>
-                <Show when={hero().standing === 'dead' && hero().cause !== null}>
-                  <div class="died">
-                    {deathText(hero().cause, hero().diedAt, performance.now() + sim().clockOffset)}
+              />
+              <div class="sheet-body">
+                <div class="sheet-facts">
+                  <Portrait
+                    atlas={props.bridge.portraits}
+                    sheet={hero().sheet}
+                    size="large"
+                    status={hero().standing}
+                  />
+                  <div class="meta">
+                    {hero().stranger
+                      ? sheetText.stranger
+                      : `Lv ${hero().level} ${hero().className} · ${hero().personality}`}
                   </div>
-                </Show>
-                <dl>
-                  <dt>{sheetText.quest}</dt>
-                  <dd>{hero().quest || sheetText.noQuest}</dd>
-                  <dt>{sheetText.guild}</dt>
-                  <dd>{guildLabel(sim().groups.guildKeys[hero().guild] ?? '')}</dd>
-                  <dt>{sheetText.party}</dt>
-                  <dd>{sim().groups.partyWorkspace[hero().party] ?? ''}</dd>
-                  <dt>{sheetText.minions}</dt>
-                  <dd>{sim().stores.hero.minions[eid] ?? 0}</dd>
-                </dl>
-                <Show when={hero().waiting}>
-                  <div class={`waiting wait-${hero().wait}`}>{hero().waiting}</div>
-                </Show>
-                <Show when={inboxLink(hero().ravenThread)}>
-                  {(href) => (
-                    <a class="inbox-link" href={href()} target="_blank" rel="noopener">
-                      {ravens.openInbox}
-                    </a>
-                  )}
+                  <div class="xp" title={`${formatTokens(experience())} tokens`}>
+                    <div
+                      class="xp-fill"
+                      style={{ width: `${(progress() * PERCENT).toFixed(1)}%` }}
+                    />
+                  </div>
+                  <div class="xp-label">
+                    {`${formatTokens(experience())} ${sheetText.experience}`}
+                  </div>
+                  <div class={`badge standing-${hero().standing}`}>{hero().standing}</div>
+                  <Show when={hero().standing === 'dead' && hero().cause !== null}>
+                    <div class="died">
+                      {deathText(
+                        hero().cause,
+                        hero().diedAt,
+                        performance.now() + sim().clockOffset,
+                      )}
+                    </div>
+                  </Show>
+                  <dl>
+                    <dt>{sheetText.quest}</dt>
+                    <dd>{hero().quest || sheetText.noQuest}</dd>
+                    <dt>{sheetText.guild}</dt>
+                    <dd>{guildLabel(sim().groups.guildKeys[hero().guild] ?? '')}</dd>
+                    <dt>{sheetText.party}</dt>
+                    <dd>{sim().groups.partyWorkspace[hero().party] ?? ''}</dd>
+                    <dt>{sheetText.minions}</dt>
+                    <dd>{sim().stores.hero.minions[eid] ?? 0}</dd>
+                  </dl>
+                  <Show when={hero().waiting}>
+                    <div class={`waiting wait-${hero().wait}`}>{hero().waiting}</div>
+                  </Show>
+                  <Show when={inboxLink(hero().ravenThread)}>
+                    {(href) => (
+                      <a class="inbox-link" href={href()} target="_blank" rel="noopener">
+                        {ravens.openInbox}
+                      </a>
+                    )}
+                  </Show>
+                </div>
+                <Show
+                  when={hero().standing === 'dead'}
+                  fallback={<Terminal sheet={props.sheet} fontPx={font.px} />}
+                >
+                  <Fallen hero={hero()} />
                 </Show>
               </div>
-              <Show when={hero().standing === 'dead'} fallback={<Terminal sheet={props.sheet} />}>
-                <Fallen hero={hero()} />
-              </Show>
             </section>
           </div>
         )
